@@ -5,18 +5,26 @@ const std = @import("std");
 // runner.
 pub fn build(b: *std.Build) void {
     // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
-    const target = b.standardTargetOptions(.{});
+    // what target to build for. Here we restrict the standard options to only
+    // allow building for 64-bit Windows, and make that the default target.
+    const target = b.standardTargetOptions(.{
+        .whitelist = &.{.{
+            .cpu_arch = .x86_64,
+            .os_tag = .windows,
+        }},
+        .default_target = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .windows,
+        },
+    });
 
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const dll = b.addStaticLibrary(.{
-        .name = "irony_dll",
+    const dll = b.addSharedLibrary(.{
+        .name = "irony",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = b.path("src/dll/main.zig"),
@@ -41,6 +49,9 @@ pub fn build(b: *std.Build) void {
     // step when running `zig build`).
     b.installArtifact(injector);
 
+    // Use system Wine installation to run cross compiled Windows build artifacts.
+    b.enable_wine = true;
+
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
@@ -64,7 +75,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the injector");
     run_step.dependOn(&run_command.step);
 
-    // Creates a step for unit testing. This only builds the test executable
+    // Creates a step for testing. This only builds the test executable
     // but does not run it.
     const dll_tests = b.addTest(.{
         .root_source_file = b.path("src/dll/main.zig"),
@@ -84,8 +95,8 @@ pub fn build(b: *std.Build) void {
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
-    const test_step = b.step("test", "Run unit tests");
+    // running the tests.
+    const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_dll_tests.step);
     test_step.dependOn(&run_injector_tests.step);
 }
