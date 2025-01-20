@@ -15,77 +15,77 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
-        .name = "irony",
+    const dll = b.addStaticLibrary(.{
+        .name = "irony_dll",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/root.zig"),
+        .root_source_file = b.path("src/dll/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    // This declares intent for the library to be installed into the standard
+    // This declares intent for the dll to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
-    b.installArtifact(lib);
+    b.installArtifact(dll);
 
-    const exe = b.addExecutable(.{
-        .name = "irony",
-        .root_source_file = b.path("src/main.zig"),
+    const injector = b.addExecutable(.{
+        .name = "irony_injector",
+        .root_source_file = b.path("src/injector/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    // This declares intent for the executable to be installed into the
+    // This declares intent for the injector to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
-    b.installArtifact(exe);
+    b.installArtifact(injector);
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
-    const run_cmd = b.addRunArtifact(exe);
+    const run_command = b.addRunArtifact(injector);
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
     // This is not necessary, however, if the application depends on other installed
     // files, this ensures they will be present and in the expected location.
-    run_cmd.step.dependOn(b.getInstallStep());
+    run_command.step.dependOn(b.getInstallStep());
 
     // This allows the user to pass arguments to the application in the build
     // command itself, like this: `zig build run -- arg1 arg2 etc`
     if (b.args) |args| {
-        run_cmd.addArgs(args);
+        run_command.addArgs(args);
     }
 
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build run`
     // This will evaluate the `run` step rather than the default, which is "install".
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    const run_step = b.step("run", "Run the injector");
+    run_step.dependOn(&run_command.step);
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
-    const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/root.zig"),
+    const dll_tests = b.addTest(.{
+        .root_source_file = b.path("src/dll/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+    const run_dll_tests = b.addRunArtifact(dll_tests);
 
-    const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
+    const injector_tests = b.addTest(.{
+        .root_source_file = b.path("src/injector/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    const run_injector_tests = b.addRunArtifact(injector_tests);
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
-    test_step.dependOn(&run_exe_unit_tests.step);
+    test_step.dependOn(&run_dll_tests.step);
+    test_step.dependOn(&run_injector_tests.step);
 }
