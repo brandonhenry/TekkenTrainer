@@ -30,7 +30,7 @@ pub fn build(b: *std.Build) void {
         .name = "irony",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/dll/main.zig"),
+        .root_source_file = b.path("src/dll.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) void {
 
     const injector = b.addExecutable(.{
         .name = "irony_injector",
-        .root_source_file = b.path("src/injector/main.zig"),
+        .root_source_file = b.path("src/injector.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -83,7 +83,7 @@ pub fn build(b: *std.Build) void {
     // Creates a step for testing. This only builds the test executable
     // but does not run it.
     const dll_tests = b.addTest(.{
-        .root_source_file = b.path("src/dll/main.zig"),
+        .root_source_file = b.path("src/dll.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -92,7 +92,7 @@ pub fn build(b: *std.Build) void {
     const run_dll_tests = b.addRunArtifact(dll_tests);
 
     const injector_tests = b.addTest(.{
-        .root_source_file = b.path("src/injector/main.zig"),
+        .root_source_file = b.path("src/injector.zig"),
         .target = target,
         .optimize = optimize,
     });
