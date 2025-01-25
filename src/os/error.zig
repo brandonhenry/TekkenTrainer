@@ -1,6 +1,5 @@
-const w32 = @import("win32").everything;
 const std = @import("std");
-const w = std.unicode.utf8ToUtf16LeStringLiteral;
+const w32 = @import("win32").everything;
 
 pub const OsError = struct {
     error_code: w32.WIN32_ERROR,
@@ -11,25 +10,47 @@ pub const OsError = struct {
         return .{ .error_code = w32.GetLastError() };
     }
 
-    pub fn getMessage(self: *const Self, allocator: std.mem.Allocator) ![:0]const u8 {
-        const error_code = @intFromEnum(self.error_code);
+    pub fn format(
+        self: Self,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = options;
+        if (fmt.len != 0) {
+            const message = std.fmt.comptimePrint("Invalid OsError format {{{s}}}. The only allowed format for OsError is {{}}.", .{fmt});
+            @compileError(message);
+        }
+
         const language_id = 1024 * w32.SUBLANG_ENGLISH_US | w32.LANG_ENGLISH;
-        var null_terminated_message: [*:0]u16 = undefined;
+        var message: [*:0]u16 = undefined;
         const message_length = w32.FormatMessageW(.{
             .ALLOCATE_BUFFER = 1,
             .IGNORE_INSERTS = 1,
             .FROM_SYSTEM = 1,
-        }, null, error_code, language_id, @ptrCast(&null_terminated_message), 0, null);
-        defer _ = w32.LocalFree(@bitCast(@intFromPtr(null_terminated_message)));
-        if (message_length == 0) {
-            return error.OsError;
+        }, null, @intFromEnum(self.error_code), language_id, @ptrCast(&message), 0, null);
+        defer _ = w32.LocalFree(@bitCast(@intFromPtr(message)));
+
+        if (message_length > 0) {
+            var iterator = std.unicode.Utf16LeIterator.init(message[0..message_length]);
+            while (try iterator.nextCodepoint()) |codepoint| {
+                var buffer: [4]u8 = [_]u8{undefined} ** 4;
+                const len = try std.unicode.utf8Encode(codepoint, &buffer);
+                try writer.writeAll(buffer[0..len]);
+            }
+            try writer.writeAll(" (");
         }
-        const message_slice = null_terminated_message[0..message_length];
-        return try std.unicode.utf16LeToUtf8AllocZ(allocator, message_slice);
+
+        try writer.print("error code 0x{X} {}", .{ @intFromEnum(self.error_code), self.error_code });
+
+        if (message_length > 0) {
+            try writer.writeAll(")");
+        }
     }
 };
 
 const testing = std.testing;
+const w = std.unicode.utf8ToUtf16LeStringLiteral;
 
 test "getLast should get correct error code" {
     _ = w32.GetModuleHandleW(w("invalid module name"));
@@ -37,14 +58,16 @@ test "getLast should get correct error code" {
     try testing.expectEqual(err.error_code, w32.ERROR_MOD_NOT_FOUND);
 }
 
-test "getMessage should return correct message when error code is valid" {
-    const err = OsError{ .error_code = w32.ERROR_MOD_NOT_FOUND };
-    const message = try err.getMessage(testing.allocator);
+test "should format correctly when error has message" {
+    const err = OsError{ .error_code = w32.ERROR_FILE_NOT_FOUND };
+    const message = try std.fmt.allocPrint(testing.allocator, "Message: {}", .{err});
     defer testing.allocator.free(message);
-    try testing.expectEqualStrings("Module not found.\r\n", message);
+    try testing.expectEqualStrings("Message: File not found.\r\n (error code 0x2 win32.foundation.WIN32_ERROR.ERROR_FILE_NOT_FOUND)", message);
 }
 
-test "getMessage should return OsError when error code is invalid" {
-    const err = OsError{ .error_code = @enumFromInt(0xFFFFFFFF) };
-    try testing.expectError(error.OsError, err.getMessage(testing.allocator));
+test "should format correctly when error has no message" {
+    const err = OsError{ .error_code = w32.WAIT_FAILED };
+    const message = try std.fmt.allocPrint(testing.allocator, "Message: {}", .{err});
+    defer testing.allocator.free(message);
+    try testing.expectEqualStrings("Message: error code 0xFFFFFFFF win32.foundation.WIN32_ERROR.WAIT_FAILED", message);
 }
