@@ -3,4 +3,5 @@ test {
     _ = @import("injector.zig");
 
     _ = @import("os/error.zig");
+    _ = @import("os/process_id.zig");
 }
