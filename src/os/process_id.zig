@@ -1,5 +1,6 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
+const Process = @import("process.zig").Process;
 
 pub const ProcessId = struct {
     raw: u32,
@@ -43,6 +44,21 @@ pub const ProcessId = struct {
             return .{ .raw = raw };
         }
     };
+
+    pub fn findByName(name: []const u8) !Self {
+        var iterator = try Self.findAll();
+        while (iterator.next()) |process_id| {
+            var process = Process.open(process_id, .{ .QUERY_LIMITED_INFORMATION = 1 }) catch continue;
+            defer process.close() catch unreachable;
+            var buffer: [260:0]u8 = undefined;
+            const size = try process.getImageFilePath(&buffer);
+            const path = buffer[0..size];
+            if (std.mem.endsWith(u8, path, name)) {
+                return process_id;
+            }
+        }
+        return error.NotFound;
+    }
 };
 
 const testing = std.testing;
@@ -63,4 +79,14 @@ test "findAll should find current process id" {
         }
     }
     try testing.expect(has_current);
+}
+
+test "findByName should return process id when process exists" {
+    const expected = ProcessId.getCurrent();
+    const actual = try ProcessId.findByName("test.exe");
+    try testing.expectEqual(expected, actual);
+}
+
+test "findByName should error when process does not exist" {
+    try testing.expectError(error.NotFound, ProcessId.findByName("invalid process name"));
 }
