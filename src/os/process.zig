@@ -58,8 +58,8 @@ pub const Process = struct {
         return exit_code == w32.STILL_ACTIVE;
     }
 
-    pub fn getImageFilePath(self: *const Self, path_buffer: []u8) !usize {
-        var buffer: [260:0]u16 = undefined;
+    pub fn getImageFilePath(self: *const Self, comptime path_buffer_len: usize, path_buffer: *[path_buffer_len]u8) !usize {
+        var buffer: [path_buffer_len:0]u16 = undefined;
         const size = w32.K32GetProcessImageFileNameW(self.handle, &buffer, buffer.len);
         if (size == 0) {
             return error.OsError;
@@ -143,7 +143,7 @@ test "get_image_file_path_should_return_correct_value" {
     var process = try Process.open(process_id, access_rights);
     defer process.close() catch unreachable;
     var buffer: [260:0]u8 = undefined;
-    const size = try process.getImageFilePath(&buffer);
+    const size = try process.getImageFilePath(buffer.len, &buffer);
     const path = buffer[0..size];
     try testing.expectStringEndsWith(path, "test.exe");
 }

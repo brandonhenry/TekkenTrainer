@@ -52,7 +52,7 @@ pub const ProcessId = struct {
             var process = Process.open(process_id, .{ .QUERY_LIMITED_INFORMATION = 1 }) catch continue;
             defer process.close() catch unreachable;
             var buffer: [260]u8 = undefined;
-            const size = try process.getImageFilePath(&buffer);
+            const size = try process.getImageFilePath(buffer.len, &buffer);
             const path = buffer[0..size];
             const name = pathToFileName(path);
             if (std.mem.eql(u8, name, file_name)) {
