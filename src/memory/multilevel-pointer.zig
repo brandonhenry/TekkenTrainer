@@ -15,7 +15,7 @@ pub fn MultilevelPointer(comptime Type: type, comptime offsets_len: comptime_int
             return @ptrFromInt(address);
         }
 
-        pub fn toMutablePointer(self: *Self) ?*Type {
+        pub fn toMutablePointer(self: *const Self) ?*Type {
             const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
             if (!memory.isMemoryWriteable(address, @sizeOf(Type))) {
                 return null;
@@ -113,7 +113,7 @@ test "toConstPointer should return null when the multilevel pointer is invalid" 
 test "toMutablePointer should return a pointer when the multilevel pointer is valid" {
     const TestCase = struct {
         fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize, expected_pointer: *i32) !void {
-            var multilevel_pointer = MultilevelPointer(i32, offsets.len){
+            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
                 .offsets = offsets,
             };
             const actual_pointer = multilevel_pointer.toMutablePointer();
@@ -133,7 +133,7 @@ test "toMutablePointer should return a pointer when the multilevel pointer is va
 test "toMutablePointer should return null when the multilevel pointer is invalid" {
     const TestCase = struct {
         fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize) !void {
-            var multilevel_pointer = MultilevelPointer(i32, offsets.len){
+            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
                 .offsets = offsets,
             };
             const actual_pointer = multilevel_pointer.toMutablePointer();

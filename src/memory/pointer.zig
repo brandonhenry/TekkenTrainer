@@ -16,7 +16,7 @@ pub fn Pointer(comptime Type: type) type {
             }
         }
 
-        pub fn toMutablePointer(self: *Self) ?*Type {
+        pub fn toMutablePointer(self: *const Self) ?*Type {
             const is_valid = memory.isMemoryWriteable(self.address, @sizeOf(Type));
             if (is_valid) {
                 return @ptrFromInt(self.address);
@@ -57,22 +57,22 @@ test "toConstPointer should return null when address is null" {
 
 test "toMutablePointer should return a pointer when memory is readable and writeable" {
     var memory_value: i32 = 123;
-    var pointer = Pointer(i32){ .address = @intFromPtr(&memory_value) };
+    const pointer = Pointer(i32){ .address = @intFromPtr(&memory_value) };
     try testing.expectEqual(&memory_value, pointer.toMutablePointer());
 }
 
 test "toMutablePointer should return null when memory is only readable" {
     const memory_value: i32 = 123;
-    var pointer = Pointer(i32){ .address = @intFromPtr(&memory_value) };
+    const pointer = Pointer(i32){ .address = @intFromPtr(&memory_value) };
     try testing.expectEqual(null, pointer.toMutablePointer());
 }
 
 test "toMutablePointer should return null when memory is not readable" {
-    var pointer = Pointer(i32){ .address = std.math.maxInt(usize) - @sizeOf(i32) };
+    const pointer = Pointer(i32){ .address = std.math.maxInt(usize) - @sizeOf(i32) };
     try testing.expectEqual(null, pointer.toMutablePointer());
 }
 
 test "toMutablePointer should return null when address is null" {
-    var pointer = Pointer(i32){ .address = 0 };
+    const pointer = Pointer(i32){ .address = 0 };
     try testing.expectEqual(null, pointer.toMutablePointer());
 }
