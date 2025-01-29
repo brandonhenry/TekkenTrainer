@@ -2,6 +2,7 @@ test {
     _ = @import("dll.zig");
     _ = @import("injector.zig");
 
+    _ = @import("memory/converted-value.zig");
     _ = @import("memory/multilevel-pointer.zig");
     _ = @import("memory/pointer.zig");
 
