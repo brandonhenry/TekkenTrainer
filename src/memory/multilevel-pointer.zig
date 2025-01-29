@@ -1,9 +1,9 @@
 const std = @import("std");
 const memory = @import("../os/memory.zig");
 
-pub fn MultilevelPointer(comptime Type: type, comptime offsets_len: comptime_int) type {
+pub fn MultilevelPointer(comptime Type: type) type {
     return struct {
-        offsets: [offsets_len]usize,
+        offsets: []const usize,
 
         const Self = @This();
 
@@ -72,8 +72,8 @@ const value_2_offset = @sizeOf(i32);
 
 test "toConstPointer should return a pointer when the multilevel pointer is valid" {
     const testCase = struct {
-        fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize, expected_pointer: *const i32) !void {
-            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
+        fn call(offsets: []const usize, expected_pointer: *const i32) !void {
+            const multilevel_pointer = MultilevelPointer(i32){
                 .offsets = offsets,
             };
             const actual_pointer = multilevel_pointer.toConstPointer();
@@ -83,16 +83,16 @@ test "toConstPointer should return a pointer when the multilevel pointer is vali
     const str = Struct{};
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(1, [_]usize{str_address + value_1_offset}, &str.value_1);
-    try testCase(1, [_]usize{str_address + value_2_offset}, &str.value_2);
-    try testCase(2, [_]usize{ str_address_address, value_1_offset }, &str.value_1);
-    try testCase(2, [_]usize{ str_address_address, value_2_offset }, &str.value_2);
+    try testCase(&[_]usize{str_address + value_1_offset}, &str.value_1);
+    try testCase(&[_]usize{str_address + value_2_offset}, &str.value_2);
+    try testCase(&[_]usize{ str_address_address, value_1_offset }, &str.value_1);
+    try testCase(&[_]usize{ str_address_address, value_2_offset }, &str.value_2);
 }
 
 test "toConstPointer should return null when the multilevel pointer is invalid" {
     const testCase = struct {
-        fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize) !void {
-            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
+        fn call(offsets: []const usize) !void {
+            const multilevel_pointer = MultilevelPointer(i32){
                 .offsets = offsets,
             };
             const actual_pointer = multilevel_pointer.toConstPointer();
@@ -102,16 +102,16 @@ test "toConstPointer should return null when the multilevel pointer is invalid" 
     const str = Struct{};
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(0, [_]usize{});
-    try testCase(1, [_]usize{std.math.maxInt(usize)});
-    try testCase(2, [_]usize{ 0, value_2_offset });
-    try testCase(2, [_]usize{ str_address_address, std.math.maxInt(usize) });
+    try testCase(&[_]usize{});
+    try testCase(&[_]usize{std.math.maxInt(usize)});
+    try testCase(&[_]usize{ 0, value_2_offset });
+    try testCase(&[_]usize{ str_address_address, std.math.maxInt(usize) });
 }
 
 test "toMutablePointer should return a pointer when the multilevel pointer is valid" {
     const testCase = struct {
-        fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize, expected_pointer: *i32) !void {
-            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
+        fn call(offsets: []const usize, expected_pointer: *i32) !void {
+            const multilevel_pointer = MultilevelPointer(i32){
                 .offsets = offsets,
             };
             const actual_pointer = multilevel_pointer.toMutablePointer();
@@ -121,16 +121,16 @@ test "toMutablePointer should return a pointer when the multilevel pointer is va
     var str = Struct{};
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(1, [_]usize{str_address + value_1_offset}, &str.value_1);
-    try testCase(1, [_]usize{str_address + value_2_offset}, &str.value_2);
-    try testCase(2, [_]usize{ str_address_address, value_1_offset }, &str.value_1);
-    try testCase(2, [_]usize{ str_address_address, value_2_offset }, &str.value_2);
+    try testCase(&[_]usize{str_address + value_1_offset}, &str.value_1);
+    try testCase(&[_]usize{str_address + value_2_offset}, &str.value_2);
+    try testCase(&[_]usize{ str_address_address, value_1_offset }, &str.value_1);
+    try testCase(&[_]usize{ str_address_address, value_2_offset }, &str.value_2);
 }
 
 test "toMutablePointer should return null when the multilevel pointer is invalid" {
     const testCase = struct {
-        fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize) !void {
-            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
+        fn call(offsets: []const usize) !void {
+            const multilevel_pointer = MultilevelPointer(i32){
                 .offsets = offsets,
             };
             const actual_pointer = multilevel_pointer.toMutablePointer();
@@ -140,16 +140,16 @@ test "toMutablePointer should return null when the multilevel pointer is invalid
     var str = Struct{};
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(0, [_]usize{});
-    try testCase(1, [_]usize{std.math.maxInt(usize)});
-    try testCase(2, [_]usize{ 0, value_2_offset });
-    try testCase(2, [_]usize{ str_address_address, std.math.maxInt(usize) });
+    try testCase(&[_]usize{});
+    try testCase(&[_]usize{std.math.maxInt(usize)});
+    try testCase(&[_]usize{ 0, value_2_offset });
+    try testCase(&[_]usize{ str_address_address, std.math.maxInt(usize) });
 }
 
 test "findMemoryAddress should return a value when the multilevel pointer is valid" {
     const testCase = struct {
-        fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize, expected_address: usize) !void {
-            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
+        fn call(offsets: []const usize, expected_address: usize) !void {
+            const multilevel_pointer = MultilevelPointer(i32){
                 .offsets = offsets,
             };
             const actual_address = multilevel_pointer.findMemoryAddress();
@@ -159,16 +159,16 @@ test "findMemoryAddress should return a value when the multilevel pointer is val
     const str = Struct{};
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(1, [_]usize{str_address + value_1_offset}, @intFromPtr(&str.value_1));
-    try testCase(1, [_]usize{str_address + value_2_offset}, @intFromPtr(&str.value_2));
-    try testCase(2, [_]usize{ str_address_address, value_1_offset }, @intFromPtr(&str.value_1));
-    try testCase(2, [_]usize{ str_address_address, value_2_offset }, @intFromPtr(&str.value_2));
+    try testCase(&[_]usize{str_address + value_1_offset}, @intFromPtr(&str.value_1));
+    try testCase(&[_]usize{str_address + value_2_offset}, @intFromPtr(&str.value_2));
+    try testCase(&[_]usize{ str_address_address, value_1_offset }, @intFromPtr(&str.value_1));
+    try testCase(&[_]usize{ str_address_address, value_2_offset }, @intFromPtr(&str.value_2));
 }
 
 test "findMemoryAddress should return null when the multilevel pointer is invalid" {
     const testCase = struct {
-        fn call(comptime offsets_len: comptime_int, offsets: [offsets_len]usize) !void {
-            const multilevel_pointer = MultilevelPointer(i32, offsets.len){
+        fn call(offsets: []const usize) !void {
+            const multilevel_pointer = MultilevelPointer(i32){
                 .offsets = offsets,
             };
             const actual_address = multilevel_pointer.findMemoryAddress();
@@ -178,8 +178,8 @@ test "findMemoryAddress should return null when the multilevel pointer is invali
     const str = Struct{};
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(0, [_]usize{});
-    try testCase(1, [_]usize{std.math.maxInt(usize)});
-    try testCase(2, [_]usize{ 0, value_2_offset });
-    try testCase(2, [_]usize{ str_address_address, std.math.maxInt(usize) });
+    try testCase(&[_]usize{});
+    try testCase(&[_]usize{std.math.maxInt(usize)});
+    try testCase(&[_]usize{ 0, value_2_offset });
+    try testCase(&[_]usize{ str_address_address, std.math.maxInt(usize) });
 }
