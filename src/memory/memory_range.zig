@@ -7,6 +7,13 @@ pub const MemoryRange = struct {
 
     const Self = @This();
 
+    pub fn fromPointer(pointer: anytype) Self {
+        return Self{
+            .base_address = @intFromPtr(pointer),
+            .size_in_bytes = @sizeOf(@TypeOf(pointer.*)),
+        };
+    }
+
     pub fn isReadable(self: *const Self) bool {
         return memory.isMemoryReadable(self.base_address, self.size_in_bytes);
     }
@@ -18,21 +25,22 @@ pub const MemoryRange = struct {
 
 const testing = std.testing;
 
+test "fromPointer should return correct base address and size" {
+    var array = [_]u8{ 0, 1, 2, 3, 4 };
+    const memory_range = MemoryRange.fromPointer(&array);
+    try testing.expectEqual(memory_range.base_address, @intFromPtr(&array));
+    try testing.expectEqual(memory_range.size_in_bytes, array.len);
+}
+
 test "isReadable should return true when memory is readable and writable" {
     var array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange{
-        .base_address = @intFromPtr(&array),
-        .size_in_bytes = @sizeOf(@TypeOf(array)),
-    };
+    const memory_range = MemoryRange.fromPointer(&array);
     try testing.expectEqual(true, memory_range.isReadable());
 }
 
 test "isReadable should return true when memory is only readable" {
     const array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange{
-        .base_address = @intFromPtr(&array),
-        .size_in_bytes = @sizeOf(@TypeOf(array)),
-    };
+    const memory_range = MemoryRange.fromPointer(&array);
     try testing.expectEqual(true, memory_range.isReadable());
 }
 
@@ -54,19 +62,13 @@ test "isReadable should return false when base address is null" {
 
 test "isWriteable should return true when memory is readable and writable" {
     var array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange{
-        .base_address = @intFromPtr(&array),
-        .size_in_bytes = @sizeOf(@TypeOf(array)),
-    };
+    const memory_range = MemoryRange.fromPointer(&array);
     try testing.expectEqual(true, memory_range.isWriteable());
 }
 
 test "isWriteable should return false when memory is only readable" {
     const array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange{
-        .base_address = @intFromPtr(&array),
-        .size_in_bytes = @sizeOf(@TypeOf(array)),
-    };
+    const memory_range = MemoryRange.fromPointer(&array);
     try testing.expectEqual(false, memory_range.isWriteable());
 }
 

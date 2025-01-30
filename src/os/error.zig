@@ -18,8 +18,7 @@ pub const OsError = struct {
     ) !void {
         _ = options;
         if (fmt.len != 0) {
-            const message = std.fmt.comptimePrint("Invalid OsError format {{{s}}}. The only allowed format for OsError is {{}}.", .{fmt});
-            @compileError(message);
+            @compileError(std.fmt.comptimePrint("Invalid OsError format {{{s}}}. The only allowed format for OsError is {{}}.", .{fmt}));
         }
 
         const language_id = 1024 * w32.SUBLANG_ENGLISH_US | w32.LANG_ENGLISH;
