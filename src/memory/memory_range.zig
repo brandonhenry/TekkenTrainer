@@ -1,7 +1,7 @@
 const std = @import("std");
 const memory = @import("../os/memory.zig");
 
-const MemoryRange = struct {
+pub const MemoryRange = struct {
     base_address: usize,
     size_in_bytes: usize,
 
