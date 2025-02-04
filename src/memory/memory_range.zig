@@ -1,5 +1,5 @@
 const std = @import("std");
-const memory = @import("../os/memory.zig");
+const os = @import("../os/root.zig");
 
 pub const MemoryRange = struct {
     base_address: usize,
@@ -15,15 +15,15 @@ pub const MemoryRange = struct {
     }
 
     pub fn isReadable(self: *const Self) bool {
-        return memory.isMemoryReadable(self.base_address, self.size_in_bytes);
+        return os.isMemoryReadable(self.base_address, self.size_in_bytes);
     }
 
     pub fn isWriteable(self: *const Self) bool {
-        return memory.isMemoryWriteable(self.base_address, self.size_in_bytes);
+        return os.isMemoryWriteable(self.base_address, self.size_in_bytes);
     }
 
     pub fn isValid(self: *const Self) bool {
-        return memory.isRangeValid(self.base_address, self.size_in_bytes);
+        return os.isMemoryRangeValid(self.base_address, self.size_in_bytes);
     }
 };
 

@@ -1,7 +1,6 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
-const Process = @import("process.zig").Process;
-const pathToFileName = @import("misc.zig").pathToFileName;
+const os = @import("root.zig");
 
 pub const ProcessId = struct {
     raw: u32,
@@ -49,12 +48,12 @@ pub const ProcessId = struct {
     pub fn findByFileName(file_name: []const u8) !Self {
         var iterator = try Self.findAll();
         while (iterator.next()) |process_id| {
-            var process = Process.open(process_id, .{ .QUERY_LIMITED_INFORMATION = 1 }) catch continue;
+            var process = os.Process.open(process_id, .{ .QUERY_LIMITED_INFORMATION = 1 }) catch continue;
             defer process.close() catch unreachable;
-            var buffer: [Process.max_file_path]u8 = undefined;
+            var buffer: [os.Process.max_file_path]u8 = undefined;
             const size = try process.getFilePath(&buffer);
             const path = buffer[0..size];
-            const name = pathToFileName(path);
+            const name = os.pathToFileName(path);
             if (std.mem.eql(u8, name, file_name)) {
                 return process_id;
             }

@@ -1,11 +1,10 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
-const Process = @import("process.zig").Process;
-const pathToFileName = @import("misc.zig").pathToFileName;
-const MemoryRange = @import("../memory/memory_range.zig").MemoryRange;
+const os = @import("root.zig");
+const memory = @import("../memory/root.zig");
 
 pub const Module = struct {
-    process: Process,
+    process: os.Process,
     handle: w32.HINSTANCE,
 
     const Self = @This();
@@ -14,7 +13,7 @@ pub const Module = struct {
 
     pub fn getMain() !Self {
         const handle = w32.GetModuleHandleW(null) orelse return error.OsError;
-        return .{ .process = Process.getCurrent(), .handle = handle };
+        return .{ .process = os.Process.getCurrent(), .handle = handle };
     }
 
     pub fn getLocal(name: []const u8) !Self {
@@ -22,10 +21,10 @@ pub const Module = struct {
         const size = try std.unicode.utf8ToUtf16Le(&buffer, name);
         const utf16_name = buffer[0..size :0];
         const handle = w32.GetModuleHandleW(utf16_name) orelse return error.OsError;
-        return .{ .process = Process.getCurrent(), .handle = handle };
+        return .{ .process = os.Process.getCurrent(), .handle = handle };
     }
 
-    pub fn getRemote(process: Process, file_name: []const u8) !Self {
+    pub fn getRemote(process: os.Process, file_name: []const u8) !Self {
         var buffer: [max_modules]?w32.HINSTANCE = undefined;
         var number_of_bytes: u32 = undefined;
         const success = w32.K32EnumProcessModules(
@@ -45,7 +44,7 @@ pub const Module = struct {
             var path_buffer: [max_file_path]u8 = undefined;
             const path_size = module.getFilePath(&path_buffer) catch continue;
             const path = path_buffer[0..path_size];
-            const name = pathToFileName(path);
+            const name = os.pathToFileName(path);
             if (std.mem.eql(u8, name, file_name)) {
                 return module;
             }
@@ -62,7 +61,7 @@ pub const Module = struct {
         return std.unicode.utf16LeToUtf8(path_buffer, buffer[0..size]);
     }
 
-    pub fn getMemoryRange(self: *const Self) !MemoryRange {
+    pub fn getMemoryRange(self: *const Self) !memory.MemoryRange {
         var info: w32.MODULEINFO = undefined;
         const success = w32.K32GetModuleInformation(self.process.handle, self.handle, &info, @sizeOf(@TypeOf(info)));
         if (success == 0) {
@@ -75,7 +74,7 @@ pub const Module = struct {
     }
 
     pub fn getProcedureAddress(self: *const Self, procedure_name: [:0]const u8) !usize {
-        if (self.process.handle != Process.getCurrent().handle) {
+        if (self.process.handle != os.Process.getCurrent().handle) {
             return error.NotCurrentProcess;
         }
         const address = w32.GetProcAddress(self.handle, procedure_name) orelse return error.OsError;
@@ -102,13 +101,13 @@ test "getLocal should error when module name is invalid" {
 }
 
 test "getRemote should return a module with readable memory range when module name is valid" {
-    const module = try Module.getRemote(Process.getCurrent(), "kernel32.dll");
+    const module = try Module.getRemote(os.Process.getCurrent(), "kernel32.dll");
     const memory_range = try module.getMemoryRange();
     try testing.expectEqual(true, memory_range.isReadable());
 }
 
 test "getRemote should error when module name is invalid" {
-    try testing.expectError(error.NotFound, Module.getRemote(Process.getCurrent(), "invalid module name"));
+    try testing.expectError(error.NotFound, Module.getRemote(os.Process.getCurrent(), "invalid module name"));
 }
 
 test "getFilePath should return correct value" {

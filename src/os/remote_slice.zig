@@ -1,11 +1,11 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const w32 = @import("win32").everything;
-const Process = @import("process.zig").Process;
+const os = @import("root.zig");
 
 pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
     return struct {
-        process: Process,
+        process: os.Process,
         address: usize,
         len: usize,
         test_allocation: if (builtin.is_test) *u8 else void,
@@ -13,7 +13,7 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
         const Self = @This();
 
         pub fn create(
-            process: Process,
+            process: os.Process,
             data: if (sentinel) |s| [:s]const Element else []const Element,
         ) !Self {
             const full_length = if (sentinel != null) data.len + 1 else data.len;
@@ -57,7 +57,7 @@ const isMemoryWriteable = @import("memory.zig").isMemoryWriteable;
 
 test "create should allocate memory and copy the data to it" {
     const data = [_]u32{ 1, 2, 3, 4, 5 };
-    const remote_slice = try RemoteSlice(u32, null).create(Process.getCurrent(), &data);
+    const remote_slice = try RemoteSlice(u32, null).create(os.Process.getCurrent(), &data);
     defer remote_slice.destroy() catch unreachable;
     try testing.expectEqual(true, isMemoryWriteable(remote_slice.address, remote_slice.getSizeInBytes()));
     const pointer: *[data.len]u32 = @ptrFromInt(remote_slice.address);
@@ -66,7 +66,7 @@ test "create should allocate memory and copy the data to it" {
 
 test "create should copy sentinel value when sentinel value is provided" {
     const data = [_:6]u32{ 1, 2, 3, 4, 5 };
-    const remote_slice = try RemoteSlice(u32, 6).create(Process.getCurrent(), &data);
+    const remote_slice = try RemoteSlice(u32, 6).create(os.Process.getCurrent(), &data);
     defer remote_slice.destroy() catch unreachable;
     try testing.expectEqual(true, isMemoryWriteable(remote_slice.address, remote_slice.getSizeInBytes()));
     const pointer: *[data.len + 1]u32 = @ptrFromInt(remote_slice.address);
@@ -75,7 +75,7 @@ test "create should copy sentinel value when sentinel value is provided" {
 
 test "destroy should free the allocated memory" {
     const data = [_]u32{ 1, 2, 3, 4, 5 };
-    const remote_slice = try RemoteSlice(u32, null).create(Process.getCurrent(), &data);
+    const remote_slice = try RemoteSlice(u32, null).create(os.Process.getCurrent(), &data);
     try testing.expectEqual(true, isMemoryWriteable(remote_slice.address, remote_slice.getSizeInBytes()));
     try remote_slice.destroy();
     try testing.expectEqual(false, isMemoryWriteable(remote_slice.address, remote_slice.getSizeInBytes()));
@@ -83,14 +83,14 @@ test "destroy should free the allocated memory" {
 
 test "getSizeInBytes should should return the correct value when no sentinel value is provided" {
     const data = [_]u32{ 1, 2, 3, 4, 5 };
-    const remote_slice = try RemoteSlice(u32, null).create(Process.getCurrent(), &data);
+    const remote_slice = try RemoteSlice(u32, null).create(os.Process.getCurrent(), &data);
     defer remote_slice.destroy() catch unreachable;
     try testing.expectEqual(@sizeOf(@TypeOf(data)), remote_slice.getSizeInBytes());
 }
 
 test "getSizeInBytes should should return the correct value when sentinel value is provided" {
     const data = [_:6]u32{ 1, 2, 3, 4, 5 };
-    const remote_slice = try RemoteSlice(u32, 6).create(Process.getCurrent(), &data);
+    const remote_slice = try RemoteSlice(u32, 6).create(os.Process.getCurrent(), &data);
     defer remote_slice.destroy() catch unreachable;
     try testing.expectEqual(@sizeOf(@TypeOf(data)), remote_slice.getSizeInBytes());
 }

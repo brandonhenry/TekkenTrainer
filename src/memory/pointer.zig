@@ -1,5 +1,5 @@
 const std = @import("std");
-const memory = @import("../os/memory.zig");
+const os = @import("../os/root.zig");
 
 pub fn Pointer(comptime Type: type) type {
     return packed struct {
@@ -8,7 +8,7 @@ pub fn Pointer(comptime Type: type) type {
         const Self = @This();
 
         pub fn toConstPointer(self: *const Self) ?*const Type {
-            const is_valid = memory.isMemoryReadable(self.address, @sizeOf(Type));
+            const is_valid = os.isMemoryReadable(self.address, @sizeOf(Type));
             if (is_valid) {
                 return @ptrFromInt(self.address);
             } else {
@@ -17,7 +17,7 @@ pub fn Pointer(comptime Type: type) type {
         }
 
         pub fn toMutablePointer(self: *const Self) ?*Type {
-            const is_valid = memory.isMemoryWriteable(self.address, @sizeOf(Type));
+            const is_valid = os.isMemoryWriteable(self.address, @sizeOf(Type));
             if (is_valid) {
                 return @ptrFromInt(self.address);
             } else {

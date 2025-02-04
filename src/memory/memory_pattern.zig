@@ -1,5 +1,5 @@
 const std = @import("std");
-const MemoryRange = @import("memory_range.zig").MemoryRange;
+const memory = @import("root.zig");
 
 pub fn MemoryPattern(comptime number_of_bytes: usize) type {
     return struct {
@@ -88,7 +88,7 @@ pub fn MemoryPattern(comptime number_of_bytes: usize) type {
             }
         }
 
-        pub fn findAddress(self: *const Self, range: MemoryRange) !usize {
+        pub fn findAddress(self: *const Self, range: memory.MemoryRange) !usize {
             if (!range.isReadable()) {
                 return error.NotReadable;
             }
@@ -129,14 +129,14 @@ test "should format correctly" {
 }
 
 test "findAddress should return correct address when pattern exists" {
-    const memory = [_]u8{ 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9 };
-    const range = MemoryRange.fromPointer(&memory);
+    const data = [_]u8{ 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9 };
+    const range = memory.MemoryRange.fromPointer(&data);
     const pattern = MemoryPattern(4).new("04 ?? ?? 07");
-    try testing.expectEqual(@intFromPtr(&memory[4]), pattern.findAddress(range));
+    try testing.expectEqual(@intFromPtr(&data[4]), pattern.findAddress(range));
 }
 
 test "findAddress should error when invalid memory range" {
-    const range = MemoryRange{
+    const range = memory.MemoryRange{
         .base_address = std.math.maxInt(usize) - 5,
         .size_in_bytes = 5,
     };
@@ -145,8 +145,8 @@ test "findAddress should error when invalid memory range" {
 }
 
 test "findAddress should error when pattern does not exist" {
-    const memory = [_]u8{ 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9 };
-    const range = MemoryRange.fromPointer(&memory);
+    const data = [_]u8{ 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9 };
+    const range = memory.MemoryRange.fromPointer(&data);
     const pattern = MemoryPattern(4).new("05 ?? ?? 02");
     try testing.expectError(error.NotFound, pattern.findAddress(range));
 }

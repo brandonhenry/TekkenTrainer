@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const w32 = @import("win32").everything;
-const Process = @import("process.zig").Process;
+const os = @import("root.zig");
 
 pub const RemoteThread = struct {
     handle: w32.HANDLE,
@@ -10,7 +10,7 @@ pub const RemoteThread = struct {
     const Self = @This();
 
     pub fn spawn(
-        process: *const Process,
+        process: *const os.Process,
         start_routine: *const fn (parameter: usize) u32,
         parameter: usize,
     ) !Self {
@@ -51,7 +51,7 @@ test "should run remote thread and return correct exit code" {
             return @intCast(parameter + 1);
         }
     }.call;
-    const process = Process.getCurrent();
+    const process = os.Process.getCurrent();
     var remote_thread = try RemoteThread.spawn(&process, startRoutine, 123);
     defer remote_thread.clean() catch unreachable;
     const exit_code = try remote_thread.join();

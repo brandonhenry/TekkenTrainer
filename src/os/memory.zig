@@ -5,7 +5,7 @@ pub fn isMemoryReadable(address: usize, size_in_bytes: usize) bool {
     if (size_in_bytes == 0) {
         return true;
     }
-    if (!isRangeValid(address, size_in_bytes)) {
+    if (!isMemoryRangeValid(address, size_in_bytes)) {
         return false;
     }
     var current_address = address;
@@ -37,7 +37,7 @@ pub fn isMemoryWriteable(address: usize, size_in_bytes: usize) bool {
     if (size_in_bytes == 0) {
         return true;
     }
-    if (!isRangeValid(address, size_in_bytes)) {
+    if (!isMemoryRangeValid(address, size_in_bytes)) {
         return false;
     }
     var current_address = address;
@@ -62,7 +62,7 @@ pub fn isMemoryWriteable(address: usize, size_in_bytes: usize) bool {
     return true;
 }
 
-pub fn isRangeValid(address: usize, size_in_bytes: usize) bool {
+pub fn isMemoryRangeValid(address: usize, size_in_bytes: usize) bool {
     const add_result = @addWithOverflow(address, size_in_bytes);
     return add_result[1] == 0 or add_result[0] == 0;
 }
@@ -121,18 +121,18 @@ test "isMemoryWriteable should return false when memory address is null" {
     try testing.expectEqual(false, isMemoryWriteable(address, size_in_bytes));
 }
 
-test "isRangeValid should return true when range does not overflow" {
-    try testing.expectEqual(true, isRangeValid(123, 456));
-    try testing.expectEqual(true, isRangeValid(123, 0));
-    try testing.expectEqual(true, isRangeValid(0, 0));
-    try testing.expectEqual(true, isRangeValid(0, 5));
-    try testing.expectEqual(true, isRangeValid(0, std.math.maxInt(usize)));
-    try testing.expectEqual(true, isRangeValid(1, std.math.maxInt(usize)));
-    try testing.expectEqual(true, isRangeValid(std.math.maxInt(usize) - 4, 5));
+test "isMemoryRangeValid should return true when range does not overflow" {
+    try testing.expectEqual(true, isMemoryRangeValid(123, 456));
+    try testing.expectEqual(true, isMemoryRangeValid(123, 0));
+    try testing.expectEqual(true, isMemoryRangeValid(0, 0));
+    try testing.expectEqual(true, isMemoryRangeValid(0, 5));
+    try testing.expectEqual(true, isMemoryRangeValid(0, std.math.maxInt(usize)));
+    try testing.expectEqual(true, isMemoryRangeValid(1, std.math.maxInt(usize)));
+    try testing.expectEqual(true, isMemoryRangeValid(std.math.maxInt(usize) - 4, 5));
 }
 
-test "isRangeValid should return true when range overflows" {
-    try testing.expectEqual(false, isRangeValid(std.math.maxInt(usize) / 2, std.math.maxInt(usize)));
-    try testing.expectEqual(false, isRangeValid(2, std.math.maxInt(usize)));
-    try testing.expectEqual(false, isRangeValid(std.math.maxInt(usize) - 4, 6));
+test "isMemoryRangeValid should return true when range overflows" {
+    try testing.expectEqual(false, isMemoryRangeValid(std.math.maxInt(usize) / 2, std.math.maxInt(usize)));
+    try testing.expectEqual(false, isMemoryRangeValid(2, std.math.maxInt(usize)));
+    try testing.expectEqual(false, isMemoryRangeValid(std.math.maxInt(usize) - 4, 6));
 }

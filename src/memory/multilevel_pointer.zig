@@ -1,5 +1,5 @@
 const std = @import("std");
-const memory = @import("../os/memory.zig");
+const os = @import("../os/root.zig");
 
 pub fn MultilevelPointer(comptime offsets_size: usize, comptime Type: type) type {
     return struct {
@@ -9,7 +9,7 @@ pub fn MultilevelPointer(comptime offsets_size: usize, comptime Type: type) type
 
         pub fn toConstPointer(self: *const Self) ?*const Type {
             const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
-            if (!memory.isMemoryReadable(address, @sizeOf(Type))) {
+            if (!os.isMemoryReadable(address, @sizeOf(Type))) {
                 return null;
             }
             return @ptrFromInt(address);
@@ -17,7 +17,7 @@ pub fn MultilevelPointer(comptime offsets_size: usize, comptime Type: type) type
 
         pub fn toMutablePointer(self: *const Self) ?*Type {
             const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
-            if (!memory.isMemoryWriteable(address, @sizeOf(Type))) {
+            if (!os.isMemoryWriteable(address, @sizeOf(Type))) {
                 return null;
             }
             return @ptrFromInt(address);
@@ -25,7 +25,7 @@ pub fn MultilevelPointer(comptime offsets_size: usize, comptime Type: type) type
 
         pub fn findMemoryAddress(self: *const Self) ?usize {
             const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
-            if (!memory.isMemoryReadable(address, @sizeOf(Type))) {
+            if (!os.isMemoryReadable(address, @sizeOf(Type))) {
                 return null;
             }
             return address;
@@ -47,7 +47,7 @@ pub fn MultilevelPointer(comptime offsets_size: usize, comptime Type: type) type
                 if (i == self.offsets.len - 1) {
                     break;
                 }
-                if (!memory.isMemoryReadable(current_address, @sizeOf(usize))) {
+                if (!os.isMemoryReadable(current_address, @sizeOf(usize))) {
                     return null;
                 }
                 const pointer: *const usize = @ptrFromInt(current_address);

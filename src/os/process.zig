@@ -1,27 +1,26 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const w32 = @import("win32").everything;
-const ProcessId = @import("process_id.zig").ProcessId;
-
-pub const ProcessAccessRights = w32.PROCESS_ACCESS_RIGHTS;
+const os = @import("root.zig");
 
 pub const Process = struct {
-    id: ProcessId,
+    id: os.ProcessId,
     handle: w32.HANDLE,
     test_allocation: if (builtin.is_test) ?*u8 else void,
 
     const Self = @This();
+    pub const AccessRights = w32.PROCESS_ACCESS_RIGHTS;
     pub const max_file_path = 260;
 
     pub fn getCurrent() Self {
         return .{
-            .id = ProcessId.getCurrent(),
+            .id = os.ProcessId.getCurrent(),
             .handle = w32.GetCurrentProcess() orelse unreachable,
             .test_allocation = if (builtin.is_test) null else .{},
         };
     }
 
-    pub fn open(id: ProcessId, access_rights: ProcessAccessRights) !Self {
+    pub fn open(id: os.ProcessId, access_rights: AccessRights) !Self {
         const handle = w32.OpenProcess(
             access_rights,
             0,
@@ -77,8 +76,8 @@ test "getCurrent should return the current process object" {
 }
 
 test "open should succeed when valid process id" {
-    const process_id = ProcessId.getCurrent();
-    const access_rights = ProcessAccessRights{
+    const process_id = os.ProcessId.getCurrent();
+    const access_rights = Process.AccessRights{
         .QUERY_INFORMATION = 1,
     };
     var process = try Process.open(process_id, access_rights);
@@ -87,16 +86,16 @@ test "open should succeed when valid process id" {
 }
 
 test "open should error when invalid process id" {
-    const process_id = ProcessId{ .raw = std.math.maxInt(u32) };
-    const access_rights = ProcessAccessRights{
+    const process_id = os.ProcessId{ .raw = std.math.maxInt(u32) };
+    const access_rights = Process.AccessRights{
         .QUERY_INFORMATION = 1,
     };
     try testing.expectError(error.OsError, Process.open(process_id, access_rights));
 }
 
 test "is still running should return true when process is running" {
-    const process_id = ProcessId.getCurrent();
-    const access_rights = ProcessAccessRights{
+    const process_id = os.ProcessId.getCurrent();
+    const access_rights = Process.AccessRights{
         .QUERY_INFORMATION = 1,
     };
     var process = try Process.open(process_id, access_rights);
@@ -106,8 +105,8 @@ test "is still running should return true when process is running" {
 }
 
 test "getFilePath should return correct value" {
-    const process_id = ProcessId.getCurrent();
-    const access_rights = ProcessAccessRights{
+    const process_id = os.ProcessId.getCurrent();
+    const access_rights = Process.AccessRights{
         .QUERY_INFORMATION = 1,
     };
     var process = try Process.open(process_id, access_rights);
