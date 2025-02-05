@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const w32 = @import("win32").everything;
+const errorContext = @import("../error_context.zig").errorContext;
 const os = @import("root.zig");
 
 pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
@@ -21,10 +22,24 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
             const address = w32.VirtualAllocEx(process.handle, null, size_in_bytes, .{
                 .COMMIT = 1,
                 .RESERVE = 1,
-            }, .{ .PAGE_READWRITE = 1 }) orelse return error.OsError;
-            errdefer _ = w32.VirtualFreeEx(process.handle, address, 0, .RELEASE);
+            }, .{ .PAGE_READWRITE = 1 }) orelse {
+                errorContext().newFmt(null, "{}", os.OsError.getLast());
+                errorContext().append(error.OsError, "VirtualAllocEx returned null.");
+                return error.OsError;
+            };
+            errdefer {
+                const success = w32.VirtualFreeEx(process.handle, address, 0, .RELEASE);
+                if (success == 0) {
+                    errorContext().newFmt(null, "{}", os.OsError.getLast());
+                    errorContext().append(error.OsError, "VirtualFreeEx returned 0.");
+                    errorContext().append(error.OsError, "Failed to free remote slice memory while recovering from error.");
+                    errorContext().logError();
+                }
+            }
             const success = w32.WriteProcessMemory(process.handle, address, @ptrCast(data), size_in_bytes, null);
             if (success == 0) {
+                errorContext().newFmt(null, "{}", os.OsError.getLast());
+                errorContext().append(error.OsError, "WriteProcessMemory returned 0.");
                 return error.OsError;
             }
             return Self{
@@ -38,6 +53,8 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
         pub fn destroy(self: *const Self) !void {
             const success = w32.VirtualFreeEx(self.process.handle, @ptrFromInt(self.address), 0, .RELEASE);
             if (success == 0) {
+                errorContext().newFmt(null, "{}", os.OsError.getLast());
+                errorContext().append(error.OsError, "VirtualFreeEx returned 0.");
                 return error.OsError;
             }
             if (builtin.is_test) {
