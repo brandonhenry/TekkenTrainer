@@ -17,7 +17,7 @@ pub const Process = struct {
         return .{
             .id = os.ProcessId.getCurrent(),
             .handle = w32.GetCurrentProcess() orelse unreachable,
-            .test_allocation = if (builtin.is_test) null else .{},
+            .test_allocation = if (builtin.is_test) null else {},
         };
     }
 
@@ -34,7 +34,7 @@ pub const Process = struct {
         return .{
             .id = id,
             .handle = handle,
-            .test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else .{},
+            .test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {},
         };
     }
 

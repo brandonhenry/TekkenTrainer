@@ -20,7 +20,7 @@ pub const RemoteThread = struct {
             misc.errorContext().append(error.OsError, "CreateRemoteThread returned null.");
             return error.OsError;
         };
-        const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else .{};
+        const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
         return Self{ .handle = handle, .test_allocation = test_allocation };
     }
 

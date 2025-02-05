@@ -46,7 +46,7 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
                 .process = process,
                 .address = @intFromPtr(address),
                 .len = data.len,
-                .test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else .{},
+                .test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {},
             };
         }
 

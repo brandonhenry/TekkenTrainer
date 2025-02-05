@@ -24,7 +24,7 @@ pub const InjectedModule = struct {
         }
         const file_name = os.pathToFileName(module_path);
         const module = try os.Module.getRemote(process, file_name);
-        const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else .{};
+        const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
         return .{ .module = module, .test_allocation = test_allocation };
     }
 
