@@ -1,6 +1,6 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
-const errorContext = @import("../error_context.zig").errorContext;
+const misc = @import("../misc/root.zig");
 const os = @import("root.zig");
 const memory = @import("../memory/root.zig");
 
@@ -14,8 +14,8 @@ pub const Module = struct {
 
     pub fn getMain() !Self {
         const handle = w32.GetModuleHandleW(null) orelse {
-            errorContext().newFmt(null, "{}", os.OsError.getLast());
-            errorContext().append(error.OsError, "GetModuleHandleW returned null.");
+            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().append(error.OsError, "GetModuleHandleW returned null.");
             return error.OsError;
         };
         return .{ .process = os.Process.getCurrent(), .handle = handle };
@@ -24,13 +24,13 @@ pub const Module = struct {
     pub fn getLocal(name: []const u8) !Self {
         var buffer = [_:0]u16{0} ** max_file_path;
         const size = std.unicode.utf8ToUtf16Le(&buffer, name) catch |err| {
-            errorContext().newFmt(err, "Failed to convert \"{s}\" to UTF-16LE.", .{name});
+            misc.errorContext().newFmt(err, "Failed to convert \"{s}\" to UTF-16LE.", .{name});
             return err;
         };
         const utf16_name = buffer[0..size :0];
         const handle = w32.GetModuleHandleW(utf16_name) orelse {
-            errorContext().newFmt(null, "{}", os.OsError.getLast());
-            errorContext().append(error.OsError, "GetModuleHandleW returned null.");
+            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().append(error.OsError, "GetModuleHandleW returned null.");
             return error.OsError;
         };
         return .{ .process = os.Process.getCurrent(), .handle = handle };
@@ -46,8 +46,8 @@ pub const Module = struct {
             &number_of_bytes,
         );
         if (success == 0) {
-            errorContext().newFmt(null, "{}", os.OsError.getLast());
-            errorContext().append(error.OsError, "K32EnumProcessModules returned 0.");
+            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().append(error.OsError, "K32EnumProcessModules returned 0.");
             return error.OsError;
         }
         const size: usize = number_of_bytes / @sizeOf(w32.HINSTANCE);
@@ -63,7 +63,7 @@ pub const Module = struct {
                 return module;
             }
         }
-        errorContext().new(error.NotFound, "Process not found.");
+        misc.errorContext().new(error.NotFound, "Process not found.");
         return error.NotFound;
     }
 
@@ -71,12 +71,12 @@ pub const Module = struct {
         var buffer: [max_file_path:0]u16 = undefined;
         const size = w32.K32GetModuleFileNameExW(self.process.handle, self.handle, &buffer, buffer.len);
         if (size == 0) {
-            errorContext().newFmt(null, "{}", os.OsError.getLast());
-            errorContext().append(error.OsError, "K32GetModuleFileNameExW returned 0.");
+            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().append(error.OsError, "K32GetModuleFileNameExW returned 0.");
             return error.OsError;
         }
         return std.unicode.utf16LeToUtf8(path_buffer, buffer[0..size]) catch |err| {
-            errorContext().new(err, "Failed to convert UTF-16LE string to UTF8.");
+            misc.errorContext().new(err, "Failed to convert UTF-16LE string to UTF8.");
             return err;
         };
     }
@@ -85,8 +85,8 @@ pub const Module = struct {
         var info: w32.MODULEINFO = undefined;
         const success = w32.K32GetModuleInformation(self.process.handle, self.handle, &info, @sizeOf(@TypeOf(info)));
         if (success == 0) {
-            errorContext().newFmt(null, "{}", os.OsError.getLast());
-            errorContext().append(error.OsError, "K32GetModuleInformation returned 0.");
+            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().append(error.OsError, "K32GetModuleInformation returned 0.");
             return error.OsError;
         }
         return .{
@@ -97,12 +97,12 @@ pub const Module = struct {
 
     pub fn getProcedureAddress(self: *const Self, procedure_name: [:0]const u8) !usize {
         if (self.process.handle != os.Process.getCurrent().handle) {
-            errorContext().new(error.NotCurrentProcess, "Module is not part of the current process.");
+            misc.errorContext().new(error.NotCurrentProcess, "Module is not part of the current process.");
             return error.NotCurrentProcess;
         }
         const address = w32.GetProcAddress(self.handle, procedure_name) orelse {
-            errorContext().newFmt(null, "{}", os.OsError.getLast());
-            errorContext().append(error.OsError, "GetProcAddress returned null.");
+            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().append(error.OsError, "GetProcAddress returned null.");
             return error.OsError;
         };
         return @intFromPtr(address);

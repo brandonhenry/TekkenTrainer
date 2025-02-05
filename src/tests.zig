@@ -1,6 +1,5 @@
 test {
     _ = @import("dll.zig");
-    _ = @import("error_context.zig");
     _ = @import("injector.zig");
 
     _ = @import("injector/injected_module.zig");
@@ -11,6 +10,8 @@ test {
     _ = @import("memory/multilevel_pointer.zig");
     _ = @import("memory/pointer.zig");
     _ = @import("memory/self_sortable_array.zig");
+
+    _ = @import("misc/error_context.zig");
 
     _ = @import("os/error.zig");
     _ = @import("os/memory.zig");
