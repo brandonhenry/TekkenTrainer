@@ -70,7 +70,7 @@ pub const ProcessId = struct {
                 return process_id;
             }
         }
-        misc.errorContext().append(error.NotFound, "Process not found.");
+        misc.errorContext().new(error.NotFound, "Process not found.");
         return error.NotFound;
     }
 };
