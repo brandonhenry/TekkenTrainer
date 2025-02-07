@@ -4,6 +4,7 @@ const os = @import("../os/root.zig");
 
 pub fn runProcessLoop(
     process_name: []const u8,
+    access_rights: os.Process.AccessRights,
     interval_ns: u64,
     onProcessOpen: *const fn (process: *const os.Process) void,
     onProcessClose: *const fn (process: *const os.Process) void,
@@ -11,13 +12,14 @@ pub fn runProcessLoop(
     std.log.info("Process loop started.", .{});
     var opened_process: ?os.Process = null;
     while (true) {
-        runLoopLogic(&opened_process, process_name, onProcessOpen, onProcessClose);
+        runLoopLogic(&opened_process, access_rights, process_name, onProcessOpen, onProcessClose);
         std.time.sleep(interval_ns);
     }
 }
 
 fn runLoopLogic(
     opened_process: *?os.Process,
+    access_rights: os.Process.AccessRights,
     process_name: []const u8,
     onProcessOpen: *const fn (process: *const os.Process) void,
     onProcessClose: *const fn (process: *const os.Process) void,
@@ -52,15 +54,7 @@ fn runLoopLogic(
         };
         std.log.info("Process ID found: {}", .{process_id.raw});
         std.log.info("Opening process with PID {}...", .{process_id.raw});
-        const process = os.Process.open(process_id, .{
-            .CREATE_THREAD = 1,
-            .VM_OPERATION = 1,
-            .VM_READ = 1,
-            .VM_WRITE = 1,
-            .QUERY_INFORMATION = 1,
-            .QUERY_LIMITED_INFORMATION = 1,
-            .SYNCHRONIZE = 1,
-        }) catch |err| {
+        const process = os.Process.open(process_id, access_rights) catch |err| {
             misc.errorContext().appendFmt(err, "Failed to find process with PID: {}", .{process_id.raw});
             misc.errorContext().logError();
             return;
