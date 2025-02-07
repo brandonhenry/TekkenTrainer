@@ -62,6 +62,9 @@ pub fn build(b: *std.Build) void {
     // such a dependency.
     const run_command = b.addRunArtifact(injector);
 
+    // Stop Wine from spamming debug messages in the console when running the application.
+    run_command.setEnvironmentVariable("WINEDEBUG", "-all");
+
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
     // This is not necessary, however, if the application depends on other installed
