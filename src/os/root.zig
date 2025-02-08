@@ -3,6 +3,7 @@ pub const isMemoryReadable = @import("memory.zig").isMemoryReadable;
 pub const isMemoryWriteable = @import("memory.zig").isMemoryWriteable;
 pub const isMemoryRangeValid = @import("memory.zig").isMemoryRangeValid;
 pub const pathToFileName = @import("misc.zig").pathToFileName;
+pub const setConsoleCloseHandler = @import("misc.zig").setConsoleCloseHandler;
 pub const Module = @import("module.zig").Module;
 pub const Process = @import("process.zig").Process;
 pub const ProcessId = @import("process_id.zig").ProcessId;

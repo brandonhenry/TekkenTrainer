@@ -1,8 +1,9 @@
 const std = @import("std");
+const misc = @import("misc/root.zig");
 const os = @import("os/root.zig");
 const injector = @import("injector/root.zig");
 
-const process_name = "TEKKEN8.exe";
+const process_name = "Polaris-Win64-Shipping.exe";
 const access_rights = os.Process.AccessRights{
     .CREATE_THREAD = 1,
     .VM_OPERATION = 1,
@@ -12,16 +13,67 @@ const access_rights = os.Process.AccessRights{
     .QUERY_LIMITED_INFORMATION = 1,
     .SYNCHRONIZE = 1,
 };
+const module_name = "irony.dll";
 const interval_ns = 1_000_000_000;
 
 pub fn main() !void {
+    std.log.debug("Setting console close handler...", .{});
+    os.setConsoleCloseHandler(onConsoleClose) catch |err| {
+        misc.errorContext().append(err, "Failed to set console close handler.");
+        misc.errorContext().logError();
+    };
+    std.log.debug("Console close handler set.", .{});
+    std.log.debug("Running process loop...", .{});
     injector.runProcessLoop(process_name, access_rights, interval_ns, onProcessOpen, onProcessClose);
 }
 
-pub fn onProcessOpen(process: *const os.Process) void {
-    _ = process;
+var injected_module: ?injector.InjectedModule = null;
+
+pub fn onConsoleClose() void {
+    std.log.info("Detected close event.", .{});
+    if (injected_module == null) {
+        std.log.info("Nothing to eject. Shutting down...", .{});
+        return;
+    }
+    const module = injected_module orelse unreachable;
+    std.log.info("Ejecting module \"{s}\"... ", .{module_name});
+    if (module.eject()) {
+        std.log.info("Module ejected successfully.", .{});
+    } else |err| {
+        misc.errorContext().appendFmt(err, "Failed to eject module: {s}", .{module_name});
+        misc.errorContext().logError();
+    }
+    std.log.info("Closing process (PID = {})...", .{module.module.process.id});
+    if (module.module.process.close()) {
+        std.log.info("Process closed successfully.", .{});
+    } else |err| {
+        misc.errorContext().appendFmt(err, "Failed to close process with PID: {}", .{module.module.process.id});
+    }
+    std.log.info("Shutting down...", .{});
 }
 
-pub fn onProcessClose(process: *const os.Process) void {
-    _ = process;
+pub fn onProcessOpen(process: *const os.Process) void {
+    std.log.info("Injecting module \"{s}\"...", .{module_name});
+    // TODO find full path from module name.
+    injected_module = injector.InjectedModule.inject(process.*, module_name) catch |err| {
+        misc.errorContext().appendFmt(err, "Failed to inject module: {s}", .{module_name});
+        misc.errorContext().logError();
+        return;
+    };
+    std.log.info("Module injected successfully.", .{});
+}
+
+pub fn onProcessClose(_: *const os.Process) void {
+    std.log.info("Ejecting module \"{s}\"... ", .{module_name});
+    if (injected_module == null) {
+        std.log.info("Nothing to eject.", .{});
+        return;
+    }
+    const module = injected_module orelse unreachable;
+    if (module.eject()) {
+        std.log.info("Module ejected successfully.", .{});
+    } else |err| {
+        misc.errorContext().appendFmt(err, "Failed to eject module: {s}", .{module_name});
+        misc.errorContext().logError();
+    }
 }
