@@ -52,24 +52,34 @@ pub fn onConsoleClose() void {
     std.log.info("Shutting down...", .{});
 }
 
-pub fn onProcessOpen(process: *const os.Process) void {
-    std.log.info("Injecting module \"{s}\"...", .{module_name});
-    // TODO find full path from module name.
-    injected_module = injector.InjectedModule.inject(process.*, module_name) catch |err| {
-        misc.errorContext().appendFmt(err, "Failed to inject module: {s}", .{module_name});
+pub fn onProcessOpen(process: *const os.Process) bool {
+    const relative_path = "./" ++ module_name;
+    std.log.debug("Getting full path of \"{s}\"...", .{relative_path});
+    var buffer: [os.max_file_path_length]u8 = undefined;
+    const size = os.getFullPath(&buffer, relative_path) catch |err| {
+        misc.errorContext().appendFmt(err, "Failed to get full file path of: {s}", .{relative_path});
         misc.errorContext().logError();
-        return;
+        return false;
+    };
+    const full_path = buffer[0..size];
+    std.log.debug("Full path found: {s}", .{full_path});
+    std.log.info("Injecting module \"{s}\"...", .{module_name});
+    injected_module = injector.InjectedModule.inject(process.*, full_path) catch |err| {
+        misc.errorContext().appendFmt(err, "Failed to inject module: {s}", .{full_path});
+        misc.errorContext().logError();
+        return false;
     };
     std.log.info("Module injected successfully.", .{});
+    return true;
 }
 
-pub fn onProcessClose(_: *const os.Process) void {
-    std.log.info("Ejecting module \"{s}\"... ", .{module_name});
+pub fn onProcessClose() void {
     if (injected_module == null) {
         std.log.info("Nothing to eject.", .{});
         return;
     }
     const module = injected_module orelse unreachable;
+    std.log.info("Ejecting module \"{s}\"... ", .{module_name});
     if (module.eject()) {
         std.log.info("Module ejected successfully.", .{});
     } else |err| {

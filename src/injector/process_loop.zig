@@ -6,8 +6,8 @@ pub fn runProcessLoop(
     process_name: []const u8,
     access_rights: os.Process.AccessRights,
     interval_ns: u64,
-    onProcessOpen: *const fn (process: *const os.Process) void,
-    onProcessClose: *const fn (process: *const os.Process) void,
+    onProcessOpen: *const fn (process: *const os.Process) bool,
+    onProcessClose: *const fn () void,
 ) void {
     var opened_process: ?os.Process = null;
     while (true) {
@@ -20,8 +20,8 @@ fn runLoopLogic(
     opened_process: *?os.Process,
     access_rights: os.Process.AccessRights,
     process_name: []const u8,
-    onProcessOpen: *const fn (process: *const os.Process) void,
-    onProcessClose: *const fn (process: *const os.Process) void,
+    onProcessOpen: *const fn (process: *const os.Process) bool,
+    onProcessClose: *const fn () void,
 ) void {
     if (opened_process.*) |process| {
         std.log.debug("Checking if the process (PID = {}) is still running...", .{process.id});
@@ -35,10 +35,10 @@ fn runLoopLogic(
             return;
         }
         std.log.info("Process (PID = {}) stopped running.", .{process.id});
-        onProcessClose(&process);
+        onProcessClose();
         std.log.info("Closing process (PID = {})...", .{process.id});
         if (process.close()) {
-            std.log.info("Closing process (PID = {})...", .{process.id});
+            std.log.info("Process closed successfully.", .{});
         } else |err| {
             misc.errorContext().appendFmt(err, "Failed close process with PID: {}", .{process.id});
             misc.errorContext().logError();
@@ -65,8 +65,18 @@ fn runLoopLogic(
             return;
         };
         std.log.info("Process opened successfully.", .{});
-        onProcessOpen(&process);
-        opened_process.* = process;
+        const success = onProcessOpen(&process);
+        if (success) {
+            opened_process.* = process;
+        } else {
+            std.log.info("Closing process (PID = {})...", .{process.id});
+            if (process.close()) {
+                std.log.info("Process closed successfully.", .{});
+            } else |err| {
+                misc.errorContext().appendFmt(err, "Failed close process with PID: {}", .{process.id});
+                misc.errorContext().logError();
+            }
+        }
     }
 }
 
@@ -78,16 +88,16 @@ test "should do nothing when process is not found" {
     var opened_process: ?os.Process = null;
     const OnProcessOpen = struct {
         var times_called: usize = 0;
-        fn call(process: *const os.Process) void {
+        fn call(process: *const os.Process) bool {
             times_called += 1;
             _ = process;
+            return true;
         }
     };
     const OnProcessClose = struct {
         var times_called: usize = 0;
-        fn call(process: *const os.Process) void {
+        fn call() void {
             times_called += 1;
-            _ = process;
         }
     };
     for (0..3) |_| {
@@ -98,21 +108,21 @@ test "should do nothing when process is not found" {
     try testing.expectEqual(0, OnProcessClose.times_called);
 }
 
-test "should open process when process exists" {
+test "should open process when process exists and onProcessOpen succeeds" {
     var opened_process: ?os.Process = null;
     const OnProcessOpen = struct {
         var times_called: usize = 0;
         var process_id: ?os.ProcessId = null;
-        fn call(process: *const os.Process) void {
+        fn call(process: *const os.Process) bool {
             times_called += 1;
             process_id = process.id;
+            return true;
         }
     };
     const OnProcessClose = struct {
         var times_called: usize = 0;
-        fn call(process: *const os.Process) void {
+        fn call() void {
             times_called += 1;
-            _ = process;
         }
     };
 
