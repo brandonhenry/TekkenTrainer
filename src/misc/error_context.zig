@@ -37,14 +37,14 @@ pub const ErrorContext = struct {
         self.trace.deinit();
     }
 
-    pub inline fn new(self: *Self, err: ?anyerror, message: []const u8) void {
+    pub fn new(self: *Self, err: ?anyerror, message: []const u8) void {
         self.clear();
-        self.append(err, message);
+        @call(.always_inline, append, .{ self, err, message });
     }
 
-    pub inline fn newFmt(self: *Self, err: ?anyerror, comptime fmt: []const u8, args: anytype) void {
+    pub fn newFmt(self: *Self, err: ?anyerror, comptime fmt: []const u8, args: anytype) void {
         self.clear();
-        self.appendFmt(err, fmt, args);
+        @call(.always_inline, appendFmt, .{ self, err, fmt, args });
     }
 
     pub fn append(self: *Self, err: ?anyerror, message: []const u8) void {
