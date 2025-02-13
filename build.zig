@@ -64,6 +64,9 @@ pub fn build(b: *std.Build) void {
     // such a dependency.
     const run_command = b.addRunArtifact(injector);
 
+    // Make sure that the working directory when the program is ran is the same one where the executable is located.
+    run_command.setCwd(std.Build.LazyPath{ .cwd_relative = "./zig-out/bin" });
+
     // Stop Wine from spamming debug messages in the console when running the application.
     run_command.setEnvironmentVariable("WINEDEBUG", "-all");
 

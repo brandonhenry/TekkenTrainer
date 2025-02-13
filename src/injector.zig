@@ -6,7 +6,7 @@ const injector = @import("injector/root.zig");
 
 pub const std_options = .{
     .log_level = .debug,
-    .logFn = log.ConsoleLogger(.{}).logFn,
+    .logFn = log.FileLogger(.{ .file_path = .{ .eager = "./irony_injector.log" } }).logFn,
 };
 
 const process_name = "Polaris-Win64-Shipping.exe";
@@ -23,6 +23,7 @@ const module_name = "irony.dll";
 const interval_ns = 1_000_000_000;
 
 pub fn main() !void {
+    std.log.info("Application started up.", .{});
     std.log.debug("Setting console close handler...", .{});
     os.setConsoleCloseHandler(onConsoleClose) catch |err| {
         misc.errorContext().append(err, "Failed to set console close handler.");
@@ -73,7 +74,7 @@ pub fn onProcessClose() void {
 pub fn onConsoleClose() void {
     std.log.info("Detected close event.", .{});
     if (injected_module == null) {
-        std.log.info("Nothing to eject. Shutting down...", .{});
+        std.log.info("Nothing to eject. Application shutting down...", .{});
         return;
     }
     const module = injected_module orelse unreachable;
@@ -90,5 +91,5 @@ pub fn onConsoleClose() void {
     } else |err| {
         misc.errorContext().appendFmt(err, "Failed to close process with PID: {}", .{module.module.process.id});
     }
-    std.log.info("Shutting down...", .{});
+    std.log.info("Application shutting down...", .{});
 }

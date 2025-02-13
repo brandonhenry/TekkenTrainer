@@ -1,6 +1,9 @@
 .zig-cache
 zig-out
 
+# Temporaty files while running tests
+test_assets/tmp*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

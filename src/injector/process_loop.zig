@@ -35,7 +35,7 @@ fn runLoopLogic(
             break :c false;
         };
         if (still_running) {
-            std.log.debug("Still running...", .{});
+            std.log.debug("Process still running.", .{});
             return;
         }
         std.log.info("Process (PID = {}) stopped running.", .{process.id});
@@ -49,10 +49,10 @@ fn runLoopLogic(
         }
         opened_process.* = null;
     } else {
-        std.log.info("Searching for process ID of \"{s}\"...", .{process_name});
+        std.log.debug("Searching for process ID of \"{s}\"...", .{process_name});
         const process_id = os.ProcessId.findByFileName(process_name) catch |err| switch (err) {
             error.NotFound => {
-                std.log.info("Process not found.", .{});
+                std.log.debug("Process not found.", .{});
                 return;
             },
             else => {
