@@ -4,11 +4,6 @@ const misc = @import("misc/root.zig");
 const os = @import("os/root.zig");
 const injector = @import("injector/root.zig");
 
-pub const std_options = .{
-    .log_level = .debug,
-    .logFn = log.FileLogger(.{ .file_path = .{ .eager = "./irony_injector.log" } }).logFn,
-};
-
 const process_name = "Polaris-Win64-Shipping.exe";
 const access_rights = os.Process.AccessRights{
     .CREATE_THREAD = 1,
@@ -21,6 +16,15 @@ const access_rights = os.Process.AccessRights{
 };
 const module_name = "irony.dll";
 const interval_ns = 1_000_000_000;
+
+pub const logger = log.CompositeLogger(.{
+    .console = .{},
+    .file = .{ .file_path = .{ .eager = "./irony_injector.log" } },
+});
+pub const std_options = .{
+    .log_level = .debug,
+    .logFn = logger.logFn,
+};
 
 pub fn main() !void {
     std.log.info("Application started up.", .{});
