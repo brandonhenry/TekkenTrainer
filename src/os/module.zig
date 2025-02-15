@@ -34,35 +34,55 @@ pub const Module = struct {
         return .{ .process = os.Process.getCurrent(), .handle = handle };
     }
 
-    pub fn getRemote(process: os.Process, file_name: []const u8) !Self {
-        var buffer: [os.max_number_of_modules]?w32.HINSTANCE = undefined;
-        var number_of_bytes: u32 = undefined;
-        const success = w32.K32EnumProcessModules(
-            process.handle,
-            &buffer[0],
-            @sizeOf(@TypeOf(buffer)),
-            &number_of_bytes,
-        );
-        if (success == 0) {
+    pub fn getRemote(process: os.Process, name: []const u8) !Self {
+        var buffer = [_:0]u16{0} ** os.max_file_path_length;
+        const size = std.unicode.utf8ToUtf16Le(&buffer, name) catch |err| {
+            misc.errorContext().newFmt(err, "Failed to convert \"{s}\" to UTF-16LE.", .{name});
+            return err;
+        };
+        const utf16_name = buffer[0..size :0];
+        const snapshot_handle = w32.CreateToolhelp32Snapshot(.{ .SNAPMODULE = 1 }, process.id.raw);
+        if (snapshot_handle == w32.INVALID_HANDLE_VALUE) {
             misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
-            misc.errorContext().append(error.OsError, "K32EnumProcessModules returned 0.");
+            misc.errorContext().append(error.OsError, "CreateToolhelp32Snapshot returned INVALID_HANDLE_VALUE.");
             return error.OsError;
         }
-        const size: usize = number_of_bytes / @sizeOf(w32.HINSTANCE);
-        const handles = buffer[0..size];
-        for (handles) |optional_handle| {
-            const handle = optional_handle orelse continue;
-            const module = Self{ .process = process, .handle = handle };
-            var path_buffer: [os.max_file_path_length]u8 = undefined;
-            const path_size = module.getFilePath(&path_buffer) catch continue;
-            const path = path_buffer[0..path_size];
-            const name = os.pathToFileName(path);
-            if (std.mem.eql(u8, name, file_name)) {
-                return module;
+        defer {
+            const success = w32.CloseHandle(snapshot_handle);
+            if (success == 0) {
+                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().append(error.OsError, "CloseHandle returned 0.");
+                misc.errorContext().append(error.OsError, "Failed to close snapshot handle.");
+                misc.errorContext().logError();
             }
         }
-        misc.errorContext().new(error.NotFound, "Process not found.");
-        return error.NotFound;
+        var entry: w32.MODULEENTRY32W = undefined;
+        entry.dwSize = @sizeOf(@TypeOf(entry));
+        var success = w32.Module32FirstW(snapshot_handle, &entry);
+        while (success != 0) : (success = w32.Module32NextW(snapshot_handle, &entry)) {
+            const module_name = std.mem.sliceTo(&entry.szModule, 0);
+            if (!std.mem.eql(u16, module_name, utf16_name)) {
+                continue;
+            }
+            if (entry.hModule) |handle| {
+                return .{
+                    .process = process,
+                    .handle = handle,
+                };
+            } else {
+                misc.errorContext().new(error.NotFound, "Module found, but the handle is NULL.");
+                return error.HandleNull;
+            }
+        }
+        const os_error = os.OsError.getLast();
+        if (os_error.error_code == w32.WIN32_ERROR.ERROR_NO_MORE_FILES) {
+            misc.errorContext().new(error.NotFound, "Module not found.");
+            return error.NotFound;
+        } else {
+            misc.errorContext().newFmt(null, "{}", os_error);
+            misc.errorContext().append(error.OsError, "Module32First or Module32Next returned 0.");
+            return error.OsError;
+        }
     }
 
     pub fn getFilePath(self: *const Self, path_buffer: *[os.max_file_path_length]u8) !usize {
