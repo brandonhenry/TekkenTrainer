@@ -9,6 +9,7 @@ pub const isMemoryRangeValid = @import("memory.zig").isMemoryRangeValid;
 pub const pathToFileName = @import("misc.zig").pathToFileName;
 pub const filePathToDirectoryPath = @import("misc.zig").filePathToDirectoryPath;
 pub const getFullPath = @import("misc.zig").getFullPath;
+pub const getPathRelativeFromModule = @import("misc.zig").getPathRelativeFromModule;
 pub const setConsoleCloseHandler = @import("misc.zig").setConsoleCloseHandler;
 pub const Module = @import("module.zig").Module;
 pub const Process = @import("process.zig").Process;

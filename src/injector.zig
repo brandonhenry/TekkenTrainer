@@ -46,8 +46,12 @@ pub fn main() !void {
 }
 
 fn startFileLogging() !void {
+    const main_module = os.Module.getMain() catch |err| {
+        misc.errorContext().append(err, "Failed to get process main module.");
+        return err;
+    };
     var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = findLogFilePath(&buffer) catch |err| {
+    const size = os.getPathRelativeFromModule(&buffer, &main_module, log_file_name) catch |err| {
         misc.errorContext().append(err, "Failed to find log file path.");
         return err;
     };
@@ -58,33 +62,18 @@ fn startFileLogging() !void {
     };
 }
 
-fn findLogFilePath(buffer: *[os.max_file_path_length]u8) !usize {
-    const module = os.Module.getMain() catch |err| {
-        misc.errorContext().append(err, "Failed to get process main module.");
-        return err;
-    };
-    var module_path_buffer: [os.max_file_path_length]u8 = undefined;
-    const size = module.getFilePath(&module_path_buffer) catch |err| {
-        misc.errorContext().appendFmt(err, "Failed to get file path of module: {s}", .{module_name});
-        return err;
-    };
-    const module_path = module_path_buffer[0..size];
-    const directory_path = os.filePathToDirectoryPath(module_path);
-    const log_file_path = std.fmt.bufPrint(buffer, "{s}\\{s}", .{ directory_path, log_file_name }) catch |err| {
-        misc.errorContext().newFmt(err, "Failed to put log file path into the buffer: {s}\\{s}", .{ module_name, log_file_name });
-        return err;
-    };
-    return log_file_path.len;
-}
-
 var injected_module: ?injector.InjectedModule = null;
 
 pub fn onProcessOpen(process: *const os.Process) bool {
-    const relative_path = "./" ++ module_name;
-    std.log.debug("Getting full path of \"{s}\"...", .{relative_path});
+    const main_module = os.Module.getMain() catch |err| {
+        misc.errorContext().append(err, "Failed to get process main module.");
+        misc.errorContext().logError();
+        return false;
+    };
+    std.log.debug("Getting full path of \"{s}\"...", .{module_name});
     var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = os.getFullPath(&buffer, relative_path) catch |err| {
-        misc.errorContext().appendFmt(err, "Failed to get full file path of: {s}", .{relative_path});
+    const size = os.getPathRelativeFromModule(&buffer, &main_module, module_name) catch |err| {
+        misc.errorContext().appendFmt(err, "Failed to get full file path of: {s}", .{module_name});
         misc.errorContext().logError();
         return false;
     };
@@ -138,13 +127,4 @@ pub fn onConsoleClose() void {
     std.log.info("Stopping file logging...", .{});
     file_logger.stop();
     std.log.info("Application shutting down...", .{});
-}
-
-const testing = std.testing;
-
-test "findLogFilePath should return correct path" {
-    var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = try findLogFilePath(&buffer);
-    const path = buffer[0..size];
-    try testing.expectStringEndsWith(path, "\\" ++ log_file_name);
 }
