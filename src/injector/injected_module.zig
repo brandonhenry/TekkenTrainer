@@ -11,39 +11,81 @@ pub const InjectedModule = struct {
 
     pub fn inject(process: os.Process, module_path: []const u8) !Self {
         var buffer = [_:0]u16{0} ** os.max_file_path_length;
-        const size = try std.unicode.utf8ToUtf16Le(&buffer, module_path);
+        const size = std.unicode.utf8ToUtf16Le(&buffer, module_path) catch |err| {
+            misc.errorContext().newFmt(err, "Failed to convert UTF8 string \"{s}\" to UTF16-LE.", .{module_path});
+            return err;
+        };
         const utf16_module_path = buffer[0..size :0];
-        const kernel_module = try os.Module.getLocal("kernel32.dll");
-        const load_library_address = try kernel_module.getProcedureAddress("LoadLibraryW");
-        const remote_string = try os.RemoteSlice(u16, 0).create(process, utf16_module_path);
-        defer remote_string.destroy() catch undefined;
-        const remote_thread = try os.RemoteThread.spawn(
+        const kernel_module = os.Module.getLocal("kernel32.dll") catch |err| {
+            misc.errorContext().append(err, "Failed to get local kernel module: kernel32.dll");
+            return err;
+        };
+        const load_library_address = kernel_module.getProcedureAddress("LoadLibraryW") catch |err| {
+            misc.errorContext().append(err, "Failed to get the address of procedure: LoadLibraryW");
+            return err;
+        };
+        const remote_string = os.RemoteSlice(u16, 0).create(process, utf16_module_path) catch |err| {
+            misc.errorContext().appendFmt(err, "Failed to create remote slice containing value: {s}", .{module_path});
+            return err;
+        };
+        defer remote_string.destroy() catch |err| {
+            misc.errorContext().append(err, "Failed to create destroy remote slice.");
+            misc.errorContext().logError();
+        };
+        const remote_thread = os.RemoteThread.spawn(
             &process,
             @ptrFromInt(load_library_address),
             remote_string.address,
-        );
-        defer remote_thread.clean() catch undefined;
-        const module_handle_part = try remote_thread.join();
+        ) catch |err| {
+            misc.errorContext().append(err, "Failed to spawn remote thread: LoadLibraryW");
+            return err;
+        };
+        defer remote_thread.clean() catch |err| {
+            misc.errorContext().append(err, "Failed to clean remote thread: LoadLibraryW");
+            misc.errorContext().logError();
+        };
+        const module_handle_part = remote_thread.join() catch |err| {
+            misc.errorContext().append(err, "Failed to join remote thread: LoadLibraryW");
+            return err;
+        };
         if (module_handle_part == 0) {
             misc.errorContext().new(error.RemoteLoadLibraryWFailed, "Remote LoadLibraryW returned 0.");
             return error.RemoteLoadLibraryWFailed;
         }
         const file_name = os.pathToFileName(module_path);
-        const module = try os.Module.getRemote(process, file_name);
+        const module = os.Module.getRemote(process, file_name) catch |err| {
+            misc.errorContext().appendFmt(err, "Failed get remote module: {s}", .{file_name});
+            return err;
+        };
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
         return .{ .module = module, .test_allocation = test_allocation };
     }
 
     pub fn eject(self: *const Self) !void {
-        const kernel_module = try os.Module.getLocal("kernel32.dll");
-        const free_library_address = try kernel_module.getProcedureAddress("FreeLibrary");
-        const remote_thread = try os.RemoteThread.spawn(
+        const kernel_module = os.Module.getLocal("kernel32.dll") catch |err| {
+            misc.errorContext().append(err, "Failed to get local kernel module: kernel32.dll");
+            return err;
+        };
+        const free_library_address = kernel_module.getProcedureAddress("FreeLibrary") catch |err| {
+            misc.errorContext().append(err, "Failed to get the address of procedure: FreeLibrary");
+            return err;
+        };
+        const remote_thread = os.RemoteThread.spawn(
             &self.module.process,
             @ptrFromInt(free_library_address),
             @intFromPtr(self.module.handle),
-        );
-        defer remote_thread.clean() catch undefined;
-        const return_code = try remote_thread.join();
+        ) catch |err| {
+            misc.errorContext().append(err, "Failed to spawn remote thread: FreeLibrary");
+            return err;
+        };
+        defer remote_thread.clean() catch |err| {
+            misc.errorContext().append(err, "Failed to clean remote thread: FreeLibrary");
+            misc.errorContext().logError();
+        };
+        const return_code = remote_thread.join() catch |err| {
+            misc.errorContext().append(err, "Failed to join remote thread: FreeLibrary");
+            return err;
+        };
         if (return_code == 0) {
             misc.errorContext().new(error.RemoteFreeLibraryFailed, "Remote FreeLibrary returned 0.");
             return error.RemoteFreeLibraryFailed;
