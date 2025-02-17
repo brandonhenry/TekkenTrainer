@@ -4,6 +4,7 @@ const misc = @import("../misc/root.zig");
 pub const ConsoleLoggerConfig = struct {
     level: std.log.Level = .debug,
     time_zone: misc.TimeZone = .local,
+    buffer_size: usize = 4096,
     nanoTimestamp: *const fn () i128 = std.time.nanoTimestamp,
     lockStdErr: *const fn () void = std.debug.lockStdErr,
     unlockStdErr: *const fn () void = std.debug.unlockStdErr,
@@ -12,6 +13,10 @@ pub const ConsoleLoggerConfig = struct {
 
 pub fn ConsoleLogger(comptime config: ConsoleLoggerConfig) type {
     return struct {
+        var log_writer: ?std.io.BufferedWriter(
+            config.buffer_size,
+            if (config.use_testing_buffer) std.ArrayList(u8).Writer else std.fs.File.Writer,
+        ) = null;
         pub var testing_buffer = if (config.use_testing_buffer) std.ArrayList(u8).init(std.testing.allocator) else {};
 
         pub fn logFn(
@@ -26,10 +31,18 @@ pub fn ConsoleLogger(comptime config: ConsoleLoggerConfig) type {
             const timestamp = misc.Timestamp.fromNano(config.nanoTimestamp(), config.time_zone) catch null;
             const scope_prefix = if (scope != std.log.default_log_scope) "(" ++ @tagName(scope) ++ ") " else "";
             const level_prefix = "[" ++ comptime level.asText() ++ "] ";
-            const writter = if (config.use_testing_buffer) testing_buffer.writer() else std.io.getStdErr().writer();
+            var writer = log_writer orelse w: {
+                config.lockStdErr();
+                defer config.unlockStdErr();
+                const unbuffered_writer = if (config.use_testing_buffer) testing_buffer.writer() else std.io.getStdErr().writer();
+                const buffered_writer = std.io.BufferedWriter(config.buffer_size, @TypeOf(unbuffered_writer)){ .unbuffered_writer = unbuffered_writer };
+                log_writer = buffered_writer;
+                break :w buffered_writer;
+            };
             config.lockStdErr();
             defer config.unlockStdErr();
-            writter.print("{?} " ++ level_prefix ++ scope_prefix ++ format ++ "\n", .{timestamp} ++ args) catch return;
+            writer.writer().print("{?} " ++ level_prefix ++ scope_prefix ++ format ++ "\n", .{timestamp} ++ args) catch return;
+            writer.flush() catch return;
         }
     };
 }
@@ -141,8 +154,8 @@ test "should lock/unlock stderr correctly" {
     try testing.expectEqual(0, Lock.times_locked);
     logger.logFn(.debug, std.log.default_log_scope, "Message: 1", .{});
     try testing.expect(!Lock.locked);
-    try testing.expectEqual(1, Lock.times_locked);
+    try testing.expectEqual(2, Lock.times_locked);
     logger.logFn(.info, std.log.default_log_scope, "Message: 2", .{});
     try testing.expect(!Lock.locked);
-    try testing.expectEqual(2, Lock.times_locked);
+    try testing.expectEqual(3, Lock.times_locked);
 }

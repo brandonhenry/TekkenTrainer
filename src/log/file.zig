@@ -5,13 +5,14 @@ const os = @import("../os/root.zig");
 pub const FileLoggerConfig = struct {
     level: std.log.Level = .debug,
     time_zone: misc.TimeZone = .local,
+    buffer_size: usize = 4096,
     nanoTimestamp: *const fn () i128 = std.time.nanoTimestamp,
 };
 
 pub fn FileLogger(comptime config: FileLoggerConfig) type {
     return struct {
         var log_file: ?std.fs.File = null;
-        var log_writer: ?std.fs.File.Writer = null;
+        var log_writer: ?std.io.BufferedWriter(config.buffer_size, std.fs.File.Writer) = null;
         var mutex = std.Thread.Mutex{};
 
         pub fn start(file_path: []const u8) !void {
@@ -24,19 +25,28 @@ pub fn FileLogger(comptime config: FileLoggerConfig) type {
                 return err;
             };
             file.seekTo(end_pos) catch |err| {
-                misc.errorContext().newFmt(err, "Failed to seek to end position ({}) of the file: {s}\n", .{ end_pos, file_path });
+                misc.errorContext().newFmt(
+                    err,
+                    "Failed to seek to end position ({}) of the file: {s}\n",
+                    .{ end_pos, file_path },
+                );
                 return err;
             };
             log_file = file;
-            log_writer = file.writer();
+            log_writer = .{ .unbuffered_writer = file.writer() };
         }
 
         pub fn stop() void {
-            if (log_file) |file| {
-                file.close();
+            if (log_writer) |*writer| {
+                writer.flush() catch |err| {
+                    std.debug.print("Failed to flush buffer before closing the file logger. Cause: {}\n", .{err});
+                };
+                log_writer = null;
             }
-            log_file = null;
-            log_writer = null;
+            if (log_file) |*file| {
+                file.close();
+                log_file = null;
+            }
         }
 
         pub fn logFn(
@@ -54,11 +64,15 @@ pub fn FileLogger(comptime config: FileLoggerConfig) type {
             var writer = log_writer orelse return;
             mutex.lock();
             defer mutex.unlock();
-            writer.print(
+            writer.writer().print(
                 "{?} " ++ level_prefix ++ scope_prefix ++ format ++ "\n",
                 .{timestamp} ++ args,
             ) catch |err| {
                 std.debug.print("Failed to write log message with file logger. Cause: {}\n", .{err});
+                return;
+            };
+            writer.flush() catch |err| {
+                std.debug.print("Failed to flush log buffer with file logger. Cause: {}\n", .{err});
                 return;
             };
         }
