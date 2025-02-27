@@ -72,7 +72,7 @@ test "should run remote thread and return correct exit code" {
     }.call;
     const process = os.Process.getCurrent();
     var remote_thread = try RemoteThread.spawn(&process, startRoutine, 123);
-    defer remote_thread.clean() catch unreachable;
+    defer remote_thread.clean() catch @panic("Failed to clean remote thread.");
     const exit_code = try remote_thread.join();
     try testing.expectEqual(124, exit_code);
 }

@@ -102,7 +102,7 @@ test "inject should load module into address space" {
     const module_path = try std.fs.path.resolve(testing.allocator, &.{ "test_assets", "test.dll" });
     defer testing.allocator.free(module_path);
     const injected_module = try InjectedModule.inject(os.Process.getCurrent(), module_path);
-    defer injected_module.eject() catch undefined;
+    defer injected_module.eject() catch @panic("Failed to eject module.");
     _ = try os.Module.getLocal("test.dll");
 }
 

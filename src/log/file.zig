@@ -103,7 +103,7 @@ test "should format output correctly" {
 
     const content = try std.fs.cwd().readFileAlloc(testing.allocator, file_path, 1_000_000);
     defer testing.allocator.free(content);
-    std.fs.cwd().deleteFile(file_path) catch unreachable;
+    try std.fs.cwd().deleteFile(file_path);
 
     const expected =
         \\2020-01-02T03:04:05.123456789 [debug] Message: 1
@@ -137,7 +137,7 @@ test "should filter based on log level correctly" {
 
     const content = try std.fs.cwd().readFileAlloc(testing.allocator, file_path, 1_000_000);
     defer testing.allocator.free(content);
-    std.fs.cwd().deleteFile(file_path) catch unreachable;
+    try std.fs.cwd().deleteFile(file_path);
 
     const expected =
         \\2020-01-02T03:04:05.123456789 [warning] Message: 3
@@ -170,7 +170,7 @@ test "should append logs to the end of the file" {
 
     const content = try std.fs.cwd().readFileAlloc(testing.allocator, file_path, 1_000_000);
     defer testing.allocator.free(content);
-    std.fs.cwd().deleteFile(file_path) catch unreachable;
+    try std.fs.cwd().deleteFile(file_path);
 
     const expected =
         \\Content before logging.

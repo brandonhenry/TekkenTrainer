@@ -131,7 +131,7 @@ test "initializing and de-initializing hooking should succeed" {
 
 test "target should get called when hook is disabled" {
     try Hooking.init();
-    defer Hooking.deinit() catch unreachable;
+    defer Hooking.deinit() catch @panic("Failed to de-initialize hooks.");
 
     const Target = struct {
         var times_called: usize = 0;
@@ -148,7 +148,7 @@ test "target should get called when hook is disabled" {
         }
     };
     const hook = try Hook(fn (i32, i32) i32).create(Target.call, Dtour.call);
-    defer hook.destroy() catch unreachable;
+    defer hook.destroy() catch @panic("Failed to destroy hook.");
 
     const return_value = Target.call(3, 2);
     try testing.expectEqual(1, Target.times_called);
@@ -158,7 +158,7 @@ test "target should get called when hook is disabled" {
 
 test "detour should get called when hook is enabled" {
     try Hooking.init();
-    defer Hooking.deinit() catch unreachable;
+    defer Hooking.deinit() catch @panic("Failed to de-initialize hooks.");
 
     const Target = struct {
         var times_called: usize = 0;
@@ -175,7 +175,7 @@ test "detour should get called when hook is enabled" {
         }
     };
     const hook = try Hook(fn (i32, i32) i32).create(Target.call, Dtour.call);
-    defer hook.destroy() catch unreachable;
+    defer hook.destroy() catch @panic("Failed to destroy hook.");
     try hook.enable();
 
     const return_value = Target.call(3, 2);
@@ -186,7 +186,7 @@ test "detour should get called when hook is enabled" {
 
 test "original should still call target implementation even when hook is enabled" {
     try Hooking.init();
-    defer Hooking.deinit() catch unreachable;
+    defer Hooking.deinit() catch @panic("Failed to de-initialize hooks.");
 
     const Target = struct {
         var times_called: usize = 0;
@@ -203,7 +203,7 @@ test "original should still call target implementation even when hook is enabled
         }
     };
     const hook = try Hook(fn (i32, i32) i32).create(Target.call, Dtour.call);
-    defer hook.destroy() catch unreachable;
+    defer hook.destroy() catch @panic("Failed to destroy hook.");
     try hook.enable();
 
     const return_value = hook.original(3, 2);

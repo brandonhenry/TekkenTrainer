@@ -94,7 +94,7 @@ test "open should succeed when valid process id" {
         .QUERY_INFORMATION = 1,
     };
     var process = try Process.open(process_id, access_rights);
-    defer process.close() catch unreachable;
+    defer process.close() catch @panic("Failed to close process.");
     try testing.expectEqual(process_id.raw, process.id.raw);
 }
 
@@ -112,7 +112,7 @@ test "is still running should return true when process is running" {
         .QUERY_INFORMATION = 1,
     };
     var process = try Process.open(process_id, access_rights);
-    defer process.close() catch unreachable;
+    defer process.close() catch @panic("Failed to close process.");
     const is_still_running = try process.isStillRunning();
     try testing.expectEqual(true, is_still_running);
 }
@@ -123,7 +123,7 @@ test "getFilePath should return correct value" {
         .QUERY_INFORMATION = 1,
     };
     var process = try Process.open(process_id, access_rights);
-    defer process.close() catch unreachable;
+    defer process.close() catch @panic("Failed to close process.");
     var buffer: [os.max_file_path_length]u8 = undefined;
     const size = try process.getFilePath(&buffer);
     const path = buffer[0..size];

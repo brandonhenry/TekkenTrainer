@@ -115,7 +115,7 @@ test "should do nothing when process is not found" {
 test "should open process when process exists and onProcessOpen returns true" {
     var wait_process = std.process.Child.init(&.{"./test_assets/wait.exe"}, testing.allocator);
     try wait_process.spawn();
-    defer _ = wait_process.kill() catch undefined;
+    defer _ = wait_process.kill() catch @panic("Failed to kill the wait process.");
     const pid = w32.GetProcessId(wait_process.id);
 
     var opened_process: ?os.Process = null;
@@ -138,7 +138,7 @@ test "should open process when process exists and onProcessOpen returns true" {
     for (0..3) |_| {
         runLoopLogic(&opened_process, .{ .QUERY_INFORMATION = 1 }, "wait.exe", OnProcessOpen.call, OnProcessClose.call);
     }
-    defer opened_process.?.close() catch unreachable;
+    defer opened_process.?.close() catch @panic("Failed to close process.");
 
     try testing.expectEqual(pid, opened_process.?.id.raw);
     try testing.expectEqual(1, OnProcessOpen.times_called);
@@ -149,7 +149,7 @@ test "should open process when process exists and onProcessOpen returns true" {
 test "should open and close process when process exists and onProcessOpen returns false" {
     var wait_process = std.process.Child.init(&.{"./test_assets/wait.exe"}, testing.allocator);
     try wait_process.spawn();
-    defer _ = wait_process.kill() catch undefined;
+    defer _ = wait_process.kill() catch @panic("Failed to kill the wait process.");
     const pid = w32.GetProcessId(wait_process.id);
 
     var opened_process: ?os.Process = null;
