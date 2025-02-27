@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const misc = @import("../misc/root.zig");
 const c = @cImport({
     @cInclude("MinHook.h");
 });
@@ -10,7 +11,9 @@ pub const Hooking = struct {
     pub fn init() !void {
         const status = c.MH_Initialize();
         if (status != c.MH_OK) {
-            return minHookStatusToError(status);
+            const err = minHookStatusToError(status);
+            misc.errorContext().newFmt(err, "MH_Initialize returned: {}", .{status});
+            return err;
         }
         if (builtin.is_test) {
             if (test_allocation != null) {
@@ -23,7 +26,9 @@ pub const Hooking = struct {
     pub fn deinit() !void {
         const status = c.MH_Uninitialize();
         if (status != c.MH_OK) {
-            return minHookStatusToError(status);
+            const err = minHookStatusToError(status);
+            misc.errorContext().newFmt(err, "MH_Uninitialize returned: {}", .{status});
+            return err;
         }
         if (builtin.is_test) {
             if (test_allocation) |allocation| {
@@ -54,7 +59,9 @@ pub fn Hook(comptime Function: type) type {
             var original: *Function = undefined;
             const status = c.MH_CreateHook(@constCast(target), @constCast(detour), @ptrCast(&original));
             if (status != c.MH_OK) {
-                return minHookStatusToError(status);
+                const err = minHookStatusToError(status);
+                misc.errorContext().newFmt(err, "MH_CreateHook returned: {}", .{status});
+                return err;
             }
             const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
             return Self{
@@ -68,7 +75,9 @@ pub fn Hook(comptime Function: type) type {
         pub fn destroy(self: *const Self) !void {
             const status = c.MH_RemoveHook(@constCast(self.target));
             if (status != c.MH_OK) {
-                return minHookStatusToError(status);
+                const err = minHookStatusToError(status);
+                misc.errorContext().newFmt(err, "MH_RemoveHook returned: {}", .{status});
+                return err;
             }
             if (builtin.is_test) {
                 std.testing.allocator.destroy(self.test_allocation);
@@ -78,14 +87,18 @@ pub fn Hook(comptime Function: type) type {
         pub fn enable(self: *const Self) !void {
             const status = c.MH_EnableHook(@constCast(self.target));
             if (status != c.MH_OK) {
-                return minHookStatusToError(status);
+                const err = minHookStatusToError(status);
+                misc.errorContext().newFmt(err, "MH_EnableHook returned: {}", .{status});
+                return err;
             }
         }
 
         pub fn disable(self: *const Self) !void {
             const status = c.MH_DisableHook(@constCast(self.target));
             if (status != c.MH_OK) {
-                return minHookStatusToError(status);
+                const err = minHookStatusToError(status);
+                misc.errorContext().newFmt(err, "MH_DisableHook returned: {}", .{status});
+                return err;
             }
         }
     };

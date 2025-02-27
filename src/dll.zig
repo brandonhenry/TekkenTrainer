@@ -62,7 +62,7 @@ fn init() void {
     if (memory.Hooking.init()) {
         std.log.debug("Hooking initialized.", .{});
     } else |err| {
-        misc.errorContext().new(err, "Failed to initialize hooking.");
+        misc.errorContext().append(err, "Failed to initialize hooking.");
         misc.errorContext().logError();
     }
 
@@ -78,7 +78,7 @@ fn init() void {
     present_hook = memory.Hook(
         fn (*const w32.IDXGISwapChain, u32, u32) callconv(std.os.windows.WINAPI) w32.HRESULT,
     ).create(present, onPresent) catch |err| {
-        misc.errorContext().new(err, "Failed to create present hook.");
+        misc.errorContext().append(err, "Failed to create present hook.");
         misc.errorContext().logError();
         return;
     };
@@ -86,7 +86,7 @@ fn init() void {
 
     std.log.debug("Enabling present hook...", .{});
     present_hook.?.enable() catch |err| {
-        misc.errorContext().new(err, "Failed to enable present hook.");
+        misc.errorContext().append(err, "Failed to enable present hook.");
         misc.errorContext().logError();
         return;
     };
@@ -104,7 +104,7 @@ fn deinit() void {
             present_hook = null;
             std.log.debug("Present hook destroyed.", .{});
         } else |err| {
-            misc.errorContext().new(err, "Failed destroy present hook.");
+            misc.errorContext().append(err, "Failed destroy present hook.");
             misc.errorContext().logError();
         }
     } else {
@@ -115,7 +115,7 @@ fn deinit() void {
     if (memory.Hooking.deinit()) {
         std.log.debug("Hooking de-initialized.", .{});
     } else |err| {
-        misc.errorContext().new(err, "Failed to de-initialize hooking.");
+        misc.errorContext().append(err, "Failed to de-initialize hooking.");
         misc.errorContext().logError();
     }
 
@@ -143,7 +143,9 @@ fn startFileLogging() !void {
     };
 }
 
-var present_hook: ?memory.Hook(fn (*const w32.IDXGISwapChain, u32, u32) callconv(std.os.windows.WINAPI) w32.HRESULT) = null;
+var present_hook: ?memory.Hook(
+    fn (*const w32.IDXGISwapChain, u32, u32) callconv(std.os.windows.WINAPI) w32.HRESULT,
+) = null;
 
 fn onPresent(
     swap_chain: *const w32.IDXGISwapChain,
