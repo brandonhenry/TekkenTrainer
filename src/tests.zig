@@ -1,5 +1,6 @@
 test {
     _ = @import("dll.zig");
+    _ = @import("event_buss.zig");
     _ = @import("injector.zig");
 
     _ = @import("log/composite.zig");
@@ -20,11 +21,11 @@ test {
     _ = @import("misc/error_context.zig");
     _ = @import("misc/timestamp.zig");
 
+    _ = @import("os/dx12.zig");
     _ = @import("os/error.zig");
     _ = @import("os/memory.zig");
     _ = @import("os/misc.zig");
     _ = @import("os/module.zig");
-    _ = @import("os/present_function.zig");
     _ = @import("os/process_id.zig");
     _ = @import("os/process.zig");
     _ = @import("os/remote_slice.zig");

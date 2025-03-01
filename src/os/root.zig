@@ -1,6 +1,8 @@
 pub const max_file_path_length = 260;
 pub const max_number_of_processes = 4096;
 
+pub const Dx12Functions = @import("dx12.zig").Dx12Functions;
+pub const getDeviceFromSwapChain = @import("dx12.zig").getDeviceFromSwapChain;
 pub const OsError = @import("error.zig").OsError;
 pub const isMemoryReadable = @import("memory.zig").isMemoryReadable;
 pub const isMemoryWriteable = @import("memory.zig").isMemoryWriteable;
@@ -11,8 +13,6 @@ pub const getFullPath = @import("misc.zig").getFullPath;
 pub const getPathRelativeFromModule = @import("misc.zig").getPathRelativeFromModule;
 pub const setConsoleCloseHandler = @import("misc.zig").setConsoleCloseHandler;
 pub const Module = @import("module.zig").Module;
-pub const PresentFunction = @import("present_function.zig").PresentFunction;
-pub const findPresentFunction = @import("present_function.zig").findPresentFunction;
 pub const Process = @import("process.zig").Process;
 pub const ProcessId = @import("process_id.zig").ProcessId;
 pub const RemoteSlice = @import("remote_slice.zig").RemoteSlice;
