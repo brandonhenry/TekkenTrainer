@@ -4,6 +4,7 @@ const w32 = @import("win32").everything;
 const misc = @import("misc/root.zig");
 const log = @import("log/root.zig");
 const os = @import("os/root.zig");
+const dx12 = @import("dx12/root.zig");
 const memory = @import("memory/hooking.zig");
 const EventBuss = @import("event_buss.zig").EventBuss;
 
@@ -60,7 +61,7 @@ fn init() void {
     }
 
     std.log.debug("Finding DX12 functions...", .{});
-    const dx12Functions = os.Dx12Functions.find() catch |err| {
+    const dx12Functions = dx12.Functions.find() catch |err| {
         misc.errorContext().append(err, "Failed to find DX12 functions.");
         misc.errorContext().logError();
         return;
@@ -76,7 +77,7 @@ fn init() void {
     }
 
     std.log.debug("Creating the execute command lists hook...", .{});
-    state.execute_command_lists_hook = memory.Hook(os.Dx12Functions.ExecuteCommandLists).create(
+    state.execute_command_lists_hook = memory.Hook(dx12.Functions.ExecuteCommandLists).create(
         dx12Functions.executeCommandLists,
         onExecuteCommandLists,
     ) catch |err| {
@@ -87,7 +88,7 @@ fn init() void {
     std.log.info("Execute command lists hook created.", .{});
 
     std.log.debug("Creating the present hook...", .{});
-    state.present_hook = memory.Hook(os.Dx12Functions.Present).create(dx12Functions.present, onPresent) catch |err| {
+    state.present_hook = memory.Hook(dx12.Functions.Present).create(dx12Functions.present, onPresent) catch |err| {
         misc.errorContext().append(err, "Failed to create present hook.");
         misc.errorContext().logError();
         return;
@@ -147,7 +148,7 @@ fn deinit() void {
 
     if (presentFunction) |present| present_cleanup: {
         std.log.debug("Creating the present cleanup hook...", .{});
-        state.present_hook = memory.Hook(os.Dx12Functions.Present).create(present, onPresentCleanup) catch |err| {
+        state.present_hook = memory.Hook(dx12.Functions.Present).create(present, onPresentCleanup) catch |err| {
             misc.errorContext().append(err, "Failed to create present cleanup hook.");
             misc.errorContext().logError();
             break :present_cleanup;
@@ -212,8 +213,8 @@ fn startFileLogging() !void {
 }
 
 const state = struct {
-    var execute_command_lists_hook: ?memory.Hook(os.Dx12Functions.ExecuteCommandLists) = null;
-    var present_hook: ?memory.Hook(os.Dx12Functions.Present) = null;
+    var execute_command_lists_hook: ?memory.Hook(dx12.Functions.ExecuteCommandLists) = null;
+    var present_hook: ?memory.Hook(dx12.Functions.Present) = null;
     var command_queue: ?*const w32.ID3D12CommandQueue = null;
     var event_buss: ?EventBuss = null;
     var is_present_cleanup_complete = std.atomic.Value(bool).init(false);
@@ -240,7 +241,7 @@ fn onPresent(
         std.log.debug("Present function was called before command queue was found. Skipping this frame.", .{});
         return state.present_hook.?.original(swap_chain, sync_interval, flags);
     };
-    const device = os.getDeviceFromSwapChain(swap_chain) catch |err| {
+    const device = dx12.getDeviceFromSwapChain(swap_chain) catch |err| {
         misc.errorContext().append(err, "Failed to get DX12 device from swap chain.");
         misc.errorContext().logError();
         return state.present_hook.?.original(swap_chain, sync_interval, flags);
@@ -263,7 +264,7 @@ fn onPresentCleanup(
         state.is_present_cleanup_complete.store(true, .seq_cst);
         return state.present_hook.?.original(swap_chain, sync_interval, flags);
     }
-    const device = os.getDeviceFromSwapChain(swap_chain) catch |err| {
+    const device = dx12.getDeviceFromSwapChain(swap_chain) catch |err| {
         misc.errorContext().append(err, "Failed to get DX12 device from swap chain.");
         misc.errorContext().logError();
         return state.present_hook.?.original(swap_chain, sync_interval, flags);

@@ -3,12 +3,16 @@ test {
     _ = @import("event_buss.zig");
     _ = @import("injector.zig");
 
-    _ = @import("log/composite.zig");
-    _ = @import("log/console.zig");
-    _ = @import("log/file.zig");
+    _ = @import("dx12/functions.zig");
+    _ = @import("dx12/misc.zig");
+    _ = @import("dx12/testing_context.zig");
 
     _ = @import("injector/injected_module.zig");
     _ = @import("injector/process_loop.zig");
+
+    _ = @import("log/composite.zig");
+    _ = @import("log/console.zig");
+    _ = @import("log/file.zig");
 
     _ = @import("memory/converted_value.zig");
     _ = @import("memory/hooking.zig");
@@ -21,7 +25,6 @@ test {
     _ = @import("misc/error_context.zig");
     _ = @import("misc/timestamp.zig");
 
-    _ = @import("os/dx12.zig");
     _ = @import("os/error.zig");
     _ = @import("os/memory.zig");
     _ = @import("os/misc.zig");
