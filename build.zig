@@ -30,12 +30,17 @@ pub fn build(b: *std.Build) void {
     const win32 = b.dependency("zigwin32", .{}).module("zigwin32");
 
     // C dependency: minhook
-    const minhook = b.dependency("minhook", .{});
-    const minhook_include_path = minhook.path("include");
-    const minhook_source_files = std.Build.Module.AddCSourceFilesOptions{
+    const minhook_dep = b.dependency("minhook", .{});
+    const minhook = b.addTranslateC(.{
+        .root_source_file = minhook_dep.path("include/MinHook.h"),
+        .target = target,
+        .optimize = optimize,
+    }).createModule();
+    minhook.addIncludePath(minhook_dep.path("include"));
+    minhook.addCSourceFiles(.{
         .root = .{
             .dependency = .{
-                .dependency = minhook,
+                .dependency = minhook_dep,
                 .sub_path = "src",
             },
         },
@@ -46,7 +51,7 @@ pub fn build(b: *std.Build) void {
             "hde/hde32.c",
             "hde/hde64.c",
         },
-    };
+    });
 
     const dll = b.addSharedLibrary(.{
         .name = "irony",
@@ -58,8 +63,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     dll.root_module.addImport("win32", win32);
-    dll.addIncludePath(minhook_include_path);
-    dll.addCSourceFiles(minhook_source_files);
+    dll.root_module.addImport("minhook", minhook);
 
     // This declares intent for the dll to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -118,8 +122,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     tests.root_module.addImport("win32", win32);
-    tests.addIncludePath(minhook_include_path);
-    tests.addCSourceFiles(minhook_source_files);
+    tests.root_module.addImport("minhook", minhook);
 
     // This *creates* a Test step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
