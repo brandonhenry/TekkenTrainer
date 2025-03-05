@@ -26,7 +26,7 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    // ZIG Dependencies:
+    // ZIG dependency: zigwin32
     const win32 = b.dependency("zigwin32", .{}).module("zigwin32");
 
     // C dependency: lib_c_time ("time.h" from C)
@@ -63,6 +63,17 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    // ZIG dependency: zgui
+    const zgui_dep = b.dependency("zgui", .{
+        .backend = .win32_dx12,
+        .shared = false,
+        .with_implot = true,
+        .with_te = true,
+        .target = target,
+        .optimize = optimize,
+    });
+    const zgui = zgui_dep.module("root");
+
     const dll = b.addSharedLibrary(.{
         .name = "irony",
         // In this case the main source file is merely a path, however, in more
@@ -75,6 +86,8 @@ pub fn build(b: *std.Build) void {
     dll.root_module.addImport("win32", win32);
     dll.root_module.addImport("lib_c_time", lib_c_time);
     dll.root_module.addImport("minhook", minhook);
+    dll.root_module.addImport("zgui", zgui);
+    dll.linkLibrary(zgui_dep.artifact("imgui"));
 
     // This declares intent for the dll to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -136,6 +149,8 @@ pub fn build(b: *std.Build) void {
     tests.root_module.addImport("lib_c_time", lib_c_time);
     tests.root_module.addImport("win32", win32);
     tests.root_module.addImport("minhook", minhook);
+    tests.root_module.addImport("zgui", zgui);
+    tests.linkLibrary(zgui_dep.artifact("imgui"));
 
     // This *creates* a Test step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish

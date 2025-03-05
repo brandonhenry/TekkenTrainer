@@ -59,6 +59,10 @@
             .url = "https://github.com/TsudaKageyu/minhook/archive/refs/tags/v1.3.3.tar.gz",
             .hash = "12203e1ced1b68cf57a5c081970380eb2b23730ab34953669e25cfe0cdfb1e145d3d",
         },
+        .zgui = .{
+            .url = "https://codeload.github.com/zig-gamedev/zgui/zip/5f0e01e8cd7f423a27ad56a712e9770a81d5d272",
+            .hash = "12209ee39f11d6100f84b848858b4048f208f70e06091ccf603879caf0e86fbd058a",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.
