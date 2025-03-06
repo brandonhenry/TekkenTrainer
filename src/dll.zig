@@ -121,22 +121,37 @@ fn startFileLogging() !void {
     };
 }
 
-fn onFirstPresent(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+fn onFirstPresent(
+    window: w32.HWND,
+    device: *const w32.ID3D12Device,
+    command_queue: *const w32.ID3D12CommandQueue,
+    swap_chain: *const w32.IDXGISwapChain,
+) void {
     std.log.info("Initializing event buss...", .{});
-    event_buss = EventBuss.init(device, command_queue);
+    event_buss = EventBuss.init(window, device, command_queue, swap_chain);
     std.log.info("Event buss initialized.", .{});
 }
 
-fn onNormalPresent(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+fn onNormalPresent(
+    window: w32.HWND,
+    device: *const w32.ID3D12Device,
+    command_queue: *const w32.ID3D12CommandQueue,
+    swap_chain: *const w32.IDXGISwapChain,
+) void {
     if (event_buss) |*buss| {
-        buss.update(device, command_queue);
+        buss.update(window, device, command_queue, swap_chain);
     }
 }
 
-fn onLastPresent(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+fn onLastPresent(
+    window: w32.HWND,
+    device: *const w32.ID3D12Device,
+    command_queue: *const w32.ID3D12CommandQueue,
+    swap_chain: *const w32.IDXGISwapChain,
+) void {
     std.log.info("De-initializing event buss...", .{});
     if (event_buss) |*buss| {
-        buss.deinit(device, command_queue);
+        buss.deinit(window, device, command_queue, swap_chain);
         event_buss = null;
         std.log.info("Event buss de-initialized.", .{});
     } else {

@@ -5,7 +5,12 @@ const misc = @import("../misc/root.zig");
 const hooking = @import("root.zig");
 const dx12 = @import("../dx12/root.zig");
 
-pub const OnPresent = fn (device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void;
+pub const OnPresent = fn (
+    window: w32.HWND,
+    device: *const w32.ID3D12Device,
+    command_queue: *const w32.ID3D12CommandQueue,
+    swap_chain: *const w32.IDXGISwapChain,
+) void;
 
 pub fn MainHooks(
     onFirstPresent: *const OnPresent,
@@ -172,6 +177,11 @@ pub fn MainHooks(
                 std.log.debug("Present function was called before command queue was found. Skipping this frame.", .{});
                 return present_hook.?.original(swap_chain, sync_interval, flags);
             };
+            const window = dx12.getWindowFromSwapChain(swap_chain) catch |err| {
+                misc.errorContext().append(err, "Failed to get the window from DX12 swap chain.");
+                misc.errorContext().logError();
+                return present_hook.?.original(swap_chain, sync_interval, flags);
+            };
             const device = dx12.getDeviceFromSwapChain(swap_chain) catch |err| {
                 misc.errorContext().append(err, "Failed to get DX12 device from swap chain.");
                 misc.errorContext().logError();
@@ -179,10 +189,10 @@ pub fn MainHooks(
             };
             if (!is_first_present_called) {
                 std.log.info("First present function called.", .{});
-                onFirstPresent(device, command_queue);
+                onFirstPresent(window, device, command_queue, swap_chain);
                 is_first_present_called = true;
             } else {
-                onNormalPresent(device, command_queue);
+                onNormalPresent(window, device, command_queue, swap_chain);
             }
             return present_hook.?.original(swap_chain, sync_interval, flags);
         }
@@ -199,13 +209,18 @@ pub fn MainHooks(
             if (is_last_present_called.load(.seq_cst)) {
                 return present_hook.?.original(swap_chain, sync_interval, flags);
             }
+            const window = dx12.getWindowFromSwapChain(swap_chain) catch |err| {
+                misc.errorContext().append(err, "Failed to get the window from DX12 swap chain.");
+                misc.errorContext().logError();
+                return present_hook.?.original(swap_chain, sync_interval, flags);
+            };
             const device = dx12.getDeviceFromSwapChain(swap_chain) catch |err| {
                 misc.errorContext().append(err, "Failed to get DX12 device from swap chain.");
                 misc.errorContext().logError();
                 return present_hook.?.original(swap_chain, sync_interval, flags);
             };
             std.log.info("Last present function called.", .{});
-            onLastPresent(device, g_command_queue.?);
+            onLastPresent(window, device, g_command_queue.?, swap_chain);
             is_last_present_called.store(true, .seq_cst);
             return present_hook.?.original(swap_chain, sync_interval, flags);
         }
@@ -223,32 +238,59 @@ test "should call correct callbacks at correct times" {
 
     const OnFirstPresent = struct {
         var times_called: usize = 0;
+        var last_window: ?w32.HWND = null;
         var last_device: ?*const w32.ID3D12Device = null;
         var last_command_queue: ?*const w32.ID3D12CommandQueue = null;
-        fn call(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+        var last_swap_chain: ?*const w32.IDXGISwapChain = null;
+        fn call(
+            window: w32.HWND,
+            device: *const w32.ID3D12Device,
+            command_queue: *const w32.ID3D12CommandQueue,
+            swap_chain: *const w32.IDXGISwapChain,
+        ) void {
             times_called += 1;
+            last_window = window;
             last_device = device;
             last_command_queue = command_queue;
+            last_swap_chain = swap_chain;
         }
     };
     const OnNormalPresent = struct {
         var times_called: usize = 0;
+        var last_window: ?w32.HWND = null;
         var last_device: ?*const w32.ID3D12Device = null;
         var last_command_queue: ?*const w32.ID3D12CommandQueue = null;
-        fn call(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+        var last_swap_chain: ?*const w32.IDXGISwapChain = null;
+        fn call(
+            window: w32.HWND,
+            device: *const w32.ID3D12Device,
+            command_queue: *const w32.ID3D12CommandQueue,
+            swap_chain: *const w32.IDXGISwapChain,
+        ) void {
             times_called += 1;
+            last_window = window;
             last_device = device;
             last_command_queue = command_queue;
+            last_swap_chain = swap_chain;
         }
     };
     const OnLastPresent = struct {
         var times_called: usize = 0;
+        var last_window: ?w32.HWND = null;
         var last_device: ?*const w32.ID3D12Device = null;
         var last_command_queue: ?*const w32.ID3D12CommandQueue = null;
-        fn call(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+        var last_swap_chain: ?*const w32.IDXGISwapChain = null;
+        fn call(
+            window: w32.HWND,
+            device: *const w32.ID3D12Device,
+            command_queue: *const w32.ID3D12CommandQueue,
+            swap_chain: *const w32.IDXGISwapChain,
+        ) void {
             times_called += 1;
+            last_window = window;
             last_device = device;
             last_command_queue = command_queue;
+            last_swap_chain = swap_chain;
         }
     };
 
@@ -284,10 +326,15 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(4, OnNormalPresent.times_called);
     try testing.expectEqual(0, OnLastPresent.times_called);
 
+    try testing.expectEqual(dx12_context.window, OnFirstPresent.last_window);
     try testing.expectEqual(dx12_context.device, OnFirstPresent.last_device);
     try testing.expectEqual(dx12_context.command_queue, OnFirstPresent.last_command_queue);
+    try testing.expectEqual(dx12_context.swap_chain, OnFirstPresent.last_swap_chain);
+
+    try testing.expectEqual(dx12_context.window, OnNormalPresent.last_window);
     try testing.expectEqual(dx12_context.device, OnNormalPresent.last_device);
     try testing.expectEqual(dx12_context.command_queue, OnNormalPresent.last_command_queue);
+    try testing.expectEqual(dx12_context.swap_chain, OnNormalPresent.last_swap_chain);
 
     const Deinit = struct {
         var is_complete = std.atomic.Value(bool).init(false);
@@ -306,8 +353,11 @@ test "should call correct callbacks at correct times" {
     }
 
     try testing.expectEqual(1, OnLastPresent.times_called);
+
+    try testing.expectEqual(dx12_context.window, OnLastPresent.last_window);
     try testing.expectEqual(dx12_context.device, OnLastPresent.last_device);
     try testing.expectEqual(dx12_context.command_queue, OnLastPresent.last_command_queue);
+    try testing.expectEqual(dx12_context.swap_chain, OnLastPresent.last_swap_chain);
 }
 
 test "init should error when hooking is not initialized" {
@@ -315,9 +365,16 @@ test "init should error when hooking is not initialized" {
     defer dx12Context.deinit();
 
     const onPresent = struct {
-        fn call(device: *const w32.ID3D12Device, command_queue: *const w32.ID3D12CommandQueue) void {
+        fn call(
+            window: w32.HWND,
+            device: *const w32.ID3D12Device,
+            command_queue: *const w32.ID3D12CommandQueue,
+            swap_chain: *const w32.IDXGISwapChain,
+        ) void {
+            _ = window;
             _ = device;
             _ = command_queue;
+            _ = swap_chain;
         }
     }.call;
 
