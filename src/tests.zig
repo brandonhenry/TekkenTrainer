@@ -3,6 +3,7 @@ test {
     _ = @import("event_buss.zig");
     _ = @import("injector.zig");
 
+    _ = @import("dx12/command_allocator.zig");
     _ = @import("dx12/descriptor_heap.zig");
     _ = @import("dx12/functions.zig");
     _ = @import("dx12/misc.zig");
