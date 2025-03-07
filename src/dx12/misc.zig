@@ -7,8 +7,8 @@ pub fn getWindowFromSwapChain(swap_chain: *const w32.IDXGISwapChain) !w32.HWND {
     var desc: w32.DXGI_SWAP_CHAIN_DESC = undefined;
     const return_code = swap_chain.IDXGISwapChain_GetDesc(&desc);
     if (return_code != w32.S_OK) {
-        misc.errorContext().newFmt(error.DirectXError, "IDXGISwapChain.GetDesc returned: {}", .{return_code});
-        return error.DirectXError;
+        misc.errorContext().newFmt(error.Dx12Error, "IDXGISwapChain.GetDesc returned: {}", .{return_code});
+        return error.Dx12Error;
     }
     return desc.OutputWindow orelse error.NotFound;
 }
@@ -17,8 +17,8 @@ pub fn getDeviceFromSwapChain(swap_chain: *const w32.IDXGISwapChain) !(*const w3
     var device: *const w32.ID3D12Device = undefined;
     const return_code = swap_chain.IDXGIDeviceSubObject_GetDevice(w32.IID_ID3D12Device, @ptrCast(&device));
     if (return_code != w32.S_OK) {
-        misc.errorContext().newFmt(error.DirectXError, "IDXGISwapChain.GetDevice returned: {}", .{return_code});
-        return error.DirectXError;
+        misc.errorContext().newFmt(error.Dx12Error, "IDXGISwapChain.GetDevice returned: {}", .{return_code});
+        return error.Dx12Error;
     }
     return device;
 }
