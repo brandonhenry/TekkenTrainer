@@ -5,7 +5,7 @@ const misc = @import("../misc/root.zig");
 const dx12 = @import("root.zig");
 
 pub const Leftovers = struct {
-    descriptor_heap: *w32.ID3D12DescriptorHeap,
+    srv_descriptor_heap: *w32.ID3D12DescriptorHeap,
     command_allocator: *w32.ID3D12CommandAllocator,
     graphics_command_list: *w32.ID3D12GraphicsCommandList,
     test_allocation: if (builtin.is_test) *u8 else void,
@@ -13,24 +13,24 @@ pub const Leftovers = struct {
     const Self = @This();
 
     pub fn init(device: *const w32.ID3D12Device) !Self {
-        var descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
+        var srv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
         const heap_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
             .Type = .CBV_SRV_UAV,
-            .NumDescriptors = 2,
+            .NumDescriptors = 64,
             .Flags = .{ .SHADER_VISIBLE = 1 },
-            .NodeMask = 1,
-        }, w32.IID_ID3D12DescriptorHeap, @ptrCast(&descriptor_heap));
+            .NodeMask = 0,
+        }, w32.IID_ID3D12DescriptorHeap, @ptrCast(&srv_descriptor_heap));
         if (heap_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
                 "ID3D12Device.CreateDescriptorHeap returned: {}",
                 .{heap_return_code},
             );
-            misc.errorContext().append(error.Dx12Error, "Failed to create descriptor heap.");
+            misc.errorContext().append(error.Dx12Error, "Failed to create SRV descriptor heap.");
             return error.Dx12Error;
         }
         errdefer {
-            const return_code = descriptor_heap.IUnknown_Release();
+            const return_code = srv_descriptor_heap.IUnknown_Release();
             if (return_code != w32.S_OK) {
                 misc.errorContext().newFmt(
                     error.Dx12Error,
@@ -39,7 +39,7 @@ pub const Leftovers = struct {
                 );
                 misc.errorContext().append(
                     error.Dx12Error,
-                    "Failed release descriptor heap while recovering from error.",
+                    "Failed release SRV descriptor heap while recovering from error.",
                 );
                 misc.errorContext().logError();
             }
@@ -113,7 +113,7 @@ pub const Leftovers = struct {
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
 
         return .{
-            .descriptor_heap = descriptor_heap,
+            .srv_descriptor_heap = srv_descriptor_heap,
             .command_allocator = command_allocator,
             .graphics_command_list = graphics_command_list,
             .test_allocation = test_allocation,
@@ -149,7 +149,7 @@ pub const Leftovers = struct {
             misc.errorContext().logError();
         }
 
-        const heap_return_code = self.descriptor_heap.IUnknown_Release();
+        const heap_return_code = self.srv_descriptor_heap.IUnknown_Release();
         if (heap_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
@@ -158,7 +158,7 @@ pub const Leftovers = struct {
             );
             misc.errorContext().append(
                 error.Dx12Error,
-                "Failed release descriptor heap while de-initializing DX12 leftovers.",
+                "Failed release SRV descriptor heap while de-initializing DX12 leftovers.",
             );
             misc.errorContext().logError();
         }
@@ -174,10 +174,10 @@ pub const Leftovers = struct {
             self: *const w32.ID3D12DescriptorHeap,
             out: ?*w32.D3D12_CPU_DESCRIPTOR_HANDLE,
         ) callconv(@import("std").os.windows.WINAPI) void = @ptrCast(
-            self.descriptor_heap.vtable.GetCPUDescriptorHandleForHeapStart,
+            self.srv_descriptor_heap.vtable.GetCPUDescriptorHandleForHeapStart,
         );
         var handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE = undefined;
-        get(self.descriptor_heap, &handle);
+        get(self.srv_descriptor_heap, &handle);
         return handle;
     }
 
@@ -187,10 +187,10 @@ pub const Leftovers = struct {
             self: *const w32.ID3D12DescriptorHeap,
             out: ?*w32.D3D12_GPU_DESCRIPTOR_HANDLE,
         ) callconv(@import("std").os.windows.WINAPI) void = @ptrCast(
-            self.descriptor_heap.vtable.GetGPUDescriptorHandleForHeapStart,
+            self.srv_descriptor_heap.vtable.GetGPUDescriptorHandleForHeapStart,
         );
         var handle: w32.D3D12_GPU_DESCRIPTOR_HANDLE = undefined;
-        get(self.descriptor_heap, &handle);
+        get(self.srv_descriptor_heap, &handle);
         return handle;
     }
 };

@@ -40,7 +40,7 @@ pub const EventBuss = struct {
                 .num_frames_in_flight = 2,
                 .rtv_format = @intFromEnum(w32.DXGI_FORMAT_R8G8B8A8_UNORM),
                 .dsv_format = @intFromEnum(w32.DXGI_FORMAT_UNKNOWN),
-                .cbv_srv_heap = leftovers.descriptor_heap,
+                .cbv_srv_heap = leftovers.srv_descriptor_heap,
                 .font_srv_cpu_desc_handle = @bitCast(leftovers.getCpuDescriptorHandle()),
                 .font_srv_gpu_desc_handle = @bitCast(leftovers.getGpuDescriptorHandle()),
             });
