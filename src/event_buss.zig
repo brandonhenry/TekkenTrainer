@@ -102,32 +102,98 @@ pub const EventBuss = struct {
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) void {
-        _ = self;
         _ = window;
         _ = device;
-        _ = command_queue;
-        _ = swap_chain;
 
-        // const dx12_context = self.dx12_context orelse return;
+        std.log.info("1", .{});
+        const dx12_context = self.dx12_context orelse return;
 
-        // const swap_chain_2: *const w32.IDXGISwapChain2 = @ptrCast(swap_chain);
-        // var frame_buffer_width: u32 = undefined;
-        // var frame_buffer_height: u32 = undefined;
-        // const size_return_code = swap_chain_2.IDXGISwapChain2_GetSourceSize(&frame_buffer_width, &frame_buffer_height);
-        // if (size_return_code != w32.S_OK) {
-        //     misc.errorContext().newFmt(
-        //         error.Dx12Error,
-        //         "IDXGISwapChain2.GetSourceSize returned: {}",
-        //         .{size_return_code},
-        //     );
-        //     misc.errorContext().append(error.Dx12Error, "Failed to get frame buffer width and height.");
-        //     misc.errorContext().logError();
-        // }
+        std.log.info("2", .{});
+        const swap_chain_3: *const w32.IDXGISwapChain3 = @ptrCast(swap_chain);
+        var frame_buffer_width: u32 = undefined;
+        var frame_buffer_height: u32 = undefined;
+        const size_return_code = swap_chain_3.IDXGISwapChain2_GetSourceSize(&frame_buffer_width, &frame_buffer_height);
+        if (size_return_code != w32.S_OK) {
+            misc.errorContext().newFmt(
+                error.Dx12Error,
+                "IDXGISwapChain2.GetSourceSize returned: {}",
+                .{size_return_code},
+            );
+            misc.errorContext().append(error.Dx12Error, "Failed to get frame buffer width and height.");
+            misc.errorContext().logError();
+        }
 
-        // gui.backend.newFrame(frame_buffer_width, frame_buffer_height);
+        std.log.info("3", .{});
+        gui.backend.newFrame(frame_buffer_width, frame_buffer_height);
 
-        // gui.text("Hello World!", .{});
+        std.log.info("4", .{});
+        gui.text("Hello World!", .{});
 
-        // gui.backend.draw(dx12_context.graphics_command_list);
+        std.log.info("5", .{});
+        const frame_index = swap_chain_3.IDXGISwapChain3_GetCurrentBackBufferIndex();
+        if (frame_index >= buffer_count) {
+            std.log.err("IDXGISwapChain3.GetCurrentBackBufferIndex returned: {}", .{frame_index});
+            return;
+        }
+        const frame_context = dx12_context.frame_contexts[frame_index];
+
+        std.log.info("6", .{});
+        var return_code = w32.S_OK;
+        var buffer: *w32.ID3D12Resource = undefined;
+        return_code = swap_chain.IDXGISwapChain_GetBuffer(frame_index, w32.IID_ID3D12Resource, @ptrCast(&buffer));
+        if (return_code != w32.S_OK) {
+            std.log.err("IDXGISwapChain_GetBuffer returned: {}", .{return_code});
+        }
+
+        std.log.info("7", .{});
+        return_code = frame_context.command_allocator.ID3D12CommandAllocator_Reset();
+        if (return_code != w32.S_OK) {
+            std.log.err("ID3D12CommandAllocator_Reset returned: {}", .{return_code});
+        }
+        return_code = frame_context.command_list.ID3D12GraphicsCommandList_Reset(frame_context.command_allocator, null);
+        if (return_code != w32.S_OK) {
+            std.log.err("ID3D12GraphicsCommandList_Reset returned: {}", .{return_code});
+        }
+        frame_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
+            .Type = .TRANSITION,
+            .Flags = .{},
+            .Anonymous = .{ .Transition = .{
+                .pResource = buffer,
+                .Subresource = w32.D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                .StateBefore = w32.D3D12_RESOURCE_STATE_PRESENT,
+                .StateAfter = w32.D3D12_RESOURCE_STATE_RENDER_TARGET,
+            } },
+        }});
+        frame_context.command_list.ID3D12GraphicsCommandList_OMSetRenderTargets(
+            1,
+            &frame_context.rtv_descriptor_handle,
+            0,
+            null,
+        );
+        var heaps = [1](?*w32.ID3D12DescriptorHeap){dx12_context.rtv_descriptor_heap};
+        frame_context.command_list.ID3D12GraphicsCommandList_SetDescriptorHeaps(1, &heaps);
+
+        std.log.info("8", .{});
+        gui.backend.draw(frame_context.command_list);
+
+        std.log.info("9", .{});
+        frame_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
+            .Type = .TRANSITION,
+            .Flags = .{},
+            .Anonymous = .{ .Transition = .{
+                .pResource = buffer,
+                .Subresource = w32.D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                .StateBefore = w32.D3D12_RESOURCE_STATE_RENDER_TARGET,
+                .StateAfter = w32.D3D12_RESOURCE_STATE_PRESENT,
+            } },
+        }});
+        return_code = frame_context.command_list.ID3D12GraphicsCommandList_Close();
+        if (return_code != w32.S_OK) {
+            std.log.err("ID3D12GraphicsCommandList_Close returned: {}", .{return_code});
+        }
+
+        std.log.info("10", .{});
+        var lists = [1](?*w32.ID3D12CommandList){@ptrCast(frame_context.command_list)};
+        command_queue.ID3D12CommandQueue_ExecuteCommandLists(1, &lists);
     }
 };
