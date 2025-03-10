@@ -25,6 +25,10 @@ pub fn MainHooks(
         var is_last_present_called = std.atomic.Value(bool).init(false);
 
         pub fn init() !void {
+            g_command_queue = null;
+            is_first_present_called = false;
+            is_last_present_called.store(false, .seq_cst);
+
             std.log.debug("Finding DX12 functions...", .{});
             const dx12_functions = dx12.Functions.find() catch |err| {
                 misc.errorContext().append(err, "Failed to find DX12 functions.");
@@ -79,10 +83,6 @@ pub fn MainHooks(
                 return err;
             };
             std.log.info("Present hook enabled.", .{});
-
-            g_command_queue = null;
-            is_first_present_called = false;
-            is_last_present_called.store(false, .seq_cst);
         }
 
         pub fn deinit() void {
