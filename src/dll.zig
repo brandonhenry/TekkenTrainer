@@ -19,6 +19,7 @@ pub const std_options = .{
 };
 const main_hooks = hooking.MainHooks(onFirstPresent, onNormalPresent, onLastPresent);
 
+var window_procedure: ?os.WindowProcedure = null;
 var event_buss: ?EventBuss = null;
 
 pub fn DllMain(
@@ -127,6 +128,15 @@ fn onFirstPresent(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
+    std.log.debug("Initializing window procedure...", .{});
+    if (os.WindowProcedure.init(window, windowProcedure)) |procedure| {
+        std.log.info("Window procedure initialized.", .{});
+        window_procedure = procedure;
+    } else |err| {
+        misc.errorContext().append(err, "Failed to initialize window procedure.");
+        misc.errorContext().logError();
+    }
+
     std.log.info("Initializing event buss...", .{});
     event_buss = EventBuss.init(window, device, command_queue, swap_chain);
     std.log.info("Event buss initialized.", .{});
@@ -157,4 +167,32 @@ fn onLastPresent(
     } else {
         std.log.info("Nothing to de-initialize.", .{});
     }
+
+    std.log.debug("De-initializing window procedure...", .{});
+    if (window_procedure) |*procedure| {
+        if (procedure.deinit()) {
+            window_procedure = null;
+            std.log.info("Window procedure de-initialized.", .{});
+        } else |err| {
+            misc.errorContext().append(err, "Failed to de-initialize window procedure.");
+            misc.errorContext().logError();
+        }
+    } else {
+        std.log.info("Nothing to de-initialize.", .{});
+    }
+}
+
+fn windowProcedure(
+    window: w32.HWND,
+    u_msg: u32,
+    w_param: w32.WPARAM,
+    l_param: w32.LPARAM,
+) callconv(std.os.windows.WINAPI) w32.LRESULT {
+    if (event_buss) |*buss| {
+        const result = buss.processWindowMessage(window, u_msg, w_param, l_param);
+        if (result) |r| {
+            return r;
+        }
+    }
+    return w32.CallWindowProcW(window_procedure.?.original, window, u_msg, w_param, l_param);
 }

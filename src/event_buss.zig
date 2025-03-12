@@ -76,6 +76,7 @@ pub const EventBuss = struct {
         if (self.is_gui_initialized) {
             gui.backend.deinit();
             gui.deinit();
+            self.is_gui_initialized = false;
             std.log.info("GUI de-initialized.", .{});
         } else {
             std.log.debug("Nothing to de-initialize.", .{});
@@ -84,6 +85,7 @@ pub const EventBuss = struct {
         std.log.debug("De-initializing DX12 context...", .{});
         if (self.dx12_context) |context| {
             context.deinit();
+            self.dx12_context = null;
             std.log.info("DX12 context de-initialized.", .{});
         } else {
             std.log.debug("Nothing to de-initialize.", .{});
@@ -195,5 +197,22 @@ pub const EventBuss = struct {
         std.log.info("10", .{});
         var lists = [1](?*w32.ID3D12CommandList){@ptrCast(frame_context.command_list)};
         command_queue.ID3D12CommandQueue_ExecuteCommandLists(1, &lists);
+    }
+
+    pub fn processWindowMessage(
+        self: *Self,
+        window: w32.HWND,
+        u_msg: u32,
+        w_param: w32.WPARAM,
+        l_param: w32.LPARAM,
+    ) ?w32.LRESULT {
+        _ = window;
+        _ = u_msg;
+        _ = w_param;
+        _ = l_param;
+        if (self.is_gui_initialized) {
+            // TODO Call ImGui_ImplWin32_WndProcHandler somehow.
+        }
+        return null;
     }
 };
