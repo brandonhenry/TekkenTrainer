@@ -206,13 +206,18 @@ pub const EventBuss = struct {
         w_param: w32.WPARAM,
         l_param: w32.LPARAM,
     ) ?w32.LRESULT {
-        _ = window;
-        _ = u_msg;
-        _ = w_param;
-        _ = l_param;
         if (self.is_gui_initialized) {
-            // TODO Call ImGui_ImplWin32_WndProcHandler somehow.
+            _ = ImGui_ImplWin32_WndProcHandler.?(window, u_msg, w_param, l_param);
         }
         return null;
     }
 };
+
+// Bypass for issue: https://github.com/zig-gamedev/zgui/issues/23
+const ImGui_ImplWin32_WndProcHandler = @extern(
+    *const fn (hwnd: *const anyopaque, u_msg: u32, w_param: usize, l_param: isize) callconv(.C) isize,
+    .{
+        .name = "_Z30ImGui_ImplWin32_WndProcHandlerP6HWND__jyx",
+        .linkage = .weak,
+    },
+);
