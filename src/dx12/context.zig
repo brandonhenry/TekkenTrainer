@@ -33,17 +33,17 @@ pub fn Context(comptime buffer_count: usize) type {
             errdefer _ = rtv_descriptor_heap.IUnknown_Release();
 
             var srv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
-            const heap_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
+            const srv_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
                 .Type = .CBV_SRV_UAV,
                 .NumDescriptors = buffer_count,
                 .Flags = .{ .SHADER_VISIBLE = 1 },
                 .NodeMask = 0,
             }, w32.IID_ID3D12DescriptorHeap, @ptrCast(&srv_descriptor_heap));
-            if (heap_return_code != w32.S_OK) {
+            if (srv_return_code != w32.S_OK) {
                 misc.errorContext().newFmt(
                     error.Dx12Error,
                     "ID3D12Device.CreateDescriptorHeap returned: {}",
-                    .{heap_return_code},
+                    .{srv_return_code},
                 );
                 misc.errorContext().append(error.Dx12Error, "Failed to create SRV descriptor heap.");
                 return error.Dx12Error;

@@ -4,6 +4,7 @@ test {
     _ = @import("injector.zig");
 
     _ = @import("dx12/context.zig");
+    _ = @import("dx12/descriptor_heap_allocator.zig");
     _ = @import("dx12/functions.zig");
     _ = @import("dx12/misc.zig");
     _ = @import("dx12/testing_context.zig");

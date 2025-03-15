@@ -1,5 +1,6 @@
-pub const Functions = @import("functions.zig").Functions;
 pub const Context = @import("context.zig").Context;
+pub const DescriptorHeapAllocator = @import("descriptor_heap_allocator.zig").DescriptorHeapAllocator;
+pub const Functions = @import("functions.zig").Functions;
 pub const FrameContext = @import("context.zig").FrameContext;
 pub const getWindowFromSwapChain = @import("misc.zig").getWindowFromSwapChain;
 pub const getDeviceFromSwapChain = @import("misc.zig").getDeviceFromSwapChain;
