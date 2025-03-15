@@ -4,10 +4,11 @@ const w32 = @import("win32").everything;
 const misc = @import("../misc/root.zig");
 const dx12 = @import("root.zig");
 
-pub fn Context(comptime buffer_count: usize) type {
+pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type {
     return struct {
         rtv_descriptor_heap: *w32.ID3D12DescriptorHeap,
         srv_descriptor_heap: *w32.ID3D12DescriptorHeap,
+        srv_allocator: dx12.DescriptorHeapAllocator(svr_heap_size),
         frame_contexts: [buffer_count]FrameContext,
         test_allocation: if (builtin.is_test) *u8 else void,
 
@@ -35,7 +36,7 @@ pub fn Context(comptime buffer_count: usize) type {
             var srv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
             const srv_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
                 .Type = .CBV_SRV_UAV,
-                .NumDescriptors = buffer_count,
+                .NumDescriptors = svr_heap_size,
                 .Flags = .{ .SHADER_VISIBLE = 1 },
                 .NodeMask = 0,
             }, w32.IID_ID3D12DescriptorHeap, @ptrCast(&srv_descriptor_heap));
@@ -49,6 +50,12 @@ pub fn Context(comptime buffer_count: usize) type {
                 return error.Dx12Error;
             }
             errdefer _ = srv_descriptor_heap.IUnknown_Release();
+
+            const srv_allocator = dx12.DescriptorHeapAllocator(svr_heap_size){
+                .cpu_start = dx12.getCpuDescriptorHandleForHeapStart(srv_descriptor_heap),
+                .gpu_start = dx12.getGpuDescriptorHandleForHeapStart(srv_descriptor_heap),
+                .increment = device.ID3D12Device_GetDescriptorHandleIncrementSize(.CBV_SRV_UAV),
+            };
 
             const rtv_heap_start = dx12.getCpuDescriptorHandleForHeapStart(rtv_descriptor_heap);
             const rtv_increment_size = device.ID3D12Device_GetDescriptorHandleIncrementSize(.RTV);
@@ -70,6 +77,7 @@ pub fn Context(comptime buffer_count: usize) type {
             return .{
                 .rtv_descriptor_heap = rtv_descriptor_heap,
                 .srv_descriptor_heap = srv_descriptor_heap,
+                .srv_allocator = srv_allocator,
                 .frame_contexts = frame_contexts,
                 .test_allocation = test_allocation,
             };
@@ -161,6 +169,6 @@ const testing = std.testing;
 test "init and deinit should succeed" {
     const testing_context = try dx12.TestingContext.init();
     defer testing_context.deinit();
-    const context = try Context(3).init(testing_context.device);
+    const context = try Context(3, 64).init(testing_context.device);
     defer context.deinit();
 }

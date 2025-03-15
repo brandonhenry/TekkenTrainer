@@ -6,11 +6,12 @@ const misc = @import("misc/root.zig");
 
 pub const EventBuss = struct {
     gpa: std.heap.GeneralPurposeAllocator(.{}),
-    dx12_context: ?dx12.Context(buffer_count),
+    dx12_context: ?dx12.Context(buffer_count, srv_heap_size),
     is_gui_initialized: bool,
 
     const Self = @This();
     const buffer_count = 3;
+    const srv_heap_size = 64;
 
     pub fn init(
         window: w32.HWND,
@@ -18,24 +19,24 @@ pub const EventBuss = struct {
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) Self {
+        _ = window;
         _ = swap_chain;
 
         const gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
         std.log.debug("Initializing DX12 context...", .{});
-        const dx12_context = if (dx12.Context(buffer_count).init(device)) |leftovers| block: {
+        var dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(device)) |context| block: {
             std.log.info("DX12 context initialized.", .{});
-            break :block leftovers;
+            break :block context;
         } else |err| block: {
             misc.errorContext().append(err, "Failed to initialize DX12 context.");
             misc.errorContext().logError();
             break :block null;
         };
 
-        const is_gui_initialized = if (dx12_context) |context| block: {
+        const is_gui_initialized = if (dx12_context) |*context| block: {
             std.log.debug("Initializing GUI...", .{});
             _ = gui.imgui.igCreateContext(null);
-            _ = window;
             _ = gui.dx12.ImGui_ImplDX12_Init(&.{
                 .device = device,
                 .command_queue = command_queue,
@@ -43,6 +44,33 @@ pub const EventBuss = struct {
                 .rtv_format = w32.DXGI_FORMAT_R8G8B8A8_UNORM,
                 .dsv_format = w32.DXGI_FORMAT_UNKNOWN,
                 .cbv_srv_heap = context.srv_descriptor_heap,
+                .user_data = &context.srv_allocator,
+                .srv_desc_alloc_fn = struct {
+                    fn call(
+                        info: *gui.dx12.ImGui_ImplDX12_InitInfo,
+                        cpu_handle: *w32.D3D12_CPU_DESCRIPTOR_HANDLE,
+                        gpu_handle: *w32.D3D12_GPU_DESCRIPTOR_HANDLE,
+                    ) callconv(.C) void {
+                        const allocator: *dx12.DescriptorHeapAllocator(srv_heap_size) = @alignCast(@ptrCast(info.user_data));
+                        allocator.alloc(cpu_handle, gpu_handle) catch |err| {
+                            misc.errorContext().append(err, "Failed to allocate memory on SRV heap.");
+                            misc.errorContext().logError();
+                        };
+                    }
+                }.call,
+                .srv_desc_free_fn = struct {
+                    fn call(
+                        info: *gui.dx12.ImGui_ImplDX12_InitInfo,
+                        cpu_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE,
+                        gpu_handle: w32.D3D12_GPU_DESCRIPTOR_HANDLE,
+                    ) callconv(.C) void {
+                        const allocator: *dx12.DescriptorHeapAllocator(srv_heap_size) = @alignCast(@ptrCast(info.user_data));
+                        allocator.free(cpu_handle, gpu_handle) catch |err| {
+                            misc.errorContext().append(err, "Failed to free memory on SRV heap.");
+                            misc.errorContext().logError();
+                        };
+                    }
+                }.call,
                 .font_srv_cpu_desc_handle = dx12.getCpuDescriptorHandleForHeapStart(context.srv_descriptor_heap),
                 .font_srv_gpu_desc_handle = dx12.getGpuDescriptorHandleForHeapStart(context.srv_descriptor_heap),
             });
@@ -119,10 +147,15 @@ pub const EventBuss = struct {
             misc.errorContext().append(error.Dx12Error, "Failed to get frame buffer width and height.");
             misc.errorContext().logError();
         }
+        gui.imgui.igGetIO().*.DisplaySize.x = @floatFromInt(frame_buffer_width);
+        gui.imgui.igGetIO().*.DisplaySize.y = @floatFromInt(frame_buffer_height);
+        gui.imgui.igGetIO().*.MouseDrawCursor = true;
 
         gui.dx12.ImGui_ImplDX12_NewFrame();
         gui.imgui.igNewFrame();
-        gui.imgui.igText("Hello World!", .{});
+
+        gui.imgui.igShowDemoWindow(null);
+
         gui.imgui.igEndFrame();
 
         const frame_index = swap_chain_3.IDXGISwapChain3_GetCurrentBackBufferIndex();

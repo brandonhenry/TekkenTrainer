@@ -7,7 +7,7 @@ pub const ImGui_ImplDX12_InitInfo = extern struct {
     num_frames_in_flight: u32,
     rtv_format: w32.DXGI_FORMAT,
     dsv_format: w32.DXGI_FORMAT,
-    user_data: ?*const anyopaque = null,
+    user_data: ?*anyopaque = null,
     cbv_srv_heap: *const w32.ID3D12DescriptorHeap,
     srv_desc_alloc_fn: ?*const fn (
         *ImGui_ImplDX12_InitInfo,
