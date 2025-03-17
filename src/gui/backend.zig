@@ -30,3 +30,13 @@ pub extern fn ImGui_ImplDX12_RenderDrawData(
     draw_data: *const imgui.ImDrawData,
     graphics_command_list: *const w32.ID3D12GraphicsCommandList,
 ) void;
+
+pub extern fn ImGui_ImplWin32_Init(window: w32.HWND) bool;
+pub extern fn ImGui_ImplWin32_Shutdown() void;
+pub extern fn ImGui_ImplWin32_NewFrame() void;
+pub extern fn ImGui_ImplWin32_WndProcHandler(
+    window: w32.HWND,
+    u_msg: u32,
+    w_param: w32.WPARAM,
+    l_param: w32.LPARAM,
+) w32.LRESULT;

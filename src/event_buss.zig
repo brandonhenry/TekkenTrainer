@@ -1,6 +1,7 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
-const gui = @import("gui/root.zig");
+const imgui = @import("imgui");
+const imgui_backend = @import("gui/root.zig").backend;
 const dx12 = @import("dx12/root.zig");
 const misc = @import("misc/root.zig");
 
@@ -19,7 +20,6 @@ pub const EventBuss = struct {
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) Self {
-        _ = window;
         _ = swap_chain;
 
         const gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -36,8 +36,10 @@ pub const EventBuss = struct {
 
         const is_gui_initialized = if (dx12_context) |*context| block: {
             std.log.debug("Initializing GUI...", .{});
-            _ = gui.imgui.igCreateContext(null);
-            _ = gui.dx12.ImGui_ImplDX12_Init(&.{
+            _ = imgui.igCreateContext(null);
+            imgui.igStyleColorsDark(null);
+            _ = imgui_backend.ImGui_ImplWin32_Init(window);
+            _ = imgui_backend.ImGui_ImplDX12_Init(&.{
                 .device = device,
                 .command_queue = command_queue,
                 .num_frames_in_flight = buffer_count,
@@ -47,7 +49,7 @@ pub const EventBuss = struct {
                 .user_data = &context.srv_allocator,
                 .srv_desc_alloc_fn = struct {
                     fn call(
-                        info: *gui.dx12.ImGui_ImplDX12_InitInfo,
+                        info: *imgui_backend.ImGui_ImplDX12_InitInfo,
                         cpu_handle: *w32.D3D12_CPU_DESCRIPTOR_HANDLE,
                         gpu_handle: *w32.D3D12_GPU_DESCRIPTOR_HANDLE,
                     ) callconv(.C) void {
@@ -60,7 +62,7 @@ pub const EventBuss = struct {
                 }.call,
                 .srv_desc_free_fn = struct {
                     fn call(
-                        info: *gui.dx12.ImGui_ImplDX12_InitInfo,
+                        info: *imgui_backend.ImGui_ImplDX12_InitInfo,
                         cpu_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE,
                         gpu_handle: w32.D3D12_GPU_DESCRIPTOR_HANDLE,
                     ) callconv(.C) void {
@@ -99,8 +101,9 @@ pub const EventBuss = struct {
 
         std.log.debug("De-initializing GUI...", .{});
         if (self.is_gui_initialized) {
-            gui.dx12.ImGui_ImplDX12_Shutdown();
-            gui.imgui.igDestroyContext(null);
+            imgui_backend.ImGui_ImplDX12_Shutdown();
+            imgui_backend.ImGui_ImplWin32_Shutdown();
+            imgui.igDestroyContext(null);
             self.is_gui_initialized = false;
             std.log.info("GUI de-initialized.", .{});
         } else {
@@ -147,16 +150,17 @@ pub const EventBuss = struct {
             misc.errorContext().append(error.Dx12Error, "Failed to get frame buffer width and height.");
             misc.errorContext().logError();
         }
-        gui.imgui.igGetIO().*.DisplaySize.x = @floatFromInt(frame_buffer_width);
-        gui.imgui.igGetIO().*.DisplaySize.y = @floatFromInt(frame_buffer_height);
-        gui.imgui.igGetIO().*.MouseDrawCursor = true;
+        imgui.igGetIO().*.DisplaySize.x = @floatFromInt(frame_buffer_width);
+        imgui.igGetIO().*.DisplaySize.y = @floatFromInt(frame_buffer_height);
+        imgui.igGetIO().*.MouseDrawCursor = true;
 
-        gui.dx12.ImGui_ImplDX12_NewFrame();
-        gui.imgui.igNewFrame();
+        imgui_backend.ImGui_ImplDX12_NewFrame();
+        imgui_backend.ImGui_ImplWin32_NewFrame();
+        imgui.igNewFrame();
 
-        gui.imgui.igShowDemoWindow(null);
+        imgui.igShowDemoWindow(null);
 
-        gui.imgui.igEndFrame();
+        imgui.igEndFrame();
 
         const frame_index = swap_chain_3.IDXGISwapChain3_GetCurrentBackBufferIndex();
         if (frame_index >= buffer_count) {
@@ -199,8 +203,8 @@ pub const EventBuss = struct {
         var heaps = [1](?*w32.ID3D12DescriptorHeap){dx12_context.rtv_descriptor_heap};
         frame_context.command_list.ID3D12GraphicsCommandList_SetDescriptorHeaps(1, &heaps);
 
-        gui.imgui.igRender();
-        gui.dx12.ImGui_ImplDX12_RenderDrawData(gui.imgui.igGetDrawData(), frame_context.command_list);
+        imgui.igRender();
+        imgui_backend.ImGui_ImplDX12_RenderDrawData(imgui.igGetDrawData(), frame_context.command_list);
 
         frame_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
             .Type = .TRANSITION,
@@ -229,21 +233,11 @@ pub const EventBuss = struct {
         l_param: w32.LPARAM,
     ) ?w32.LRESULT {
         if (self.is_gui_initialized) {
-            _ = window;
-            _ = u_msg;
-            _ = w_param;
-            _ = l_param;
-            // _ = ImGui_ImplWin32_WndProcHandler.?(window, u_msg, w_param, l_param);
+            const result = imgui_backend.ImGui_ImplWin32_WndProcHandler(window, u_msg, w_param, l_param);
+            if (result != 0) {
+                return result;
+            }
         }
         return null;
     }
 };
-
-// Bypass for issue: https://github.com/zig-gamedev/zgui/issues/23
-// const ImGui_ImplWin32_WndProcHandler = @extern(
-//     *const fn (hwnd: *const anyopaque, u_msg: u32, w_param: usize, l_param: isize) callconv(.C) isize,
-//     .{
-//         .name = "_Z30ImGui_ImplWin32_WndProcHandlerP6HWND__jyx",
-//         .linkage = .weak,
-//     },
-// );

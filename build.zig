@@ -85,9 +85,16 @@ pub fn build(b: *std.Build) void {
             "./imgui/imgui_tables.cpp",
             "./imgui/imgui_widgets.cpp",
             "./imgui/backends/imgui_impl_dx12.cpp",
+            "./imgui/backends/imgui_impl_win32.cpp",
         },
     });
-    imgui_lib.linkSystemLibrary("d3dcompiler_47");
+    imgui_lib.linkSystemLibrary("d3dcompiler_47"); // Required by: imgui_impl_dx12.cpp
+    imgui_lib.linkSystemLibrary("dwmapi"); // Required by: imgui_impl_win32.cpp
+    switch (target.result.abi) { // Required by: imgui_impl_win32.cpp
+        .msvc => imgui_lib.linkSystemLibrary("Gdi32"),
+        .gnu => imgui_lib.linkSystemLibrary("gdi32"),
+        else => {},
+    }
     imgui_lib.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
     imgui_lib.defineCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
     imgui_lib.linkLibC();
