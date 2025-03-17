@@ -20,12 +20,10 @@ pub const EventBuss = struct {
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) Self {
-        _ = swap_chain;
-
         const gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
         std.log.debug("Initializing DX12 context...", .{});
-        var dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(device)) |context| block: {
+        var dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(device, swap_chain)) |context| block: {
             std.log.info("DX12 context initialized.", .{});
             break :block context;
         } else |err| block: {
@@ -37,6 +35,7 @@ pub const EventBuss = struct {
         const is_gui_initialized = if (dx12_context) |*context| block: {
             std.log.debug("Initializing GUI...", .{});
             _ = imgui.igCreateContext(null);
+            imgui.igGetIO().*.MouseDrawCursor = true;
             imgui.igStyleColorsDark(null);
             _ = imgui_backend.ImGui_ImplWin32_Init(window);
             _ = imgui_backend.ImGui_ImplDX12_Init(&.{
@@ -76,6 +75,7 @@ pub const EventBuss = struct {
                 .font_srv_cpu_desc_handle = dx12.getCpuDescriptorHandleForHeapStart(context.srv_descriptor_heap),
                 .font_srv_gpu_desc_handle = dx12.getGpuDescriptorHandleForHeapStart(context.srv_descriptor_heap),
             });
+            _ = imgui_backend.ImGui_ImplDX12_CreateDeviceObjects();
             std.log.info("GUI initialized.", .{});
             break :block true;
         } else false;
@@ -136,28 +136,13 @@ pub const EventBuss = struct {
         _ = device;
 
         const dx12_context = self.dx12_context orelse return;
-
         const swap_chain_3: *const w32.IDXGISwapChain3 = @ptrCast(swap_chain);
-        var frame_buffer_width: u32 = undefined;
-        var frame_buffer_height: u32 = undefined;
-        const size_return_code = swap_chain_3.IDXGISwapChain2_GetSourceSize(&frame_buffer_width, &frame_buffer_height);
-        if (size_return_code != w32.S_OK) {
-            misc.errorContext().newFmt(
-                error.Dx12Error,
-                "IDXGISwapChain2.GetSourceSize returned: {}",
-                .{size_return_code},
-            );
-            misc.errorContext().append(error.Dx12Error, "Failed to get frame buffer width and height.");
-            misc.errorContext().logError();
-        }
-        imgui.igGetIO().*.DisplaySize.x = @floatFromInt(frame_buffer_width);
-        imgui.igGetIO().*.DisplaySize.y = @floatFromInt(frame_buffer_height);
-        imgui.igGetIO().*.MouseDrawCursor = true;
 
         imgui_backend.ImGui_ImplDX12_NewFrame();
         imgui_backend.ImGui_ImplWin32_NewFrame();
         imgui.igNewFrame();
 
+        imgui.igGetIO().*.MouseDrawCursor = true;
         imgui.igShowDemoWindow(null);
 
         imgui.igEndFrame();
@@ -167,14 +152,9 @@ pub const EventBuss = struct {
             std.log.err("IDXGISwapChain3.GetCurrentBackBufferIndex returned: {}", .{frame_index});
             return;
         }
-        const frame_context = dx12_context.frame_contexts[frame_index];
+        const frame_context = &dx12_context.frame_contexts[frame_index];
 
         var return_code = w32.S_OK;
-        var buffer: *w32.ID3D12Resource = undefined;
-        return_code = swap_chain.IDXGISwapChain_GetBuffer(frame_index, w32.IID_ID3D12Resource, @ptrCast(&buffer));
-        if (return_code != w32.S_OK) {
-            std.log.err("IDXGISwapChain_GetBuffer returned: {}", .{return_code});
-        }
 
         return_code = frame_context.command_allocator.ID3D12CommandAllocator_Reset();
         if (return_code != w32.S_OK) {
@@ -188,18 +168,13 @@ pub const EventBuss = struct {
             .Type = .TRANSITION,
             .Flags = .{},
             .Anonymous = .{ .Transition = .{
-                .pResource = buffer,
+                .pResource = frame_context.buffer,
                 .Subresource = w32.D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                 .StateBefore = w32.D3D12_RESOURCE_STATE_PRESENT,
                 .StateAfter = w32.D3D12_RESOURCE_STATE_RENDER_TARGET,
             } },
         }});
-        frame_context.command_list.ID3D12GraphicsCommandList_OMSetRenderTargets(
-            1,
-            &frame_context.rtv_descriptor_handle,
-            0,
-            null,
-        );
+        frame_context.command_list.ID3D12GraphicsCommandList_OMSetRenderTargets(1, &frame_context.rtv_descriptor_handle, 0, null);
         var heaps = [1](?*w32.ID3D12DescriptorHeap){dx12_context.rtv_descriptor_heap};
         frame_context.command_list.ID3D12GraphicsCommandList_SetDescriptorHeaps(1, &heaps);
 
@@ -210,7 +185,7 @@ pub const EventBuss = struct {
             .Type = .TRANSITION,
             .Flags = .{},
             .Anonymous = .{ .Transition = .{
-                .pResource = buffer,
+                .pResource = frame_context.buffer,
                 .Subresource = w32.D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                 .StateBefore = w32.D3D12_RESOURCE_STATE_RENDER_TARGET,
                 .StateAfter = w32.D3D12_RESOURCE_STATE_PRESENT,

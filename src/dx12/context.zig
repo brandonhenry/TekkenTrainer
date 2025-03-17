@@ -14,7 +14,7 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
 
         const Self = @This();
 
-        pub fn init(device: *const w32.ID3D12Device) !Self {
+        pub fn init(device: *const w32.ID3D12Device, swap_chain: *const w32.IDXGISwapChain) !Self {
             var rtv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
             const rtv_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
                 .Type = .RTV,
@@ -57,15 +57,9 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 .increment = device.ID3D12Device_GetDescriptorHandleIncrementSize(.CBV_SRV_UAV),
             };
 
-            const rtv_heap_start = dx12.getCpuDescriptorHandleForHeapStart(rtv_descriptor_heap);
-            const rtv_increment_size = device.ID3D12Device_GetDescriptorHandleIncrementSize(.RTV);
-
             var frame_contexts: [buffer_count]FrameContext = undefined;
             inline for (0..frame_contexts.len) |index| {
-                const handle = w32.D3D12_CPU_DESCRIPTOR_HANDLE{
-                    .ptr = rtv_heap_start.ptr + index * rtv_increment_size,
-                };
-                frame_contexts[index] = FrameContext.init(device, handle) catch |err| {
+                frame_contexts[index] = FrameContext.init(device, swap_chain, rtv_descriptor_heap, index) catch |err| {
                     misc.errorContext().appendFmt(err, "Failed to create frame context with index: {}", .{index});
                     return err;
                 };
@@ -101,12 +95,18 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
 pub const FrameContext = struct {
     command_allocator: *w32.ID3D12CommandAllocator,
     command_list: *w32.ID3D12GraphicsCommandList,
+    buffer: *w32.ID3D12Resource,
     rtv_descriptor_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE,
     test_allocation: if (builtin.is_test) *u8 else void,
 
     const Self = @This();
 
-    pub fn init(device: *const w32.ID3D12Device, rtv_descriptor_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE) !Self {
+    pub fn init(
+        device: *const w32.ID3D12Device,
+        swap_chain: *const w32.IDXGISwapChain,
+        rtv_descriptor_heap: *w32.ID3D12DescriptorHeap,
+        index: u32,
+    ) !Self {
         var command_allocator: *w32.ID3D12CommandAllocator = undefined;
         const allocator_return_code = device.ID3D12Device_CreateCommandAllocator(
             .DIRECT,
@@ -144,17 +144,43 @@ pub const FrameContext = struct {
         }
         errdefer _ = command_list.IUnknown_Release();
 
+        var buffer: *w32.ID3D12Resource = undefined;
+        const buffer_return_code = swap_chain.IDXGISwapChain_GetBuffer(
+            index,
+            w32.IID_ID3D12Resource,
+            @ptrCast(&buffer),
+        );
+        if (buffer_return_code != w32.S_OK) {
+            misc.errorContext().newFmt(
+                error.Dx12Error,
+                "IDXGISwapChain.GetBuffer returned: {}",
+                .{buffer_return_code},
+            );
+            misc.errorContext().append(error.Dx12Error, "Failed to get frame context buffer.");
+            return error.Dx12Error;
+        }
+        errdefer _ = buffer.IUnknown_Release();
+
+        const rtv_heap_start = dx12.getCpuDescriptorHandleForHeapStart(rtv_descriptor_heap);
+        const rtv_increment_size = device.ID3D12Device_GetDescriptorHandleIncrementSize(.RTV);
+        const rtv_descriptor_handle = w32.D3D12_CPU_DESCRIPTOR_HANDLE{
+            .ptr = rtv_heap_start.ptr + index * rtv_increment_size,
+        };
+        device.ID3D12Device_CreateRenderTargetView(buffer, null, rtv_descriptor_handle);
+
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
 
         return .{
             .command_allocator = command_allocator,
             .command_list = command_list,
             .rtv_descriptor_handle = rtv_descriptor_handle,
+            .buffer = buffer,
             .test_allocation = test_allocation,
         };
     }
 
     pub fn deinit(self: *const Self) void {
+        _ = self.buffer.IUnknown_Release();
         _ = self.command_list.IUnknown_Release();
         _ = self.command_allocator.IUnknown_Release();
 
@@ -169,6 +195,6 @@ const testing = std.testing;
 test "init and deinit should succeed" {
     const testing_context = try dx12.TestingContext.init();
     defer testing_context.deinit();
-    const context = try Context(3, 64).init(testing_context.device);
+    const context = try Context(3, 64).init(testing_context.device, testing_context.swap_chain);
     defer context.deinit();
 }

@@ -30,6 +30,8 @@ pub extern fn ImGui_ImplDX12_RenderDrawData(
     draw_data: *const imgui.ImDrawData,
     graphics_command_list: *const w32.ID3D12GraphicsCommandList,
 ) void;
+pub extern fn ImGui_ImplDX12_CreateDeviceObjects() bool;
+pub extern fn ImGui_ImplDX12_InvalidateDeviceObjects() void;
 
 pub extern fn ImGui_ImplWin32_Init(window: w32.HWND) bool;
 pub extern fn ImGui_ImplWin32_Shutdown() void;
