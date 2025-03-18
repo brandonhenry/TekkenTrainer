@@ -9,7 +9,7 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
         rtv_descriptor_heap: *w32.ID3D12DescriptorHeap,
         srv_descriptor_heap: *w32.ID3D12DescriptorHeap,
         srv_allocator: dx12.DescriptorHeapAllocator(svr_heap_size),
-        frame_contexts: [buffer_count]FrameContext,
+        buffer_contexts: [buffer_count]BufferContext,
         test_allocation: if (builtin.is_test) *u8 else void,
 
         const Self = @This();
@@ -57,13 +57,18 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 .increment = device.ID3D12Device_GetDescriptorHandleIncrementSize(.CBV_SRV_UAV),
             };
 
-            var frame_contexts: [buffer_count]FrameContext = undefined;
-            inline for (0..frame_contexts.len) |index| {
-                frame_contexts[index] = FrameContext.init(device, swap_chain, rtv_descriptor_heap, index) catch |err| {
-                    misc.errorContext().appendFmt(err, "Failed to create frame context with index: {}", .{index});
+            var buffer_contexts: [buffer_count]BufferContext = undefined;
+            inline for (0..buffer_contexts.len) |index| {
+                buffer_contexts[index] = BufferContext.init(
+                    device,
+                    swap_chain,
+                    rtv_descriptor_heap,
+                    index,
+                ) catch |err| {
+                    misc.errorContext().appendFmt(err, "Failed to create buffer context with index: {}", .{index});
                     return err;
                 };
-                errdefer frame_contexts[index].deinit();
+                errdefer buffer_contexts[index].deinit();
             }
 
             const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
@@ -72,13 +77,13 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 .rtv_descriptor_heap = rtv_descriptor_heap,
                 .srv_descriptor_heap = srv_descriptor_heap,
                 .srv_allocator = srv_allocator,
-                .frame_contexts = frame_contexts,
+                .buffer_contexts = buffer_contexts,
                 .test_allocation = test_allocation,
             };
         }
 
         pub fn deinit(self: *const Self) void {
-            inline for (self.frame_contexts) |context| {
+            inline for (self.buffer_contexts) |context| {
                 context.deinit();
             }
 
@@ -92,10 +97,10 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
     };
 }
 
-pub const FrameContext = struct {
+pub const BufferContext = struct {
     command_allocator: *w32.ID3D12CommandAllocator,
     command_list: *w32.ID3D12GraphicsCommandList,
-    buffer: *w32.ID3D12Resource,
+    resource: *w32.ID3D12Resource,
     rtv_descriptor_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE,
     test_allocation: if (builtin.is_test) *u8 else void,
 
@@ -155,29 +160,29 @@ pub const FrameContext = struct {
             return error.Dx12Error;
         }
 
-        var buffer: *w32.ID3D12Resource = undefined;
-        const buffer_return_code = swap_chain.IDXGISwapChain_GetBuffer(
+        var resource: *w32.ID3D12Resource = undefined;
+        const resource_return_code = swap_chain.IDXGISwapChain_GetBuffer(
             index,
             w32.IID_ID3D12Resource,
-            @ptrCast(&buffer),
+            @ptrCast(&resource),
         );
-        if (buffer_return_code != w32.S_OK) {
+        if (resource_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
                 "IDXGISwapChain.GetBuffer returned: {}",
-                .{buffer_return_code},
+                .{resource_return_code},
             );
-            misc.errorContext().append(error.Dx12Error, "Failed to get frame context buffer.");
+            misc.errorContext().append(error.Dx12Error, "Failed to get buffer resource.");
             return error.Dx12Error;
         }
-        errdefer _ = buffer.IUnknown_Release();
+        errdefer _ = resource.IUnknown_Release();
 
         const rtv_heap_start = dx12.getCpuDescriptorHandleForHeapStart(rtv_descriptor_heap);
         const rtv_increment_size = device.ID3D12Device_GetDescriptorHandleIncrementSize(.RTV);
         const rtv_descriptor_handle = w32.D3D12_CPU_DESCRIPTOR_HANDLE{
             .ptr = rtv_heap_start.ptr + index * rtv_increment_size,
         };
-        device.ID3D12Device_CreateRenderTargetView(buffer, null, rtv_descriptor_handle);
+        device.ID3D12Device_CreateRenderTargetView(resource, null, rtv_descriptor_handle);
 
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
 
@@ -185,13 +190,13 @@ pub const FrameContext = struct {
             .command_allocator = command_allocator,
             .command_list = command_list,
             .rtv_descriptor_handle = rtv_descriptor_handle,
-            .buffer = buffer,
+            .resource = resource,
             .test_allocation = test_allocation,
         };
     }
 
     pub fn deinit(self: *const Self) void {
-        _ = self.buffer.IUnknown_Release();
+        _ = self.resource.IUnknown_Release();
         _ = self.command_list.IUnknown_Release();
         _ = self.command_allocator.IUnknown_Release();
 

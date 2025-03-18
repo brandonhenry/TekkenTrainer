@@ -147,56 +147,64 @@ pub const EventBuss = struct {
 
         imgui.igEndFrame();
 
-        const frame_index = swap_chain_3.IDXGISwapChain3_GetCurrentBackBufferIndex();
-        if (frame_index >= buffer_count) {
-            std.log.err("IDXGISwapChain3.GetCurrentBackBufferIndex returned: {}", .{frame_index});
+        const buffer_index = swap_chain_3.IDXGISwapChain3_GetCurrentBackBufferIndex();
+        if (buffer_index >= buffer_count) {
+            std.log.err("IDXGISwapChain3.GetCurrentBackBufferIndex returned: {}", .{buffer_index});
             return;
         }
-        const frame_context = &dx12_context.frame_contexts[frame_index];
+        const buffer_context = &dx12_context.buffer_contexts[buffer_index];
 
         var return_code = w32.S_OK;
 
-        return_code = frame_context.command_allocator.ID3D12CommandAllocator_Reset();
+        return_code = buffer_context.command_allocator.ID3D12CommandAllocator_Reset();
         if (return_code != w32.S_OK) {
             std.log.err("ID3D12CommandAllocator_Reset returned: {}", .{return_code});
         }
-        return_code = frame_context.command_list.ID3D12GraphicsCommandList_Reset(frame_context.command_allocator, null);
+        return_code = buffer_context.command_list.ID3D12GraphicsCommandList_Reset(
+            buffer_context.command_allocator,
+            null,
+        );
         if (return_code != w32.S_OK) {
             std.log.err("ID3D12GraphicsCommandList_Reset returned: {}", .{return_code});
         }
-        frame_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
+        buffer_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
             .Type = .TRANSITION,
             .Flags = .{},
             .Anonymous = .{ .Transition = .{
-                .pResource = frame_context.buffer,
+                .pResource = buffer_context.resource,
                 .Subresource = w32.D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                 .StateBefore = w32.D3D12_RESOURCE_STATE_PRESENT,
                 .StateAfter = w32.D3D12_RESOURCE_STATE_RENDER_TARGET,
             } },
         }});
-        frame_context.command_list.ID3D12GraphicsCommandList_OMSetRenderTargets(1, &frame_context.rtv_descriptor_handle, 0, null);
+        buffer_context.command_list.ID3D12GraphicsCommandList_OMSetRenderTargets(
+            1,
+            &buffer_context.rtv_descriptor_handle,
+            0,
+            null,
+        );
         var heaps = [1](?*w32.ID3D12DescriptorHeap){dx12_context.srv_descriptor_heap};
-        frame_context.command_list.ID3D12GraphicsCommandList_SetDescriptorHeaps(1, &heaps);
+        buffer_context.command_list.ID3D12GraphicsCommandList_SetDescriptorHeaps(1, &heaps);
 
         imgui.igRender();
-        imgui_backend.ImGui_ImplDX12_RenderDrawData(imgui.igGetDrawData(), frame_context.command_list);
+        imgui_backend.ImGui_ImplDX12_RenderDrawData(imgui.igGetDrawData(), buffer_context.command_list);
 
-        frame_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
+        buffer_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
             .Type = .TRANSITION,
             .Flags = .{},
             .Anonymous = .{ .Transition = .{
-                .pResource = frame_context.buffer,
+                .pResource = buffer_context.resource,
                 .Subresource = w32.D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                 .StateBefore = w32.D3D12_RESOURCE_STATE_RENDER_TARGET,
                 .StateAfter = w32.D3D12_RESOURCE_STATE_PRESENT,
             } },
         }});
-        return_code = frame_context.command_list.ID3D12GraphicsCommandList_Close();
+        return_code = buffer_context.command_list.ID3D12GraphicsCommandList_Close();
         if (return_code != w32.S_OK) {
             std.log.err("ID3D12GraphicsCommandList_Close returned: {}", .{return_code});
         }
 
-        var lists = [1](?*w32.ID3D12CommandList){@ptrCast(frame_context.command_list)};
+        var lists = [1](?*w32.ID3D12CommandList){@ptrCast(buffer_context.command_list)};
         command_queue.ID3D12CommandQueue_ExecuteCommandLists(1, &lists);
     }
 
