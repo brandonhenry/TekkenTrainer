@@ -10,14 +10,14 @@ pub const Functions = struct {
     present: *const Present,
 
     const Self = @This();
-    pub const ExecuteCommandLists = @typeInfo(std.meta.FieldType(
+    pub const ExecuteCommandLists = @typeInfo(@FieldType(
         w32.ID3D12CommandQueue.VTable,
-        .ExecuteCommandLists,
-    )).Pointer.child;
-    pub const Present = @typeInfo(std.meta.FieldType(
+        "ExecuteCommandLists",
+    )).pointer.child;
+    pub const Present = @typeInfo(@FieldType(
         w32.IDXGISwapChain.VTable,
-        .Present,
-    )).Pointer.child;
+        "Present",
+    )).pointer.child;
 
     pub fn find() !Self {
         const module = os.Module.getMain() catch |err| {
@@ -103,10 +103,10 @@ pub const Functions = struct {
             misc.errorContext().newFmt(error.Dx12Error, "CreateDXGIFactory returned: {}", .{factory_return_code});
             return error.Dx12Error;
         }
-        defer _ = factory.IUnknown_Release();
+        defer _ = factory.IUnknown.Release();
 
         var adapter: *w32.IDXGIAdapter = undefined;
-        const adapter_return_code = factory.IDXGIFactory_EnumAdapters(0, @ptrCast(&adapter));
+        const adapter_return_code = factory.EnumAdapters(0, @ptrCast(&adapter));
         if (adapter_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
@@ -115,7 +115,7 @@ pub const Functions = struct {
             );
             return error.Dx12Error;
         }
-        defer _ = adapter.IUnknown_Release();
+        defer _ = adapter.IUnknown.Release();
 
         const d3d12_module = os.Module.getLocal("d3d12.dll") catch |err| {
             misc.errorContext().append(err, "Failed to get local module: d3d12.dll");
@@ -138,10 +138,10 @@ pub const Functions = struct {
             misc.errorContext().newFmt(error.Dx12Error, "D3D12CreateDevice returned: {}", .{device_return_code});
             return error.Dx12Error;
         }
-        defer _ = device.IUnknown_Release();
+        defer _ = device.IUnknown.Release();
 
         var command_queue: *w32.ID3D12CommandQueue = undefined;
-        const command_queue_return_code = device.ID3D12Device_CreateCommandQueue(
+        const command_queue_return_code = device.CreateCommandQueue(
             &w32.D3D12_COMMAND_QUEUE_DESC{
                 .Type = w32.D3D12_COMMAND_LIST_TYPE_DIRECT,
                 .Priority = 0,
@@ -159,7 +159,7 @@ pub const Functions = struct {
             );
             return error.Dx12Error;
         }
-        defer _ = command_queue.IUnknown_Release();
+        defer _ = command_queue.IUnknown.Release();
 
         var swap_chain_desc = w32.DXGI_SWAP_CHAIN_DESC{
             .BufferDesc = .{
@@ -179,7 +179,7 @@ pub const Functions = struct {
             .Flags = @intFromEnum(w32.DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH),
         };
         var swap_chain: *w32.IDXGISwapChain = undefined;
-        const swap_chain_return_code = factory.IDXGIFactory_CreateSwapChain(
+        const swap_chain_return_code = factory.CreateSwapChain(
             @ptrCast(command_queue),
             &swap_chain_desc,
             @ptrCast(&swap_chain),
@@ -192,7 +192,7 @@ pub const Functions = struct {
             );
             return error.Dx12Error;
         }
-        defer _ = swap_chain.IUnknown_Release();
+        defer _ = swap_chain.IUnknown.Release();
 
         return .{
             .executeCommandLists = command_queue.vtable.ExecuteCommandLists,

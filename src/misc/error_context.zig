@@ -118,19 +118,21 @@ pub const ErrorContext = struct {
             if (item.err) |err| {
                 try writer.print(" [{}]", .{err});
             }
-            if (getSymbolInfoAtAddress(self.allocator, item.return_address)) |symbol_info| {
-                defer symbol_info.deinit(self.allocator);
-                try writer.print(" {}", .{symbol_info});
-            }
+            // TODO make the line number thing work.
+            // if (getSymbolInfoAtAddress(self.allocator, item.return_address)) |symbol_info| {
+            //     defer symbol_info.deinit(self.allocator);
+            //     try writer.print(" {}", .{symbol_info});
+            // }
             try writer.writeAll("\n");
         }
     }
 
-    fn getSymbolInfoAtAddress(allocator: std.mem.Allocator, address: usize) ?std.debug.SymbolInfo {
-        const debug_info = std.debug.getSelfDebugInfo() catch return null;
-        const module = debug_info.getModuleForAddress(address) catch return null;
-        return module.getSymbolAtAddress(allocator, address) catch return null;
-    }
+    // TODO make the line number thing work.
+    // fn getSymbolInfoAtAddress(allocator: std.mem.Allocator, address: usize) ?std.debug.SymbolInfo {
+    //     const debug_info = std.debug.getSelfDebugInfo() catch return null;
+    //     const module = debug_info.getModuleForAddress(address) catch return null;
+    //     return module.getSymbolAtAddress(allocator, address) catch return null;
+    // }
 };
 
 const testing = std.testing;

@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // ZIG dependency: zigwin32
-    const win32 = b.dependency("zigwin32", .{}).module("zigwin32");
+    const win32 = b.dependency("zigwin32", .{}).module("win32");
 
     // C dependency: lib_c_time ("time.h" from C)
     const lib_c_time = b.addTranslateC(.{
@@ -95,8 +95,8 @@ pub fn build(b: *std.Build) void {
         .gnu => imgui_lib.linkSystemLibrary("gdi32"),
         else => {},
     }
-    imgui_lib.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    imgui_lib.defineCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
+    imgui_lib.root_module.addCMacro("IMGUI_IMPL_API", "extern \"C\"");
+    imgui_lib.root_module.addCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
     imgui_lib.linkLibC();
     imgui_lib.linkLibCpp();
     const imgui_c = b.addTranslateC(.{
@@ -104,7 +104,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    imgui_c.defineCMacroRaw("CIMGUI_DEFINE_ENUMS_AND_STRUCTS");
+    imgui_c.defineCMacro("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "1");
     const imgui = imgui_c.createModule();
 
     const dll = b.addSharedLibrary(.{
@@ -192,6 +192,8 @@ pub fn build(b: *std.Build) void {
 
     // Stop Wine from spamming debug messages in the console when running tests.
     test_command.setEnvironmentVariable("WINEDEBUG", "-all");
+    test_command.setEnvironmentVariable("DXVK_LOG_LEVEL", "error");
+    test_command.setEnvironmentVariable("VKD3D_DEBUG", "err");
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request

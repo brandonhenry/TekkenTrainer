@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn SelfSortableArray(
-    comptime length: comptime_int,
+    comptime length: usize,
     comptime Element: type,
     comptime lessThanFn: *const fn (lhs: *const Element, rhs: *const Element) bool,
 ) type {
@@ -15,7 +15,7 @@ pub fn SelfSortableArray(
             for (0..length) |i| {
                 pointers[i] = &self.raw[i];
             }
-            std.sort.block(*const Element, &pointers, {}, compare);
+            std.sort.block(*const Element, &pointers, {}, compareConst);
             return pointers;
         }
 
@@ -24,11 +24,15 @@ pub fn SelfSortableArray(
             for (0..length) |i| {
                 pointers[i] = &self.raw[i];
             }
-            std.sort.block(*const Element, &pointers, {}, compare);
+            std.sort.block(*Element, &pointers, {}, compareMutable);
             return pointers;
         }
 
-        fn compare(_: void, lhs: *const Element, rhs: *const Element) bool {
+        fn compareConst(_: void, lhs: *const Element, rhs: *const Element) bool {
+            return lessThanFn(lhs, rhs);
+        }
+
+        fn compareMutable(_: void, lhs: *Element, rhs: *Element) bool {
             return lessThanFn(lhs, rhs);
         }
     };

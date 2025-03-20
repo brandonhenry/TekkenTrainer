@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 const w32 = @import("win32").everything;
 const misc = @import("misc/root.zig");
 const log = @import("log/root.zig");
@@ -13,7 +12,7 @@ pub const module_name = "irony.dll";
 pub const log_file_name = "irony.log";
 // TODO start and stop fileLogger
 pub const file_logger = log.FileLogger(.{});
-pub const std_options = .{
+pub const std_options = std.Options{
     .log_level = .debug,
     .logFn = file_logger.logFn,
 };
@@ -26,7 +25,7 @@ pub fn DllMain(
     module_handle: w32.HINSTANCE,
     forward_reason: u32,
     reserved: *anyopaque,
-) callconv(std.os.windows.WINAPI) w32.BOOL {
+) callconv(.winapi) w32.BOOL {
     _ = module_handle;
     _ = reserved;
     switch (forward_reason) {
@@ -187,7 +186,7 @@ fn windowProcedure(
     u_msg: u32,
     w_param: w32.WPARAM,
     l_param: w32.LPARAM,
-) callconv(std.os.windows.WINAPI) w32.LRESULT {
+) callconv(.winapi) w32.LRESULT {
     if (event_buss) |*buss| {
         const result = buss.processWindowMessage(window, u_msg, w_param, l_param);
         if (result) |r| {

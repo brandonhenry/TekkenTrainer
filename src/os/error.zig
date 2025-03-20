@@ -43,7 +43,7 @@ pub const OsError = struct {
             try writer.writeAll(" (");
         }
 
-        try writer.print("error code 0x{X} {}", .{ @intFromEnum(self.error_code), self.error_code });
+        try writer.print("error code 0x{X} {s}", .{ @intFromEnum(self.error_code), @tagName(self.error_code) });
 
         if (message_length > 0) {
             try writer.writeAll(")");
@@ -65,7 +65,7 @@ test "should format correctly when error has message" {
     const message = try std.fmt.allocPrint(testing.allocator, "Message: {}", .{err});
     defer testing.allocator.free(message);
     try testing.expectEqualStrings(
-        "Message: File not found.\r\n (error code 0x2 win32.foundation.WIN32_ERROR.ERROR_FILE_NOT_FOUND)",
+        "Message: File not found.\r\n (error code 0x2 ERROR_FILE_NOT_FOUND)",
         message,
     );
 }
@@ -75,7 +75,7 @@ test "should format correctly when error has no message" {
     const message = try std.fmt.allocPrint(testing.allocator, "Message: {}", .{err});
     defer testing.allocator.free(message);
     try testing.expectEqualStrings(
-        "Message: error code 0xFFFFFFFF win32.foundation.WIN32_ERROR.WAIT_FAILED",
+        "Message: error code 0xFFFFFFFF WAIT_FAILED",
         message,
     );
 }

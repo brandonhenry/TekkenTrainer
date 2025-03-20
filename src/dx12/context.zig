@@ -16,7 +16,7 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
 
         pub fn init(device: *const w32.ID3D12Device, swap_chain: *const w32.IDXGISwapChain) !Self {
             var rtv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
-            const rtv_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
+            const rtv_return_code = device.CreateDescriptorHeap(&.{
                 .Type = .RTV,
                 .NumDescriptors = buffer_count,
                 .Flags = .{},
@@ -31,10 +31,10 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 misc.errorContext().append(error.Dx12Error, "Failed to create RTV descriptor heap.");
                 return error.Dx12Error;
             }
-            errdefer _ = rtv_descriptor_heap.IUnknown_Release();
+            errdefer _ = rtv_descriptor_heap.IUnknown.Release();
 
             var srv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
-            const srv_return_code = device.ID3D12Device_CreateDescriptorHeap(&.{
+            const srv_return_code = device.CreateDescriptorHeap(&.{
                 .Type = .CBV_SRV_UAV,
                 .NumDescriptors = svr_heap_size,
                 .Flags = .{ .SHADER_VISIBLE = 1 },
@@ -49,12 +49,12 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 misc.errorContext().append(error.Dx12Error, "Failed to create SRV descriptor heap.");
                 return error.Dx12Error;
             }
-            errdefer _ = srv_descriptor_heap.IUnknown_Release();
+            errdefer _ = srv_descriptor_heap.IUnknown.Release();
 
             const srv_allocator = dx12.DescriptorHeapAllocator(svr_heap_size){
                 .cpu_start = dx12.getCpuDescriptorHandleForHeapStart(srv_descriptor_heap),
                 .gpu_start = dx12.getGpuDescriptorHandleForHeapStart(srv_descriptor_heap),
-                .increment = device.ID3D12Device_GetDescriptorHandleIncrementSize(.CBV_SRV_UAV),
+                .increment = device.GetDescriptorHandleIncrementSize(.CBV_SRV_UAV),
             };
 
             var buffer_contexts: [buffer_count]BufferContext = undefined;
@@ -87,8 +87,8 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 context.deinit();
             }
 
-            _ = self.srv_descriptor_heap.IUnknown_Release();
-            _ = self.rtv_descriptor_heap.IUnknown_Release();
+            _ = self.srv_descriptor_heap.IUnknown.Release();
+            _ = self.rtv_descriptor_heap.IUnknown.Release();
 
             if (builtin.is_test) {
                 std.testing.allocator.destroy(self.test_allocation);
@@ -113,7 +113,7 @@ pub const BufferContext = struct {
         index: u32,
     ) !Self {
         var command_allocator: *w32.ID3D12CommandAllocator = undefined;
-        const allocator_return_code = device.ID3D12Device_CreateCommandAllocator(
+        const allocator_return_code = device.CreateCommandAllocator(
             .DIRECT,
             w32.IID_ID3D12CommandAllocator,
             @ptrCast(&command_allocator),
@@ -127,10 +127,10 @@ pub const BufferContext = struct {
             misc.errorContext().append(error.Dx12Error, "Failed to create command allocator.");
             return error.Dx12Error;
         }
-        errdefer _ = command_allocator.IUnknown_Release();
+        errdefer _ = command_allocator.IUnknown.Release();
 
         var command_list: *w32.ID3D12GraphicsCommandList = undefined;
-        const list_return_code = device.ID3D12Device_CreateCommandList(
+        const list_return_code = device.CreateCommandList(
             0,
             .DIRECT,
             command_allocator,
@@ -147,9 +147,9 @@ pub const BufferContext = struct {
             misc.errorContext().append(error.Dx12Error, "Failed to create command list.");
             return error.Dx12Error;
         }
-        errdefer _ = command_list.IUnknown_Release();
+        errdefer _ = command_list.IUnknown.Release();
 
-        const close_return_code = command_list.ID3D12GraphicsCommandList_Close();
+        const close_return_code = command_list.Close();
         if (close_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
@@ -161,11 +161,7 @@ pub const BufferContext = struct {
         }
 
         var resource: *w32.ID3D12Resource = undefined;
-        const resource_return_code = swap_chain.IDXGISwapChain_GetBuffer(
-            index,
-            w32.IID_ID3D12Resource,
-            @ptrCast(&resource),
-        );
+        const resource_return_code = swap_chain.GetBuffer(index, w32.IID_ID3D12Resource, @ptrCast(&resource));
         if (resource_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
@@ -175,14 +171,14 @@ pub const BufferContext = struct {
             misc.errorContext().append(error.Dx12Error, "Failed to get buffer resource.");
             return error.Dx12Error;
         }
-        errdefer _ = resource.IUnknown_Release();
+        errdefer _ = resource.IUnknown.Release();
 
         const rtv_heap_start = dx12.getCpuDescriptorHandleForHeapStart(rtv_descriptor_heap);
-        const rtv_increment_size = device.ID3D12Device_GetDescriptorHandleIncrementSize(.RTV);
+        const rtv_increment_size = device.GetDescriptorHandleIncrementSize(.RTV);
         const rtv_descriptor_handle = w32.D3D12_CPU_DESCRIPTOR_HANDLE{
             .ptr = rtv_heap_start.ptr + index * rtv_increment_size,
         };
-        device.ID3D12Device_CreateRenderTargetView(resource, null, rtv_descriptor_handle);
+        device.CreateRenderTargetView(resource, null, rtv_descriptor_handle);
 
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
 
@@ -196,9 +192,9 @@ pub const BufferContext = struct {
     }
 
     pub fn deinit(self: *const Self) void {
-        _ = self.resource.IUnknown_Release();
-        _ = self.command_list.IUnknown_Release();
-        _ = self.command_allocator.IUnknown_Release();
+        _ = self.resource.IUnknown.Release();
+        _ = self.command_list.IUnknown.Release();
+        _ = self.command_allocator.IUnknown.Release();
 
         if (builtin.is_test) {
             std.testing.allocator.destroy(self.test_allocation);
@@ -213,7 +209,7 @@ pub fn beforeRender(
     swap_chain: *const w32.IDXGISwapChain,
 ) !*const BufferContext {
     const swap_chain_3: *const w32.IDXGISwapChain3 = @ptrCast(swap_chain);
-    const buffer_index = swap_chain_3.IDXGISwapChain3_GetCurrentBackBufferIndex();
+    const buffer_index = swap_chain_3.GetCurrentBackBufferIndex();
     if (buffer_index >= buffer_count) {
         misc.errorContext().newFmt(
             error.IndexOutOfBounds,
@@ -229,7 +225,7 @@ pub fn beforeRender(
     }
     const buffer_context = &context.buffer_contexts[buffer_index];
 
-    const allocator_return_code = buffer_context.command_allocator.ID3D12CommandAllocator_Reset();
+    const allocator_return_code = buffer_context.command_allocator.Reset();
     if (allocator_return_code != w32.S_OK) {
         misc.errorContext().newFmt(
             error.Dx12Error,
@@ -239,10 +235,7 @@ pub fn beforeRender(
         return error.Dx12Error;
     }
 
-    const list_return_code = buffer_context.command_list.ID3D12GraphicsCommandList_Reset(
-        buffer_context.command_allocator,
-        null,
-    );
+    const list_return_code = buffer_context.command_list.Reset(buffer_context.command_allocator, null);
     if (list_return_code != w32.S_OK) {
         misc.errorContext().newFmt(
             error.Dx12Error,
@@ -252,7 +245,7 @@ pub fn beforeRender(
         return error.Dx12Error;
     }
 
-    buffer_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
+    buffer_context.command_list.ResourceBarrier(1, &.{.{
         .Type = .TRANSITION,
         .Flags = .{},
         .Anonymous = .{ .Transition = .{
@@ -263,15 +256,10 @@ pub fn beforeRender(
         } },
     }});
 
-    buffer_context.command_list.ID3D12GraphicsCommandList_OMSetRenderTargets(
-        1,
-        &buffer_context.rtv_descriptor_handle,
-        0,
-        null,
-    );
+    buffer_context.command_list.OMSetRenderTargets(1, &buffer_context.rtv_descriptor_handle, 0, null);
 
     var heaps = [1](?*w32.ID3D12DescriptorHeap){context.srv_descriptor_heap};
-    buffer_context.command_list.ID3D12GraphicsCommandList_SetDescriptorHeaps(1, &heaps);
+    buffer_context.command_list.SetDescriptorHeaps(1, &heaps);
 
     return buffer_context;
 }
@@ -280,7 +268,7 @@ pub fn afterRender(
     buffer_context: *const BufferContext,
     command_queue: *const w32.ID3D12CommandQueue,
 ) !void {
-    buffer_context.command_list.ID3D12GraphicsCommandList_ResourceBarrier(1, &.{.{
+    buffer_context.command_list.ResourceBarrier(1, &.{.{
         .Type = .TRANSITION,
         .Flags = .{},
         .Anonymous = .{ .Transition = .{
@@ -291,7 +279,7 @@ pub fn afterRender(
         } },
     }});
 
-    const list_return_code = buffer_context.command_list.ID3D12GraphicsCommandList_Close();
+    const list_return_code = buffer_context.command_list.Close();
     if (list_return_code != w32.S_OK) {
         misc.errorContext().newFmt(
             error.Dx12Error,
@@ -302,7 +290,7 @@ pub fn afterRender(
     }
 
     var lists = [1](?*w32.ID3D12CommandList){@ptrCast(buffer_context.command_list)};
-    command_queue.ID3D12CommandQueue_ExecuteCommandLists(1, &lists);
+    command_queue.ExecuteCommandLists(1, &lists);
 }
 
 const testing = std.testing;

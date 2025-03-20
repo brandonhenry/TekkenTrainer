@@ -40,10 +40,10 @@ pub const hooking = struct {
 };
 
 pub fn Hook(comptime Function: type) type {
-    _ = switch (@typeInfo(Function)) {
-        .Fn => |f| f,
+    switch (@typeInfo(Function)) {
+        .@"fn" => {},
         else => @compileError("Hook's Function must be a function type."),
-    };
+    }
 
     return struct {
         target: *const Function,

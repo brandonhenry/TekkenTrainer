@@ -160,7 +160,7 @@ pub fn MainHooks(
             command_queue: *const w32.ID3D12CommandQueue,
             num_command_lists: u32,
             pp_command_lists: [*]?*w32.ID3D12CommandList,
-        ) callconv(@import("std").os.windows.WINAPI) void {
+        ) callconv(.winapi) void {
             if (g_command_queue == null) {
                 std.log.info("DX12 command queue found.", .{});
             }
@@ -172,7 +172,7 @@ pub fn MainHooks(
             swap_chain: *const w32.IDXGISwapChain,
             sync_interval: u32,
             flags: u32,
-        ) callconv(@import("std").os.windows.WINAPI) w32.HRESULT {
+        ) callconv(.winapi) w32.HRESULT {
             const command_queue = g_command_queue orelse {
                 std.log.debug("Present function was called before command queue was found. Skipping this frame.", .{});
                 return present_hook.?.original(swap_chain, sync_interval, flags);
@@ -201,7 +201,7 @@ pub fn MainHooks(
             swap_chain: *const w32.IDXGISwapChain,
             sync_interval: u32,
             flags: u32,
-        ) callconv(@import("std").os.windows.WINAPI) w32.HRESULT {
+        ) callconv(.winapi) w32.HRESULT {
             if (!is_first_present_called) {
                 is_last_present_called.store(true, .seq_cst);
                 return present_hook.?.original(swap_chain, sync_interval, flags);
@@ -302,7 +302,7 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(0, OnLastPresent.times_called);
 
     for (0..3) |_| {
-        const present_return_code = dx12_context.swap_chain.IDXGISwapChain_Present(0, w32.DXGI_PRESENT_TEST);
+        const present_return_code = dx12_context.swap_chain.Present(0, w32.DXGI_PRESENT_TEST);
         try testing.expectEqual(w32.S_OK, present_return_code);
     }
 
@@ -311,14 +311,14 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(0, OnLastPresent.times_called);
 
     const command_lists = [0](?*w32.ID3D12CommandList){};
-    dx12_context.command_queue.ID3D12CommandQueue_ExecuteCommandLists(command_lists.len, &command_lists);
+    dx12_context.command_queue.ExecuteCommandLists(command_lists.len, &command_lists);
 
     try testing.expectEqual(0, OnFirstPresent.times_called);
     try testing.expectEqual(0, OnNormalPresent.times_called);
     try testing.expectEqual(0, OnLastPresent.times_called);
 
     for (0..5) |_| {
-        const present_return_code = dx12_context.swap_chain.IDXGISwapChain_Present(0, w32.DXGI_PRESENT_TEST);
+        const present_return_code = dx12_context.swap_chain.Present(0, w32.DXGI_PRESENT_TEST);
         try testing.expectEqual(w32.S_OK, present_return_code);
     }
 
@@ -348,7 +348,7 @@ test "should call correct callbacks at correct times" {
 
     while (!Deinit.is_complete.load(.seq_cst)) {
         try std.Thread.yield();
-        const present_return_code = dx12_context.swap_chain.IDXGISwapChain_Present(0, w32.DXGI_PRESENT_TEST);
+        const present_return_code = dx12_context.swap_chain.Present(0, w32.DXGI_PRESENT_TEST);
         try testing.expectEqual(w32.S_OK, present_return_code);
     }
 

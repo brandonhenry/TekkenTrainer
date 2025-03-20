@@ -51,7 +51,7 @@ pub fn FileLogger(comptime config: FileLoggerConfig) type {
 
         pub fn logFn(
             comptime level: std.log.Level,
-            comptime scope: @Type(.EnumLiteral),
+            comptime scope: @Type(.enum_literal),
             comptime format: []const u8,
             args: anytype,
         ) void {

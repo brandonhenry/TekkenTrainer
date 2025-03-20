@@ -69,14 +69,14 @@ pub const TestingContext = struct {
         if (factory_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
-        errdefer _ = factory.IUnknown_Release();
+        errdefer _ = factory.IUnknown.Release();
 
         var adapter: *w32.IDXGIAdapter = undefined;
-        const adapter_return_code = factory.IDXGIFactory_EnumAdapters(0, @ptrCast(&adapter));
+        const adapter_return_code = factory.EnumAdapters(0, @ptrCast(&adapter));
         if (adapter_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
-        errdefer _ = adapter.IUnknown_Release();
+        errdefer _ = adapter.IUnknown.Release();
 
         var device: *w32.ID3D12Device = undefined;
         const device_return_code = w32.D3D12CreateDevice(
@@ -88,10 +88,10 @@ pub const TestingContext = struct {
         if (device_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
-        errdefer _ = device.IUnknown_Release();
+        errdefer _ = device.IUnknown.Release();
 
         var command_queue: *w32.ID3D12CommandQueue = undefined;
-        const command_queue_return_code = device.ID3D12Device_CreateCommandQueue(
+        const command_queue_return_code = device.CreateCommandQueue(
             &w32.D3D12_COMMAND_QUEUE_DESC{
                 .Type = w32.D3D12_COMMAND_LIST_TYPE_DIRECT,
                 .Priority = 0,
@@ -104,7 +104,7 @@ pub const TestingContext = struct {
         if (command_queue_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
-        errdefer _ = command_queue.IUnknown_Release();
+        errdefer _ = command_queue.IUnknown.Release();
 
         var swap_chain_desc = w32.DXGI_SWAP_CHAIN_DESC{
             .BufferDesc = .{
@@ -124,7 +124,7 @@ pub const TestingContext = struct {
             .Flags = @intFromEnum(w32.DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH),
         };
         var swap_chain: *w32.IDXGISwapChain = undefined;
-        const swap_chain_return_code = factory.IDXGIFactory_CreateSwapChain(
+        const swap_chain_return_code = factory.CreateSwapChain(
             @ptrCast(command_queue),
             &swap_chain_desc,
             @ptrCast(&swap_chain),
@@ -132,7 +132,7 @@ pub const TestingContext = struct {
         if (swap_chain_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
-        errdefer _ = swap_chain.IUnknown_Release();
+        errdefer _ = swap_chain.IUnknown.Release();
 
         const test_allocation = try std.testing.allocator.create(u8);
 
@@ -149,11 +149,11 @@ pub const TestingContext = struct {
     }
 
     pub fn deinit(self: *const Self) void {
-        _ = self.swap_chain.IUnknown_Release();
-        _ = self.command_queue.IUnknown_Release();
-        _ = self.device.IUnknown_Release();
-        _ = self.adapter.IUnknown_Release();
-        _ = self.factory.IUnknown_Release();
+        _ = self.swap_chain.IUnknown.Release();
+        _ = self.command_queue.IUnknown.Release();
+        _ = self.device.IUnknown.Release();
+        _ = self.adapter.IUnknown.Release();
+        _ = self.factory.IUnknown.Release();
         _ = w32.DestroyWindow(self.window);
         _ = w32.UnregisterClassW(self.window_class.lpszClassName, self.window_class.hInstance);
         std.testing.allocator.destroy(self.test_allocation);

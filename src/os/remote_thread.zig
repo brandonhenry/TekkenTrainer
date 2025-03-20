@@ -12,7 +12,7 @@ pub const RemoteThread = struct {
 
     pub fn spawn(
         process: *const os.Process,
-        start_routine: *const fn (parameter: usize) u32,
+        start_routine: *const fn (parameter: usize) callconv(.winapi) u32,
         parameter: usize,
     ) !Self {
         const handle = w32.CreateRemoteThread(
@@ -66,7 +66,7 @@ const testing = std.testing;
 
 test "should run remote thread and return correct exit code" {
     const startRoutine = struct {
-        fn call(parameter: usize) u32 {
+        fn call(parameter: usize) callconv(.winapi) u32 {
             return @intCast(parameter + 1);
         }
     }.call;
