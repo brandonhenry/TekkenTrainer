@@ -37,4 +37,6 @@ test {
     _ = @import("os/remote_slice.zig");
     _ = @import("os/remote_thread.zig");
     _ = @import("os/window_procedure.zig");
+
+    _ = @import("ui/context.zig");
 }
