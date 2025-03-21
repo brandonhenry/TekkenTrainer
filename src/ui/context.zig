@@ -78,12 +78,6 @@ pub const Context = struct {
         }
         errdefer ui.backend.ImGui_ImplDX12_Shutdown();
 
-        const create_success = ui.backend.ImGui_ImplDX12_CreateDeviceObjects();
-        if (!create_success) {
-            misc.errorContext().new(error.ImguiError, "ImGui_ImplDX12_CreateDeviceObjects returned false.");
-            return error.ImguiError;
-        }
-
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
 
         return .{
@@ -93,6 +87,7 @@ pub const Context = struct {
     }
 
     pub fn deinit(self: *const Self) void {
+        imgui.igSetCurrentContext(self.imgui_context);
         ui.backend.ImGui_ImplDX12_Shutdown();
         ui.backend.ImGui_ImplWin32_Shutdown();
         imgui.igDestroyContext(self.imgui_context);

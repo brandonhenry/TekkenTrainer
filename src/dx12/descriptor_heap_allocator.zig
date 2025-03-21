@@ -22,8 +22,8 @@ pub fn DescriptorHeapAllocator(comptime heap_size: usize) type {
                     continue;
                 }
                 self.is_index_used[index] = true;
-                cpu_handle.ptr = self.cpu_start.ptr + index * self.increment;
-                gpu_handle.ptr = self.gpu_start.ptr + index * self.increment;
+                cpu_handle.ptr = self.cpu_start.ptr + (index * self.increment);
+                gpu_handle.ptr = self.gpu_start.ptr + (index * self.increment);
                 return;
             }
             misc.errorContext().new(error.HeapFull, "DescriptorHeap is full.");

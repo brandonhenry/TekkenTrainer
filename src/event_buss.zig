@@ -15,15 +15,16 @@ pub const EventBuss = struct {
     const srv_heap_size = 64;
 
     pub fn init(
+        self: *Self,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
-    ) Self {
-        const gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    ) void {
+        self.gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
         std.log.debug("Initializing DX12 context...", .{});
-        var dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(device, swap_chain)) |context| block: {
+        self.dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(device, swap_chain)) |context| block: {
             std.log.info("DX12 context initialized.", .{});
             break :block context;
         } else |err| block: {
@@ -32,7 +33,7 @@ pub const EventBuss = struct {
             break :block null;
         };
 
-        const ui_context = if (dx12_context) |*dxc| block: {
+        self.ui_context = if (self.dx12_context) |*dxc| block: {
             std.log.debug("Initializing UI context...", .{});
             if (ui.Context.init(buffer_count, srv_heap_size, window, device, command_queue, dxc)) |context| {
                 std.log.info("UI context initialized.", .{});
@@ -43,12 +44,6 @@ pub const EventBuss = struct {
                 break :block null;
             }
         } else null;
-
-        return .{
-            .gpa = gpa,
-            .dx12_context = dx12_context,
-            .ui_context = ui_context,
-        };
     }
 
     pub fn deinit(

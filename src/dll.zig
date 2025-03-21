@@ -127,6 +127,11 @@ fn onFirstPresent(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
+    std.log.info("Initializing event buss...", .{});
+    event_buss = @as(EventBuss, undefined);
+    event_buss.?.init(window, device, command_queue, swap_chain);
+    std.log.info("Event buss initialized.", .{});
+
     std.log.debug("Initializing window procedure...", .{});
     if (os.WindowProcedure.init(window, windowProcedure)) |procedure| {
         std.log.info("Window procedure initialized.", .{});
@@ -135,10 +140,6 @@ fn onFirstPresent(
         misc.errorContext().append(err, "Failed to initialize window procedure.");
         misc.errorContext().logError();
     }
-
-    std.log.info("Initializing event buss...", .{});
-    event_buss = EventBuss.init(window, device, command_queue, swap_chain);
-    std.log.info("Event buss initialized.", .{});
 }
 
 fn onNormalPresent(
@@ -158,15 +159,6 @@ fn onLastPresent(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
-    std.log.info("De-initializing event buss...", .{});
-    if (event_buss) |*buss| {
-        buss.deinit(window, device, command_queue, swap_chain);
-        event_buss = null;
-        std.log.info("Event buss de-initialized.", .{});
-    } else {
-        std.log.info("Nothing to de-initialize.", .{});
-    }
-
     std.log.debug("De-initializing window procedure...", .{});
     if (window_procedure) |*procedure| {
         if (procedure.deinit()) {
@@ -176,6 +168,15 @@ fn onLastPresent(
             misc.errorContext().append(err, "Failed to de-initialize window procedure.");
             misc.errorContext().logError();
         }
+    } else {
+        std.log.info("Nothing to de-initialize.", .{});
+    }
+
+    std.log.info("De-initializing event buss...", .{});
+    if (event_buss) |*buss| {
+        buss.deinit(window, device, command_queue, swap_chain);
+        event_buss = null;
+        std.log.info("Event buss de-initialized.", .{});
     } else {
         std.log.info("Nothing to de-initialize.", .{});
     }
