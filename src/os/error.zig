@@ -62,20 +62,21 @@ test "getLast should get correct error code" {
 
 test "should format correctly when error has message" {
     const err = OsError{ .error_code = w32.ERROR_FILE_NOT_FOUND };
-    const message = try std.fmt.allocPrint(testing.allocator, "Message: {}", .{err});
+    const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
     defer testing.allocator.free(message);
-    try testing.expectEqualStrings(
-        "Message: File not found.\r\n (error code 0x2 ERROR_FILE_NOT_FOUND)",
-        message,
-    );
+    if (std.mem.startsWith(u8, message, "F")) { // Wine
+        try testing.expectEqualStrings("File not found.\r\n (error code 0x2 ERROR_FILE_NOT_FOUND)", message);
+    } else { // Windows
+        try testing.expectEqualStrings(
+            "The system cannot find the file specified.\r\n (error code 0x2 ERROR_FILE_NOT_FOUND)",
+            message,
+        );
+    }
 }
 
 test "should format correctly when error has no message" {
     const err = OsError{ .error_code = w32.WAIT_FAILED };
-    const message = try std.fmt.allocPrint(testing.allocator, "Message: {}", .{err});
+    const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
     defer testing.allocator.free(message);
-    try testing.expectEqualStrings(
-        "Message: error code 0xFFFFFFFF WAIT_FAILED",
-        message,
-    );
+    try testing.expectEqualStrings("error code 0xFFFFFFFF WAIT_FAILED", message);
 }

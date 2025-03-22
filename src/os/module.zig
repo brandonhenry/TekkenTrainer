@@ -146,7 +146,8 @@ test "getLocal should error when module name is invalid" {
 }
 
 test "getRemote should return a module with readable memory range when module name is valid" {
-    const module = try Module.getRemote(os.Process.getCurrent(), "kernel32.dll");
+    const module = Module.getRemote(os.Process.getCurrent(), "kernel32.dll") catch // Wine
+        try Module.getRemote(os.Process.getCurrent(), "KERNEL32.DLL"); // Windows
     const memory_range = try module.getMemoryRange();
     try testing.expectEqual(true, memory_range.isReadable());
 }
@@ -160,7 +161,11 @@ test "getFilePath should return correct value" {
     var buffer: [os.max_file_path_length]u8 = undefined;
     const size = try module.getFilePath(&buffer);
     const path = buffer[0..size];
-    try testing.expectStringEndsWith(path, "kernel32.dll");
+    if (std.mem.endsWith(u8, path, "l")) { // Wine
+        try testing.expectStringEndsWith(path, "kernel32.dll");
+    } else { // Windows
+        try testing.expectStringEndsWith(path, "KERNEL32.DLL");
+    }
 }
 
 test "getProcedureAddress should return a address when procedure name is valid" {
