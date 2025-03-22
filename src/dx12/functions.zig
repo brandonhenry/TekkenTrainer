@@ -97,8 +97,8 @@ pub const Functions = struct {
             return err;
         };
         const CreateDXGIFactory: *const @TypeOf(w32.CreateDXGIFactory) = @ptrFromInt(create_dxgi_factory_address);
-        var factory: *w32.IDXGIFactory = undefined;
-        const factory_return_code = CreateDXGIFactory(w32.IID_IDXGIFactory, @ptrCast(&factory));
+        var factory: *w32.IDXGIFactory4 = undefined;
+        const factory_return_code = CreateDXGIFactory(w32.IID_IDXGIFactory4, @ptrCast(&factory));
         if (factory_return_code != w32.S_OK) {
             misc.errorContext().newFmt(error.Dx12Error, "CreateDXGIFactory returned: {}", .{factory_return_code});
             return error.Dx12Error;
@@ -106,11 +106,11 @@ pub const Functions = struct {
         defer _ = factory.IUnknown.Release();
 
         var adapter: *w32.IDXGIAdapter = undefined;
-        const adapter_return_code = factory.EnumAdapters(0, @ptrCast(&adapter));
+        const adapter_return_code = factory.EnumWarpAdapter(w32.IID_IDXGIAdapter, @ptrCast(&adapter));
         if (adapter_return_code != w32.S_OK) {
             misc.errorContext().newFmt(
                 error.Dx12Error,
-                "IDXGIFactory.EnumAdapters returned: {}",
+                "IDXGIFactory4.EnumWarpAdapter returned: {}",
                 .{adapter_return_code},
             );
             return error.Dx12Error;
@@ -179,7 +179,7 @@ pub const Functions = struct {
             .Flags = @intFromEnum(w32.DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH),
         };
         var swap_chain: *w32.IDXGISwapChain = undefined;
-        const swap_chain_return_code = factory.CreateSwapChain(
+        const swap_chain_return_code = factory.IDXGIFactory.CreateSwapChain(
             @ptrCast(command_queue),
             &swap_chain_desc,
             @ptrCast(&swap_chain),

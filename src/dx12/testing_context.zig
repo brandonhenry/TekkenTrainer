@@ -7,7 +7,7 @@ const w = std.unicode.utf8ToUtf16LeStringLiteral;
 pub const TestingContext = struct {
     window_class: w32.WNDCLASSEXW,
     window: w32.HWND,
-    factory: *w32.IDXGIFactory,
+    factory: *w32.IDXGIFactory4,
     adapter: *w32.IDXGIAdapter,
     device: *w32.ID3D12Device,
     command_queue: *w32.ID3D12CommandQueue,
@@ -64,15 +64,15 @@ pub const TestingContext = struct {
         };
         errdefer _ = w32.DestroyWindow(window);
 
-        var factory: *w32.IDXGIFactory = undefined;
-        const factory_return_code = w32.CreateDXGIFactory(w32.IID_IDXGIFactory, @ptrCast(&factory));
+        var factory: *w32.IDXGIFactory4 = undefined;
+        const factory_return_code = w32.CreateDXGIFactory(w32.IID_IDXGIFactory4, @ptrCast(&factory));
         if (factory_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
         errdefer _ = factory.IUnknown.Release();
 
         var adapter: *w32.IDXGIAdapter = undefined;
-        const adapter_return_code = factory.EnumAdapters(0, @ptrCast(&adapter));
+        const adapter_return_code = factory.EnumWarpAdapter(w32.IID_IDXGIAdapter, @ptrCast(&adapter));
         if (adapter_return_code != w32.S_OK) {
             return error.Dx12Error;
         }
@@ -124,7 +124,7 @@ pub const TestingContext = struct {
             .Flags = @intFromEnum(w32.DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH),
         };
         var swap_chain: *w32.IDXGISwapChain = undefined;
-        const swap_chain_return_code = factory.CreateSwapChain(
+        const swap_chain_return_code = factory.IDXGIFactory.CreateSwapChain(
             @ptrCast(command_queue),
             &swap_chain_desc,
             @ptrCast(&swap_chain),
