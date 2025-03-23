@@ -23,14 +23,14 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
                 .COMMIT = 1,
                 .RESERVE = 1,
             }, .{ .PAGE_READWRITE = 1 }) orelse {
-                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                 misc.errorContext().append(error.OsError, "VirtualAllocEx returned null.");
                 return error.OsError;
             };
             errdefer {
                 const success = w32.VirtualFreeEx(process.handle, address, 0, .RELEASE);
                 if (success == 0) {
-                    misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                    misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                     misc.errorContext().append(error.OsError, "VirtualFreeEx returned 0.");
                     misc.errorContext().append(
                         error.OsError,
@@ -41,7 +41,7 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
             }
             const success = w32.WriteProcessMemory(process.handle, address, @ptrCast(data), size_in_bytes, null);
             if (success == 0) {
-                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                 misc.errorContext().append(error.OsError, "WriteProcessMemory returned 0.");
                 return error.OsError;
             }
@@ -56,7 +56,7 @@ pub fn RemoteSlice(comptime Element: type, comptime sentinel: ?Element) type {
         pub fn destroy(self: *const Self) !void {
             const success = w32.VirtualFreeEx(self.process.handle, @ptrFromInt(self.address), 0, .RELEASE);
             if (success == 0) {
-                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                 misc.errorContext().append(error.OsError, "VirtualFreeEx returned 0.");
                 return error.OsError;
             }

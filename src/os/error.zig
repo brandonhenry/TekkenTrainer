@@ -1,7 +1,7 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
 
-pub const OsError = struct {
+pub const Error = struct {
     error_code: w32.WIN32_ERROR,
 
     const Self = @This();
@@ -19,7 +19,7 @@ pub const OsError = struct {
         _ = options;
         if (fmt.len != 0) {
             @compileError(std.fmt.comptimePrint(
-                "Invalid OsError format {{{s}}}. The only allowed format for OsError is {{}}.",
+                "Invalid Error format {{{s}}}. The only allowed format for Error is {{}}.",
                 .{fmt},
             ));
         }
@@ -56,12 +56,12 @@ const w = std.unicode.utf8ToUtf16LeStringLiteral;
 
 test "getLast should get correct error code" {
     _ = w32.GetModuleHandleW(w("invalid module name"));
-    const err = OsError.getLast();
+    const err = Error.getLast();
     try testing.expectEqual(err.error_code, w32.ERROR_MOD_NOT_FOUND);
 }
 
 test "should format correctly when error has message" {
-    const err = OsError{ .error_code = w32.ERROR_FILE_NOT_FOUND };
+    const err = Error{ .error_code = w32.ERROR_FILE_NOT_FOUND };
     const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
     defer testing.allocator.free(message);
     if (std.mem.startsWith(u8, message, "F")) { // Wine
@@ -75,7 +75,7 @@ test "should format correctly when error has message" {
 }
 
 test "should format correctly when error has no message" {
-    const err = OsError{ .error_code = w32.WAIT_FAILED };
+    const err = Error{ .error_code = w32.WAIT_FAILED };
     const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
     defer testing.allocator.free(message);
     try testing.expectEqualStrings("error code 0xFFFFFFFF WAIT_FAILED", message);

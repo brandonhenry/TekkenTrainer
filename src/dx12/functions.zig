@@ -45,14 +45,14 @@ pub const Functions = struct {
 
         const register_success = w32.RegisterClassExW(&window_class);
         if (register_success == 0) {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "RegisterClassExW returned 0.");
             return error.OsError;
         }
         defer {
             const success = w32.UnregisterClassW(window_class.lpszClassName, window_class.hInstance);
             if (success == 0) {
-                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                 misc.errorContext().append(error.OsError, "UnregisterClassW returned 0.");
                 misc.errorContext().append(error.OsError, "Failed to clean up after finding DX12 functions.");
                 misc.errorContext().logError();
@@ -73,14 +73,14 @@ pub const Functions = struct {
             window_class.hInstance,
             null,
         ) orelse {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "CreateWindowExW returned 0.");
             return error.OsError;
         };
         defer {
             const success = w32.DestroyWindow(window);
             if (success == 0) {
-                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                 misc.errorContext().append(error.OsError, "DestroyWindow returned 0.");
                 misc.errorContext().append(error.OsError, "Failed to clean up after finding DX12 functions.");
                 misc.errorContext().logError();

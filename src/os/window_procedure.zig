@@ -15,7 +15,7 @@ pub const WindowProcedure = struct {
         w32.SetLastError(.NO_ERROR);
         const i_original = w32.SetWindowLongPtrW(window, .P_WNDPROC, @intCast(@intFromPtr(function)));
         if (i_original == 0) {
-            const os_error = os.OsError.getLast();
+            const os_error = os.Error.getLast();
             if (os_error.error_code != .NO_ERROR) {
                 misc.errorContext().newFmt(null, "{}", os_error);
                 misc.errorContext().append(error.OsError, "SetWindowLongPtrW returned 0.");
@@ -39,7 +39,7 @@ pub const WindowProcedure = struct {
         const i_original: isize = @bitCast(u_original);
         const return_value = w32.SetWindowLongPtrW(self.window, .P_WNDPROC, i_original);
         if (return_value == 0) {
-            const os_error = os.OsError.getLast();
+            const os_error = os.Error.getLast();
             if (os_error.error_code != .NO_ERROR) {
                 misc.errorContext().newFmt(null, "{}", os_error);
                 misc.errorContext().append(error.OsError, "SetWindowLongPtrW returned 0.");

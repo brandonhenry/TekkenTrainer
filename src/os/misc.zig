@@ -81,7 +81,7 @@ pub fn getFullPath(full_path_buffer: *[os.max_file_path_length]u8, short_path: [
         null,
     );
     if (full_path_size == 0) {
-        misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+        misc.errorContext().newFmt(null, "{}", os.Error.getLast());
         misc.errorContext().append(error.OsError, "GetFullPathNameW returned 0.");
         return error.OsError;
     }
@@ -106,7 +106,7 @@ pub fn setConsoleCloseHandler(onConsoleClose: *const fn () void) !void {
     Handler.function = onConsoleClose;
     const success = w32.SetConsoleCtrlHandler(Handler.call, 1);
     if (success == 0) {
-        misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+        misc.errorContext().newFmt(null, "{}", os.Error.getLast());
         misc.errorContext().append(error.OsError, "SetConsoleCtrlHandler returned 0.");
         return error.OsError;
     }

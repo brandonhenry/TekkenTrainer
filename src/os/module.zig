@@ -12,7 +12,7 @@ pub const Module = struct {
 
     pub fn getMain() !Self {
         const handle = w32.GetModuleHandleW(null) orelse {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "GetModuleHandleW returned null.");
             return error.OsError;
         };
@@ -27,7 +27,7 @@ pub const Module = struct {
         };
         const utf16_name = buffer[0..size :0];
         const handle = w32.GetModuleHandleW(utf16_name) orelse {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "GetModuleHandleW returned null.");
             return error.OsError;
         };
@@ -43,14 +43,14 @@ pub const Module = struct {
         const utf16_name = buffer[0..size :0];
         const snapshot_handle = w32.CreateToolhelp32Snapshot(.{ .SNAPMODULE = 1 }, process.id.raw);
         if (snapshot_handle == w32.INVALID_HANDLE_VALUE) {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "CreateToolhelp32Snapshot returned INVALID_HANDLE_VALUE.");
             return error.OsError;
         }
         defer {
             const success = w32.CloseHandle(snapshot_handle);
             if (success == 0) {
-                misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+                misc.errorContext().newFmt(null, "{}", os.Error.getLast());
                 misc.errorContext().append(error.OsError, "CloseHandle returned 0.");
                 misc.errorContext().append(error.OsError, "Failed to close snapshot handle.");
                 misc.errorContext().logError();
@@ -74,7 +74,7 @@ pub const Module = struct {
                 return error.HandleNull;
             }
         }
-        const os_error = os.OsError.getLast();
+        const os_error = os.Error.getLast();
         if (os_error.error_code == w32.WIN32_ERROR.ERROR_NO_MORE_FILES) {
             misc.errorContext().new(error.NotFound, "Module not found.");
             return error.NotFound;
@@ -89,7 +89,7 @@ pub const Module = struct {
         var buffer: [os.max_file_path_length:0]u16 = undefined;
         const size = w32.K32GetModuleFileNameExW(self.process.handle, self.handle, &buffer, buffer.len);
         if (size == 0) {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "K32GetModuleFileNameExW returned 0.");
             return error.OsError;
         }
@@ -103,7 +103,7 @@ pub const Module = struct {
         var info: w32.MODULEINFO = undefined;
         const success = w32.K32GetModuleInformation(self.process.handle, self.handle, &info, @sizeOf(@TypeOf(info)));
         if (success == 0) {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "K32GetModuleInformation returned 0.");
             return error.OsError;
         }
@@ -119,7 +119,7 @@ pub const Module = struct {
             return error.NotCurrentProcess;
         }
         const address = w32.GetProcAddress(self.handle, procedure_name) orelse {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "GetProcAddress returned null.");
             return error.OsError;
         };

@@ -1,7 +1,7 @@
 pub const max_file_path_length = 260;
 pub const max_number_of_processes = 4096;
 
-pub const OsError = @import("error.zig").OsError;
+pub const Error = @import("error.zig").Error;
 pub const isMemoryReadable = @import("memory.zig").isMemoryReadable;
 pub const isMemoryWriteable = @import("memory.zig").isMemoryWriteable;
 pub const isMemoryRangeValid = @import("memory.zig").isMemoryRangeValid;

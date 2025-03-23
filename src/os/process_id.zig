@@ -21,7 +21,7 @@ pub const ProcessId = struct {
             &number_of_bytes,
         );
         if (success == 0) {
-            misc.errorContext().newFmt(null, "{}", os.OsError.getLast());
+            misc.errorContext().newFmt(null, "{}", os.Error.getLast());
             misc.errorContext().append(error.OsError, "K32EnumProcesses returned 0.");
             return error.OsError;
         }
