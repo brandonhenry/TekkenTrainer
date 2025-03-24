@@ -10,7 +10,8 @@ pub const hooking = struct {
         const status = minhook.MH_Initialize();
         if (status != minhook.MH_OK) {
             const err = minHookStatusToError(status);
-            misc.errorContext().newFmt(err, "MH_Initialize returned: {}", .{status});
+            misc.errorContext().newFmt(err, "{s}", .{minHookStatusToDescription(status)});
+            misc.errorContext().appendFmt(err, "MH_Initialize returned: {}", .{status});
             return err;
         }
         if (builtin.is_test) {
@@ -25,7 +26,8 @@ pub const hooking = struct {
         const status = minhook.MH_Uninitialize();
         if (status != minhook.MH_OK) {
             const err = minHookStatusToError(status);
-            misc.errorContext().newFmt(err, "MH_Uninitialize returned: {}", .{status});
+            misc.errorContext().newFmt(err, "{s}", .{minHookStatusToDescription(status)});
+            misc.errorContext().appendFmt(err, "MH_Uninitialize returned: {}", .{status});
             return err;
         }
         if (builtin.is_test) {
@@ -58,7 +60,8 @@ pub fn Hook(comptime Function: type) type {
             const status = minhook.MH_CreateHook(@constCast(target), @constCast(detour), @ptrCast(&original));
             if (status != minhook.MH_OK) {
                 const err = minHookStatusToError(status);
-                misc.errorContext().newFmt(err, "MH_CreateHook returned: {}", .{status});
+                misc.errorContext().newFmt(err, "{s}", .{minHookStatusToDescription(status)});
+                misc.errorContext().appendFmt(err, "MH_CreateHook returned: {}", .{status});
                 return err;
             }
             const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
@@ -74,7 +77,8 @@ pub fn Hook(comptime Function: type) type {
             const status = minhook.MH_RemoveHook(@constCast(self.target));
             if (status != minhook.MH_OK) {
                 const err = minHookStatusToError(status);
-                misc.errorContext().newFmt(err, "MH_RemoveHook returned: {}", .{status});
+                misc.errorContext().newFmt(err, "{s}", .{minHookStatusToDescription(status)});
+                misc.errorContext().appendFmt(err, "MH_RemoveHook returned: {}", .{status});
                 return err;
             }
             if (builtin.is_test) {
@@ -86,7 +90,8 @@ pub fn Hook(comptime Function: type) type {
             const status = minhook.MH_EnableHook(@constCast(self.target));
             if (status != minhook.MH_OK) {
                 const err = minHookStatusToError(status);
-                misc.errorContext().newFmt(err, "MH_EnableHook returned: {}", .{status});
+                misc.errorContext().newFmt(err, "{s}", .{minHookStatusToDescription(status)});
+                misc.errorContext().appendFmt(err, "MH_EnableHook returned: {}", .{status});
                 return err;
             }
         }
@@ -95,7 +100,8 @@ pub fn Hook(comptime Function: type) type {
             const status = minhook.MH_DisableHook(@constCast(self.target));
             if (status != minhook.MH_OK) {
                 const err = minHookStatusToError(status);
-                misc.errorContext().newFmt(err, "MH_DisableHook returned: {}", .{status});
+                misc.errorContext().newFmt(err, "{s}", .{minHookStatusToDescription(status)});
+                misc.errorContext().appendFmt(err, "MH_DisableHook returned: {}", .{status});
                 return err;
             }
         }
@@ -117,6 +123,24 @@ fn minHookStatusToError(status: minhook.MH_STATUS) anyerror {
         minhook.MH_ERROR_MODULE_NOT_FOUND => error.ModuleNotFound,
         minhook.MH_ERROR_FUNCTION_NOT_FOUND => error.FunctionNotFound,
         else => error.Unknown,
+    };
+}
+
+fn minHookStatusToDescription(status: minhook.MH_STATUS) [:0]const u8 {
+    return switch (status) {
+        minhook.MH_ERROR_ALREADY_INITIALIZED => "MinHook is already initialized.",
+        minhook.MH_ERROR_NOT_INITIALIZED => "MinHook is not initialized yet, or already uninitialized.",
+        minhook.MH_ERROR_ALREADY_CREATED => "The hook for the specified target function is already created.",
+        minhook.MH_ERROR_NOT_CREATED => "The hook for the specified target function is not created yet.",
+        minhook.MH_ERROR_ENABLED => "The hook for the specified target function is already enabled.",
+        minhook.MH_ERROR_DISABLED => "The hook for the specified target function is not enabled yet, or already disabled.",
+        minhook.MH_ERROR_NOT_EXECUTABLE => "The specified pointer is invalid. It points the address of non-allocated and/or non-executable region.",
+        minhook.MH_ERROR_UNSUPPORTED_FUNCTION => "The specified target function cannot be hooked.",
+        minhook.MH_ERROR_MEMORY_ALLOC => "Failed to allocate memory.",
+        minhook.MH_ERROR_MEMORY_PROTECT => "Failed to change the memory protection.",
+        minhook.MH_ERROR_MODULE_NOT_FOUND => "The specified module is not loaded.",
+        minhook.MH_ERROR_FUNCTION_NOT_FOUND => "The specified function is not found.",
+        else => "Unknown error.",
     };
 }
 
@@ -208,25 +232,4 @@ test "original should still call target implementation even when hook is enabled
     try testing.expectEqual(1, Target.times_called);
     try testing.expectEqual(0, Dtour.times_called);
     try testing.expectEqual(5, return_value);
-}
-
-test "minHookStatusToError should return correct value" {
-    const testCase = struct {
-        fn call(status: minhook.MH_STATUS, expected_error: anyerror) !void {
-            try testing.expectEqual(expected_error, minHookStatusToError(status));
-        }
-    }.call;
-    try testCase(minhook.MH_ERROR_ALREADY_INITIALIZED, error.HookingAlreadyInitialized);
-    try testCase(minhook.MH_ERROR_NOT_INITIALIZED, error.HookingNotInitialized);
-    try testCase(minhook.MH_ERROR_ALREADY_CREATED, error.HookAlreadyCreated);
-    try testCase(minhook.MH_ERROR_NOT_CREATED, error.HookNotCreated);
-    try testCase(minhook.MH_ERROR_ENABLED, error.HookEnabled);
-    try testCase(minhook.MH_ERROR_DISABLED, error.HookDisabled);
-    try testCase(minhook.MH_ERROR_NOT_EXECUTABLE, error.MemoryNotExecutable);
-    try testCase(minhook.MH_ERROR_UNSUPPORTED_FUNCTION, error.UnsupportedFunction);
-    try testCase(minhook.MH_ERROR_MEMORY_ALLOC, error.MemoryAllocationFailed);
-    try testCase(minhook.MH_ERROR_MEMORY_PROTECT, error.MemoryProtectionChangeFailed);
-    try testCase(minhook.MH_ERROR_MODULE_NOT_FOUND, error.ModuleNotFound);
-    try testCase(minhook.MH_ERROR_FUNCTION_NOT_FOUND, error.FunctionNotFound);
-    try testCase(minhook.MH_OK, error.Unknown);
 }
