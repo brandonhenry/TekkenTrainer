@@ -44,14 +44,17 @@ pub const BaseDir = struct {
 
     pub fn getPath(self: *const Self, buffer: *[os.max_file_path_length]u8, sub_path: []const u8) !usize {
         const full_path = std.fmt.bufPrint(buffer, "{s}\\{s}", .{ self.get(), sub_path }) catch |err| {
-            misc.errorContext().newFmt(
-                err,
-                "Failed to put path into the buffer: {s}\\{s}",
-                .{ self.get(), sub_path },
-            );
+            misc.errorContext().newFmt(err, "Failed to put path into the buffer: {s}\\{s}", .{ self.get(), sub_path });
             return err;
         };
         return full_path.len;
+    }
+
+    pub fn allocPath(self: *const Self, allocator: std.mem.Allocator, sub_path: []const u8) ![:0]u8 {
+        return std.fmt.allocPrintZ(allocator, "{s}\\{s}", .{ self.get(), sub_path }) catch |err| {
+            misc.errorContext().newFmt(err, "Failed to print allocate string: {s}\\{s}", .{ self.get(), sub_path });
+            return err;
+        };
     }
 };
 
@@ -78,5 +81,12 @@ test "getPath should combine base dir and sub dir" {
     var buffer: [os.max_file_path_length]u8 = undefined;
     const size = try base_dir.getPath(&buffer, "test_4\\test_5.txt");
     const path = buffer[0..size];
+    try testing.expectEqualStrings("\\test_1\\test_2\\test_3\\test_4\\test_5.txt", path);
+}
+
+test "allocPath should combine base dir and sub dir" {
+    const base_dir = try BaseDir.fromStr("\\test_1\\test_2\\test_3");
+    const path = try base_dir.allocPath(testing.allocator, "test_4\\test_5.txt");
+    defer testing.allocator.free(path);
     try testing.expectEqualStrings("\\test_1\\test_2\\test_3\\test_4\\test_5.txt", path);
 }
