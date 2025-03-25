@@ -21,8 +21,6 @@ pub const EventBuss = struct {
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) Self {
-        _ = base_dir;
-
         var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
         std.log.debug("Initializing DX12 context...", .{});
@@ -44,6 +42,8 @@ pub const EventBuss = struct {
             if (ui.Context.init(
                 buffer_count,
                 srv_heap_size,
+                gpa.allocator(),
+                base_dir,
                 window,
                 device,
                 command_queue,
@@ -82,7 +82,7 @@ pub const EventBuss = struct {
 
         std.log.debug("De-initializing UI context...", .{});
         if (self.ui_context) |*context| {
-            context.deinit();
+            context.deinit(self.gpa.allocator());
             self.ui_context = null;
             std.log.info("UI context de-initialized.", .{});
         } else {

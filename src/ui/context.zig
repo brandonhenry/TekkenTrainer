@@ -8,6 +8,7 @@ const ui = @import("root.zig");
 
 pub const Context = struct {
     imgui_context: *imgui.ImGuiContext,
+    ini_file_path: ?[:0]const u8,
     test_allocation: if (builtin.is_test) *u8 else void,
 
     const Self = @This();
@@ -15,6 +16,8 @@ pub const Context = struct {
     pub fn init(
         comptime buffer_count: usize,
         comptime srv_heap_size: usize,
+        allocator: std.mem.Allocator,
+        base_dir: ?*const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
@@ -26,6 +29,18 @@ pub const Context = struct {
             return error.ImguiError;
         };
         errdefer imgui.igDestroyContext(imgui_context);
+
+        const ini_file_path = if (base_dir) |dir| (dir.allocPath(allocator, "imgui.ini") catch |err| b: {
+            misc.errorContext().append(err, "Failed to allocate imgui.ini file path.");
+            misc.errorContext().logError();
+            break :b null;
+        }) else null;
+        errdefer if (ini_file_path) |path| {
+            allocator.free(path);
+        };
+
+        imgui.igGetIO().*.IniFilename = ini_file_path orelse null;
+        errdefer imgui.igGetIO().*.IniFilename = null;
 
         imgui.igStyleColorsDark(null);
 
@@ -50,8 +65,8 @@ pub const Context = struct {
                     cpu_handle: *w32.D3D12_CPU_DESCRIPTOR_HANDLE,
                     gpu_handle: *w32.D3D12_GPU_DESCRIPTOR_HANDLE,
                 ) callconv(.C) void {
-                    const allocator: *dx12.DescriptorHeapAllocator(srv_heap_size) = @alignCast(@ptrCast(info.user_data));
-                    allocator.alloc(cpu_handle, gpu_handle) catch |err| {
+                    const a: *dx12.DescriptorHeapAllocator(srv_heap_size) = @alignCast(@ptrCast(info.user_data));
+                    a.alloc(cpu_handle, gpu_handle) catch |err| {
                         misc.errorContext().append(err, "Failed to allocate memory on SRV heap.");
                         misc.errorContext().logError();
                     };
@@ -63,8 +78,8 @@ pub const Context = struct {
                     cpu_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE,
                     gpu_handle: w32.D3D12_GPU_DESCRIPTOR_HANDLE,
                 ) callconv(.C) void {
-                    const allocator: *dx12.DescriptorHeapAllocator(srv_heap_size) = @alignCast(@ptrCast(info.user_data));
-                    allocator.free(cpu_handle, gpu_handle) catch |err| {
+                    const a: *dx12.DescriptorHeapAllocator(srv_heap_size) = @alignCast(@ptrCast(info.user_data));
+                    a.free(cpu_handle, gpu_handle) catch |err| {
                         misc.errorContext().append(err, "Failed to free memory on SRV heap.");
                         misc.errorContext().logError();
                     };
@@ -83,14 +98,19 @@ pub const Context = struct {
 
         return .{
             .imgui_context = imgui_context,
+            .ini_file_path = ini_file_path,
             .test_allocation = test_allocation,
         };
     }
 
-    pub fn deinit(self: *const Self) void {
+    pub fn deinit(self: *const Self, allocator: std.mem.Allocator) void {
         imgui.igSetCurrentContext(self.imgui_context);
         ui.backend.ImGui_ImplDX12_Shutdown();
         ui.backend.ImGui_ImplWin32_Shutdown();
+        imgui.igGetIO().*.IniFilename = null;
+        if (self.ini_file_path) |path| {
+            allocator.free(path);
+        }
         imgui.igDestroyContext(self.imgui_context);
 
         if (builtin.is_test) {
@@ -145,13 +165,15 @@ test "should render hello world successfully" {
     const ui_context = try Context.init(
         3,
         64,
+        testing.allocator,
+        null,
         testing_context.window,
         testing_context.device,
         testing_context.command_queue,
         dx12_context.srv_descriptor_heap,
         dx12_context.srv_allocator,
     );
-    defer ui_context.deinit();
+    defer ui_context.deinit(testing.allocator);
 
     ui_context.newFrame();
     if (imgui.igBegin("Hello world.", null, 0)) {
