@@ -15,19 +15,22 @@ pub const EventBuss = struct {
     const srv_heap_size = 64;
 
     pub fn init(
-        self: *Self,
         base_dir: *const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
-    ) void {
+    ) Self {
         _ = base_dir;
 
-        self.gpa = std.heap.GeneralPurposeAllocator(.{}){};
+        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
         std.log.debug("Initializing DX12 context...", .{});
-        self.dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(device, swap_chain)) |context| block: {
+        const dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(
+            gpa.allocator(),
+            device,
+            swap_chain,
+        )) |context| block: {
             std.log.info("DX12 context initialized.", .{});
             break :block context;
         } else |err| block: {
@@ -36,7 +39,7 @@ pub const EventBuss = struct {
             break :block null;
         };
 
-        self.ui_context = if (self.dx12_context) |*dxc| block: {
+        const ui_context = if (dx12_context) |*dxc| block: {
             std.log.debug("Initializing UI context...", .{});
             if (ui.Context.init(buffer_count, srv_heap_size, window, device, command_queue, dxc)) |context| {
                 std.log.info("UI context initialized.", .{});
@@ -47,6 +50,12 @@ pub const EventBuss = struct {
                 break :block null;
             }
         } else null;
+
+        return .{
+            .gpa = gpa,
+            .dx12_context = dx12_context,
+            .ui_context = ui_context,
+        };
     }
 
     pub fn deinit(
@@ -74,7 +83,7 @@ pub const EventBuss = struct {
 
         std.log.debug("De-initializing DX12 context...", .{});
         if (self.dx12_context) |*context| {
-            context.deinit();
+            context.deinit(self.gpa.allocator());
             self.dx12_context = null;
             std.log.info("DX12 context de-initialized.", .{});
         } else {

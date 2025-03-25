@@ -8,13 +8,17 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
     return struct {
         rtv_descriptor_heap: *w32.ID3D12DescriptorHeap,
         srv_descriptor_heap: *w32.ID3D12DescriptorHeap,
-        srv_allocator: dx12.DescriptorHeapAllocator(svr_heap_size),
+        srv_allocator: *dx12.DescriptorHeapAllocator(svr_heap_size),
         buffer_contexts: [buffer_count]BufferContext,
         test_allocation: if (builtin.is_test) *u8 else void,
 
         const Self = @This();
 
-        pub fn init(device: *const w32.ID3D12Device, swap_chain: *const w32.IDXGISwapChain) !Self {
+        pub fn init(
+            allocator: std.mem.Allocator,
+            device: *const w32.ID3D12Device,
+            swap_chain: *const w32.IDXGISwapChain,
+        ) !Self {
             var rtv_descriptor_heap: *w32.ID3D12DescriptorHeap = undefined;
             const rtv_result = device.CreateDescriptorHeap(&.{
                 .Type = .RTV,
@@ -45,7 +49,12 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
             }
             errdefer _ = srv_descriptor_heap.IUnknown.Release();
 
-            const srv_allocator = dx12.DescriptorHeapAllocator(svr_heap_size){
+            const srv_allocator = allocator.create(dx12.DescriptorHeapAllocator(svr_heap_size)) catch |err| {
+                misc.errorContext().new(err, "Failed to allocate a SRV allocator.");
+                return err;
+            };
+            errdefer allocator.destroy(srv_allocator);
+            srv_allocator.* = .{
                 .cpu_start = dx12.getCpuDescriptorHandleForHeapStart(srv_descriptor_heap),
                 .gpu_start = dx12.getGpuDescriptorHandleForHeapStart(srv_descriptor_heap),
                 .increment = device.GetDescriptorHandleIncrementSize(.CBV_SRV_UAV),
@@ -76,11 +85,12 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
             };
         }
 
-        pub fn deinit(self: *const Self) void {
+        pub fn deinit(self: *const Self, allocator: std.mem.Allocator) void {
             inline for (self.buffer_contexts) |context| {
                 context.deinit();
             }
 
+            allocator.destroy(self.srv_allocator);
             _ = self.srv_descriptor_heap.IUnknown.Release();
             _ = self.rtv_descriptor_heap.IUnknown.Release();
 
@@ -271,15 +281,15 @@ const testing = std.testing;
 test "init and deinit should succeed" {
     const testing_context = try dx12.TestingContext.init();
     defer testing_context.deinit();
-    const context = try Context(3, 64).init(testing_context.device, testing_context.swap_chain);
-    defer context.deinit();
+    const context = try Context(3, 64).init(testing.allocator, testing_context.device, testing_context.swap_chain);
+    defer context.deinit(testing.allocator);
 }
 
 test "beforeRender and afterRender should succeed" {
     const testing_context = try dx12.TestingContext.init();
     defer testing_context.deinit();
-    const context = try Context(3, 64).init(testing_context.device, testing_context.swap_chain);
-    defer context.deinit();
+    const context = try Context(3, 64).init(testing.allocator, testing_context.device, testing_context.swap_chain);
+    defer context.deinit(testing.allocator);
     const buffer_context = try beforeRender(3, 64, &context, testing_context.swap_chain);
     try afterRender(buffer_context, testing_context.command_queue);
 }

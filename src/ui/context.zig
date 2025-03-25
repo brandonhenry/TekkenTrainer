@@ -18,7 +18,7 @@ pub const Context = struct {
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
-        dx12_context: *dx12.Context(buffer_count, srv_heap_size),
+        dx12_context: *const dx12.Context(buffer_count, srv_heap_size),
     ) !Self {
         const imgui_context = imgui.igCreateContext(null) orelse {
             misc.errorContext().new(error.ImguiError, "igCreateContext returned null.");
@@ -42,7 +42,7 @@ pub const Context = struct {
             .rtv_format = w32.DXGI_FORMAT_R8G8B8A8_UNORM,
             .dsv_format = w32.DXGI_FORMAT_UNKNOWN,
             .cbv_srv_heap = dx12_context.srv_descriptor_heap,
-            .user_data = &dx12_context.srv_allocator,
+            .user_data = dx12_context.srv_allocator,
             .srv_desc_alloc_fn = struct {
                 fn call(
                     info: *ui.backend.ImGui_ImplDX12_InitInfo,
@@ -128,12 +128,18 @@ pub const Context = struct {
     }
 };
 
+const testing = std.testing;
+
 test "should render hello world successfully" {
     const testing_context = try dx12.TestingContext.init();
     defer testing_context.deinit();
 
-    var dx12_context = try dx12.Context(3, 64).init(testing_context.device, testing_context.swap_chain);
-    defer dx12_context.deinit();
+    var dx12_context = try dx12.Context(3, 64).init(
+        testing.allocator,
+        testing_context.device,
+        testing_context.swap_chain,
+    );
+    defer dx12_context.deinit(testing.allocator);
 
     const ui_context = try Context.init(
         3,

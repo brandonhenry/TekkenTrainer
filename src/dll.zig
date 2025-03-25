@@ -147,8 +147,7 @@ fn onFirstPresent(
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
     std.log.info("Initializing event buss...", .{});
-    event_buss = @as(EventBuss, undefined);
-    event_buss.?.init(&base_dir, window, device, command_queue, swap_chain);
+    event_buss = EventBuss.init(&base_dir, window, device, command_queue, swap_chain);
     std.log.info("Event buss initialized.", .{});
 
     std.log.debug("Initializing window procedure...", .{});
