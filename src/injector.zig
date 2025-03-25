@@ -28,30 +28,57 @@ pub const std_options = std.Options{
 
 pub fn main() !void {
     std.log.info("Application started up.", .{});
+
+    std.log.debug("Finding base directory...", .{});
+    const base_dir = findBaseDir();
+    std.log.info("Base directory set to: {s}", .{base_dir.get()});
+
     std.log.debug("Starting file logging...", .{});
-    if (startFileLogging()) {
+    if (startFileLogging(&base_dir)) {
         std.log.info("File logging started.", .{});
     } else |err| {
         misc.errorContext().append(err, "Failed to start file logging.");
         misc.errorContext().logError();
     }
+
     std.log.debug("Setting console close handler...", .{});
     os.setConsoleCloseHandler(onConsoleClose) catch |err| {
         misc.errorContext().append(err, "Failed to set console close handler.");
         misc.errorContext().logError();
     };
     std.log.debug("Console close handler set.", .{});
+
     std.log.debug("Running process loop...", .{});
-    injector.runProcessLoop(process_name, access_rights, interval_ns, onProcessOpen, onProcessClose);
+    injector.runProcessLoop(
+        process_name,
+        access_rights,
+        interval_ns,
+        &base_dir,
+        onProcessOpen,
+        onProcessClose,
+    );
 }
 
-fn startFileLogging() !void {
+fn findBaseDir() misc.BaseDir {
     const main_module = os.Module.getMain() catch |err| {
         misc.errorContext().append(err, "Failed to get process main module.");
-        return err;
+        misc.errorContext().append(err, "Failed find base directory.");
+        misc.errorContext().logError();
+        std.log.info("Defaulting base directory to working directory.", .{});
+        return misc.BaseDir.working_dir;
     };
+    return misc.BaseDir.fromModule(&main_module) catch |err| {
+        misc.errorContext().append(err, "Failed to find base directory from main module.");
+        misc.errorContext().append(err, "Failed find base directory.");
+        misc.errorContext().logError();
+        std.log.info("Defaulting base directory to working directory.", .{});
+        return misc.BaseDir.working_dir;
+    };
+}
+
+fn startFileLogging(base_dir: *const misc.BaseDir) !void {
     var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = os.getPathRelativeFromModule(&buffer, &main_module, log_file_name) catch |err| {
+    const size = base_dir.getPath(&buffer, log_file_name) catch |err| {
         misc.errorContext().append(err, "Failed to find log file path.");
         return err;
     };
@@ -64,15 +91,10 @@ fn startFileLogging() !void {
 
 var injected_module: ?injector.InjectedModule = null;
 
-pub fn onProcessOpen(process: *const os.Process) bool {
-    const main_module = os.Module.getMain() catch |err| {
-        misc.errorContext().append(err, "Failed to get process main module.");
-        misc.errorContext().logError();
-        return false;
-    };
+pub fn onProcessOpen(base_dir: *const misc.BaseDir, process: *const os.Process) bool {
     std.log.debug("Getting full path of \"{s}\"...", .{module_name});
     var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = os.getPathRelativeFromModule(&buffer, &main_module, module_name) catch |err| {
+    const size = base_dir.getPath(&buffer, module_name) catch |err| {
         misc.errorContext().appendFmt(err, "Failed to get full file path of: {s}", .{module_name});
         misc.errorContext().logError();
         return false;
@@ -89,7 +111,8 @@ pub fn onProcessOpen(process: *const os.Process) bool {
     return true;
 }
 
-pub fn onProcessClose() void {
+pub fn onProcessClose(base_dir: *const misc.BaseDir) void {
+    _ = base_dir;
     if (injected_module == null) {
         std.log.info("Nothing to eject.", .{});
         return;

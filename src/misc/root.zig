@@ -1,3 +1,4 @@
+pub const BaseDir = @import("base_dir.zig").BaseDir;
 pub const errorContext = @import("error_context.zig").errorContext;
 pub const ErrorContext = @import("error_context.zig").ErrorContext;
 pub const Timestamp = @import("timestamp.zig").Timestamp;

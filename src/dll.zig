@@ -17,6 +17,7 @@ pub const std_options = std.Options{
 };
 const main_hooks = hooking.MainHooks(onFirstPresent, onNormalPresent, onLastPresent);
 
+var base_dir = misc.BaseDir.working_dir;
 var window_procedure: ?os.WindowProcedure = null;
 var event_buss: ?EventBuss = null;
 
@@ -53,6 +54,10 @@ pub fn DllMain(
 
 fn init() void {
     std.log.info("Running initialization...", .{});
+
+    std.log.debug("Finding base directory...", .{});
+    findBaseDir();
+    std.log.info("Base directory set to: {s}", .{base_dir.get()});
 
     std.log.debug("Starting file logging...", .{});
     if (startFileLogging()) {
@@ -103,13 +108,28 @@ fn deinit() void {
     std.log.info("De-initialization completed.", .{});
 }
 
-fn startFileLogging() !void {
-    const main_module = os.Module.getLocal(module_name) catch |err| {
+fn findBaseDir() void {
+    const dll_module = os.Module.getMain() catch |err| {
         misc.errorContext().appendFmt(err, "Failed to get local module: {s}", .{module_name});
-        return err;
+        misc.errorContext().append(err, "Failed find base directory.");
+        misc.errorContext().logError();
+        std.log.info("Defaulting base directory to working directory.", .{});
+        base_dir = misc.BaseDir.working_dir;
+        return;
     };
+    base_dir = misc.BaseDir.fromModule(&dll_module) catch |err| {
+        misc.errorContext().appendFmt(err, "Failed to find base directory from module: {s}", .{module_name});
+        misc.errorContext().append(err, "Failed find base directory.");
+        misc.errorContext().logError();
+        std.log.info("Defaulting base directory to working directory.", .{});
+        base_dir = misc.BaseDir.working_dir;
+        return;
+    };
+}
+
+fn startFileLogging() !void {
     var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = os.getPathRelativeFromModule(&buffer, &main_module, log_file_name) catch |err| {
+    const size = base_dir.getPath(&buffer, log_file_name) catch |err| {
         misc.errorContext().append(err, "Failed to find log file path.");
         return err;
     };
@@ -128,7 +148,7 @@ fn onFirstPresent(
 ) void {
     std.log.info("Initializing event buss...", .{});
     event_buss = @as(EventBuss, undefined);
-    event_buss.?.init(window, device, command_queue, swap_chain);
+    event_buss.?.init(&base_dir, window, device, command_queue, swap_chain);
     std.log.info("Event buss initialized.", .{});
 
     std.log.debug("Initializing window procedure...", .{});
@@ -148,7 +168,7 @@ fn onNormalPresent(
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
     if (event_buss) |*buss| {
-        buss.update(window, device, command_queue, swap_chain);
+        buss.update(&base_dir, window, device, command_queue, swap_chain);
     }
 }
 
@@ -173,7 +193,7 @@ fn onLastPresent(
 
     std.log.info("De-initializing event buss...", .{});
     if (event_buss) |*buss| {
-        buss.deinit(window, device, command_queue, swap_chain);
+        buss.deinit(&base_dir, window, device, command_queue, swap_chain);
         event_buss = null;
         std.log.info("Event buss de-initialized.", .{});
     } else {
@@ -188,7 +208,7 @@ fn windowProcedure(
     l_param: w32.LPARAM,
 ) callconv(.winapi) w32.LRESULT {
     if (event_buss) |*buss| {
-        const result = buss.processWindowMessage(window, u_msg, w_param, l_param);
+        const result = buss.processWindowMessage(&base_dir, window, u_msg, w_param, l_param);
         if (result) |r| {
             return r;
         }

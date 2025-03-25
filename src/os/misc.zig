@@ -43,29 +43,6 @@ pub fn filePathToDirectoryPath(path: []const u8) []const u8 {
     }
 }
 
-pub fn getPathRelativeFromModule(
-    buffer: *[os.max_file_path_length]u8,
-    module: *const os.Module,
-    path_from_module: []const u8,
-) !usize {
-    var module_path_buffer: [os.max_file_path_length]u8 = undefined;
-    const size = module.getFilePath(&module_path_buffer) catch |err| {
-        misc.errorContext().append(err, "Failed to get file path of module.");
-        return err;
-    };
-    const module_path = module_path_buffer[0..size];
-    const directory_path = filePathToDirectoryPath(module_path);
-    const full_path = std.fmt.bufPrint(buffer, "{s}\\{s}", .{ directory_path, path_from_module }) catch |err| {
-        misc.errorContext().newFmt(
-            err,
-            "Failed to put path into the buffer: {s}\\{s}",
-            .{ directory_path, path_from_module },
-        );
-        return err;
-    };
-    return full_path.len;
-}
-
 pub fn getFullPath(full_path_buffer: *[os.max_file_path_length]u8, short_path: []const u8) !usize {
     var short_path_buffer_utf16 = [_:0]u16{0} ** os.max_file_path_length;
     const short_path_size = std.unicode.utf8ToUtf16Le(&short_path_buffer_utf16, short_path) catch |err| {
@@ -143,20 +120,4 @@ test "getFullPath should produce correct full path" {
     const size = try getFullPath(&buffer, "./test_1/test_2/test_3.txt");
     const full_path = buffer[0..size];
     try testing.expectStringEndsWith(full_path, "\\test_1\\test_2\\test_3.txt");
-}
-
-test "getPathRelativeFromModule should return correct path" {
-    const module = try os.Module.getMain();
-    var module_path_buffer: [os.max_file_path_length]u8 = undefined;
-    const module_path_size = try module.getFilePath(&module_path_buffer);
-    const module_path = module_path_buffer[0..module_path_size];
-    const module_directory = filePathToDirectoryPath(module_path);
-
-    var buffer: [os.max_file_path_length]u8 = undefined;
-    const size = try getPathRelativeFromModule(&buffer, &module, "test_1\\test_2\\test_3.txt");
-    const path = buffer[0..size];
-
-    try testing.expectStringStartsWith(path, module_directory);
-    try testing.expectStringEndsWith(path, "\\test_1\\test_2\\test_3.txt");
-    try testing.expectEqual(module_directory.len + "\\test_1\\test_2\\test_3.txt".len, path.len);
 }

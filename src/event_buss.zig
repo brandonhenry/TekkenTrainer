@@ -16,11 +16,14 @@ pub const EventBuss = struct {
 
     pub fn init(
         self: *Self,
+        base_dir: *const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) void {
+        _ = base_dir;
+
         self.gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
         std.log.debug("Initializing DX12 context...", .{});
@@ -48,11 +51,13 @@ pub const EventBuss = struct {
 
     pub fn deinit(
         self: *Self,
+        base_dir: *const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) void {
+        _ = base_dir;
         _ = swap_chain;
         _ = window;
         _ = device;
@@ -84,11 +89,13 @@ pub const EventBuss = struct {
 
     pub fn update(
         self: *Self,
+        base_dir: *const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) void {
+        _ = base_dir;
         _ = window;
         _ = device;
 
@@ -115,11 +122,13 @@ pub const EventBuss = struct {
 
     pub fn processWindowMessage(
         self: *Self,
+        base_dir: *const misc.BaseDir,
         window: w32.HWND,
         u_msg: u32,
         w_param: w32.WPARAM,
         l_param: w32.LPARAM,
     ) ?w32.LRESULT {
+        _ = base_dir;
         if (self.ui_context) |*context| {
             return context.processWindowMessage(window, u_msg, w_param, l_param);
         }

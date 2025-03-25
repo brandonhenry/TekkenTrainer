@@ -26,6 +26,8 @@ test {
     _ = @import("memory/multilevel_pointer.zig");
     _ = @import("memory/pointer.zig");
     _ = @import("memory/self_sortable_array.zig");
+
+    _ = @import("misc/base_dir.zig");
     _ = @import("misc/error_context.zig");
     _ = @import("misc/timestamp.zig");
 
