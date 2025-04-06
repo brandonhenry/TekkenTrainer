@@ -12,22 +12,15 @@ pub fn build(b: *std.Build) void {
     // what target to build for. Here we restrict the standard options to only
     // allow building for 64-bit Windows, and make that the default target.
     const target = b.standardTargetOptions(.{
-        .whitelist = &.{
-            .{
-                .cpu_arch = .x86_64,
-                .os_tag = .windows,
-                .abi = .gnu,
-            },
-            .{
-                .cpu_arch = .x86_64,
-                .os_tag = .windows,
-                .abi = .msvc,
-            },
-        },
+        .whitelist = &.{.{
+            .cpu_arch = .x86_64,
+            .os_tag = .windows,
+            .abi = .gnu,
+        }},
         .default_target = .{
             .cpu_arch = .x86_64,
             .os_tag = .windows,
-            .abi = if (builtin.os.tag == .windows) .msvc else .gnu,
+            .abi = .gnu,
         },
     });
 
