@@ -141,6 +141,52 @@ pub const EventBuss = struct {
         };
     }
 
+    pub fn beforeResize(
+        self: *Self,
+        base_dir: *const misc.BaseDir,
+        window: w32.HWND,
+        device: *const w32.ID3D12Device,
+        command_queue: *const w32.ID3D12CommandQueue,
+        swap_chain: *const w32.IDXGISwapChain,
+    ) void {
+        _ = base_dir;
+        _ = window;
+        _ = device;
+        _ = command_queue;
+        _ = swap_chain;
+        std.log.debug("De-initializing DX12 buffer contexts...", .{});
+        if (self.dx12_context) |*context| {
+            context.deinitBufferContexts();
+            std.log.info("DX12 buffer contexts de-initialized.", .{});
+        } else {
+            std.log.debug("Nothing to de-initialize.", .{});
+        }
+    }
+
+    pub fn afterResize(
+        self: *Self,
+        base_dir: *const misc.BaseDir,
+        window: w32.HWND,
+        device: *const w32.ID3D12Device,
+        command_queue: *const w32.ID3D12CommandQueue,
+        swap_chain: *const w32.IDXGISwapChain,
+    ) void {
+        _ = base_dir;
+        _ = window;
+        _ = command_queue;
+        std.log.debug("Re-initializing DX12 buffer contexts...", .{});
+        if (self.dx12_context) |*context| {
+            if (context.reinitBufferContexts(device, swap_chain)) {
+                std.log.info("DX12 buffer contexts re-initialized.", .{});
+            } else |err| {
+                misc.errorContext().append(err, "Failed to re-initialize DX12 buffer contexts.");
+                misc.errorContext().logError();
+            }
+        } else {
+            std.log.debug("Nothing to re-initialize.", .{});
+        }
+    }
+
     pub fn processWindowMessage(
         self: *Self,
         base_dir: *const misc.BaseDir,

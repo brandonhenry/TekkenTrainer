@@ -206,11 +206,10 @@ fn beforeHooksResize(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
-    _ = window;
-    _ = device;
-    _ = command_queue;
-    _ = swap_chain;
-    std.log.info("BEFORE RESIZE EVENT", .{});
+    std.log.info("Detected before resize event.", .{});
+    if (event_buss) |*buss| {
+        buss.beforeResize(&base_dir, window, device, command_queue, swap_chain);
+    }
 }
 
 fn afterHooksResize(
@@ -219,11 +218,11 @@ fn afterHooksResize(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
-    _ = window;
-    _ = device;
-    _ = command_queue;
-    _ = swap_chain;
-    std.log.info("AFTER RESIZE EVENT", .{});
+    std.log.info("Detected after resize event.", .{});
+    std.log.info("Detected before resize event.", .{});
+    if (event_buss) |*buss| {
+        buss.afterResize(&base_dir, window, device, command_queue, swap_chain);
+    }
 }
 
 fn windowProcedure(

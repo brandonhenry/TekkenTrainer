@@ -98,6 +98,30 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 std.testing.allocator.destroy(self.test_allocation);
             }
         }
+
+        pub fn deinitBufferContexts(self: *const Self) void {
+            inline for (self.buffer_contexts) |buffer_context| {
+                buffer_context.deinit();
+            }
+        }
+
+        pub fn reinitBufferContexts(
+            self: *Self,
+            device: *const w32.ID3D12Device,
+            swap_chain: *const w32.IDXGISwapChain,
+        ) !void {
+            inline for (0..self.buffer_contexts.len) |index| {
+                self.buffer_contexts[index] = dx12.BufferContext.init(
+                    device,
+                    swap_chain,
+                    self.rtv_descriptor_heap,
+                    index,
+                ) catch |err| {
+                    misc.errorContext().appendFmt(err, "Failed to reinitialize buffer context with index: {}", .{index});
+                    return err;
+                };
+            }
+        }
     };
 }
 
@@ -292,4 +316,13 @@ test "beforeRender and afterRender should succeed" {
     defer context.deinit(testing.allocator);
     const buffer_context = try beforeRender(3, 64, &context, testing_context.swap_chain);
     try afterRender(buffer_context, testing_context.command_queue);
+}
+
+test "deinitBufferContexts and reinitBufferContexts should succeed" {
+    const testing_context = try dx12.TestingContext.init();
+    defer testing_context.deinit();
+    var context = try Context(3, 64).init(testing.allocator, testing_context.device, testing_context.swap_chain);
+    defer context.deinit(testing.allocator);
+    context.deinitBufferContexts();
+    try context.reinitBufferContexts(testing_context.device, testing_context.swap_chain);
 }
