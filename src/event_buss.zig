@@ -121,7 +121,11 @@ pub const EventBuss = struct {
 
         ui_context.newFrame();
         imgui.igGetIO().*.MouseDrawCursor = true;
-        imgui.igShowDemoWindow(null);
+        // imgui.igShowDemoWindow(null);
+        if (imgui.igBegin("Hello world.", null, imgui.ImGuiWindowFlags_NoCollapse)) {
+            imgui.igText("Hello world.", .{});
+            imgui.igEnd();
+        }
         ui_context.endFrame();
 
         const buffer_context = dx12.beforeRender(buffer_count, srv_heap_size, dx12_context, swap_chain) catch |err| {
