@@ -8,6 +8,7 @@ const w = std.unicode.utf8ToUtf16LeStringLiteral;
 pub const Functions = struct {
     executeCommandLists: *const ExecuteCommandLists,
     present: *const Present,
+    resizeBuffers: *const ResizeBuffers,
 
     const Self = @This();
     pub const ExecuteCommandLists = @typeInfo(@FieldType(
@@ -17,6 +18,10 @@ pub const Functions = struct {
     pub const Present = @typeInfo(@FieldType(
         w32.IDXGISwapChain.VTable,
         "Present",
+    )).pointer.child;
+    pub const ResizeBuffers = @typeInfo(@FieldType(
+        w32.IDXGISwapChain.VTable,
+        "ResizeBuffers",
     )).pointer.child;
 
     pub fn find() !Self {
@@ -190,6 +195,7 @@ pub const Functions = struct {
         return .{
             .executeCommandLists = command_queue.vtable.ExecuteCommandLists,
             .present = swap_chain.vtable.Present,
+            .resizeBuffers = swap_chain.vtable.ResizeBuffers,
         };
     }
 };
@@ -202,4 +208,5 @@ test "find should return correct values" {
     const functions = try Functions.find();
     try testing.expectEqual(context.command_queue.vtable.ExecuteCommandLists, functions.executeCommandLists);
     try testing.expectEqual(context.swap_chain.vtable.Present, functions.present);
+    try testing.expectEqual(context.swap_chain.vtable.ResizeBuffers, functions.resizeBuffers);
 }
