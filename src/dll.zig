@@ -109,7 +109,7 @@ fn deinit() void {
 }
 
 fn findBaseDir() void {
-    const dll_module = os.Module.getMain() catch |err| {
+    const dll_module = os.Module.getLocal(module_name) catch |err| {
         misc.errorContext().appendFmt(err, "Failed to get local module: {s}", .{module_name});
         misc.errorContext().append(err, "Failed find base directory.");
         misc.errorContext().logError();
