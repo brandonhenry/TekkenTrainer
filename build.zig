@@ -102,6 +102,7 @@ pub fn build(b: *std.Build) void {
     }
     imgui_lib.root_module.addCMacro("IMGUI_IMPL_API", "extern \"C\"");
     imgui_lib.root_module.addCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
+    imgui_lib.root_module.addCMacro("IMGUI_IMPL_WIN32_DISABLE_GAMEPAD", "1");
     imgui_lib.linkLibC();
     imgui_lib.linkLibCpp();
     const imgui_c = b.addTranslateC(.{
