@@ -39,6 +39,7 @@ test {
     _ = @import("os/process.zig");
     _ = @import("os/remote_slice.zig");
     _ = @import("os/remote_thread.zig");
+    _ = @import("os/shared_value.zig");
     _ = @import("os/window_procedure.zig");
 
     _ = @import("ui/context.zig");
