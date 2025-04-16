@@ -1,7 +1,7 @@
 const std = @import("std");
 const os = @import("../os/root.zig");
 
-pub const MemoryRange = struct {
+pub const Range = struct {
     base_address: usize,
     size_in_bytes: usize,
 
@@ -31,25 +31,25 @@ const testing = std.testing;
 
 test "fromPointer should return correct base address and size" {
     var array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange.fromPointer(&array);
+    const memory_range = Range.fromPointer(&array);
     try testing.expectEqual(memory_range.base_address, @intFromPtr(&array));
     try testing.expectEqual(memory_range.size_in_bytes, array.len);
 }
 
 test "isReadable should return true when memory is readable and writable" {
     var array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange.fromPointer(&array);
+    const memory_range = Range.fromPointer(&array);
     try testing.expectEqual(true, memory_range.isReadable());
 }
 
 test "isReadable should return true when memory is only readable" {
     const array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange.fromPointer(&array);
+    const memory_range = Range.fromPointer(&array);
     try testing.expectEqual(true, memory_range.isReadable());
 }
 
 test "isReadable should return false when memory not readable" {
-    const memory_range = MemoryRange{
+    const memory_range = Range{
         .base_address = std.math.maxInt(usize) - 5,
         .size_in_bytes = 5,
     };
@@ -57,7 +57,7 @@ test "isReadable should return false when memory not readable" {
 }
 
 test "isReadable should return false when base address is null" {
-    const memory_range = MemoryRange{
+    const memory_range = Range{
         .base_address = 0,
         .size_in_bytes = 5,
     };
@@ -66,18 +66,18 @@ test "isReadable should return false when base address is null" {
 
 test "isWriteable should return true when memory is readable and writable" {
     var array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange.fromPointer(&array);
+    const memory_range = Range.fromPointer(&array);
     try testing.expectEqual(true, memory_range.isWriteable());
 }
 
 test "isWriteable should return false when memory is only readable" {
     const array = [_]u8{ 0, 1, 2, 3, 4 };
-    const memory_range = MemoryRange.fromPointer(&array);
+    const memory_range = Range.fromPointer(&array);
     try testing.expectEqual(false, memory_range.isWriteable());
 }
 
 test "isWriteable should return false when memory not readable" {
-    const memory_range = MemoryRange{
+    const memory_range = Range{
         .base_address = std.math.maxInt(usize) - 5,
         .size_in_bytes = 5,
     };
@@ -85,7 +85,7 @@ test "isWriteable should return false when memory not readable" {
 }
 
 test "isWriteable should return false when base address is null" {
-    const memory_range = MemoryRange{
+    const memory_range = Range{
         .base_address = 0,
         .size_in_bytes = 5,
     };
@@ -93,7 +93,7 @@ test "isWriteable should return false when base address is null" {
 }
 
 test "isValid should return true when range does not overflow" {
-    const memory_range = MemoryRange{
+    const memory_range = Range{
         .base_address = 123,
         .size_in_bytes = 456,
     };
@@ -101,7 +101,7 @@ test "isValid should return true when range does not overflow" {
 }
 
 test "isValid should return true when range overflows" {
-    const memory_range = MemoryRange{
+    const memory_range = Range{
         .base_address = std.math.maxInt(usize) - 5,
         .size_in_bytes = 10,
     };

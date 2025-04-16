@@ -128,7 +128,7 @@ pub const Module = struct {
         };
     }
 
-    pub fn getMemoryRange(self: *const Self) !memory.MemoryRange {
+    pub fn getMemoryRange(self: *const Self) !memory.Range {
         var info: w32.MODULEINFO = undefined;
         const success = w32.K32GetModuleInformation(self.process.handle, self.handle, &info, @sizeOf(@TypeOf(info)));
         if (success == 0) {

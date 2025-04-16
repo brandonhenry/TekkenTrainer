@@ -21,10 +21,10 @@ test {
     _ = @import("log/file.zig");
 
     _ = @import("memory/converted_value.zig");
-    _ = @import("memory/memory_pattern.zig");
-    _ = @import("memory/memory_range.zig");
     _ = @import("memory/multilevel_pointer.zig");
+    _ = @import("memory/pattern.zig");
     _ = @import("memory/pointer.zig");
+    _ = @import("memory/range.zig");
     _ = @import("memory/self_sortable_array.zig");
 
     _ = @import("misc/base_dir.zig");
