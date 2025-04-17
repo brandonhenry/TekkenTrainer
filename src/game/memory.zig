@@ -13,13 +13,13 @@ pub const Memory = struct {
     pub fn init() Self {
         return .{
             .player_1 = multilevelPointer("player_1", game.Player, 4, .{
-                relativeOffset(u32, add(pattern(11, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"), 3)),
+                relativeOffset(u32, add(pattern("4C 89 35 ?? ?? ?? ?? 41 88 5E 28"), 3)),
                 0x0,
                 0x30,
                 0x0,
             }),
             .player_2 = multilevelPointer("player_2", game.Player, 4, .{
-                relativeOffset(u32, add(pattern(11, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"), 3)),
+                relativeOffset(u32, add(pattern("4C 89 35 ?? ?? ?? ?? 41 88 5E 28"), 3)),
                 0x0,
                 0x38,
                 0x0,
@@ -52,8 +52,8 @@ pub const Memory = struct {
         };
     }
 
-    fn pattern(comptime number_of_bytes: usize, comptime pattern_string: []const u8) !usize {
-        const memory_pattern = memory.Pattern(number_of_bytes).new(pattern_string);
+    fn pattern(comptime pattern_string: []const u8) !usize {
+        const memory_pattern = memory.Pattern.fromComptime(pattern_string);
         const main_module = os.Module.getMain() catch |err| {
             misc.errorContext().append(err, "Failed to get main module.");
             return err;
