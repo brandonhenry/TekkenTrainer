@@ -36,7 +36,7 @@ pub const Error = struct {
         if (message_length > 0) {
             var iterator = std.unicode.Utf16LeIterator.init(message[0..message_length]);
             while (try iterator.nextCodepoint()) |codepoint| {
-                var buffer: [4]u8 = [_]u8{undefined} ** 4;
+                var buffer = [_]u8{undefined} ** 4;
                 const len = try std.unicode.utf8Encode(codepoint, &buffer);
                 try writer.writeAll(buffer[0..len]);
             }

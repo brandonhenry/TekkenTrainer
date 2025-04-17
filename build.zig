@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) void {
                 .sub_path = "src",
             },
         },
-        .files = &[_][]const u8{
+        .files = &.{
             "buffer.c",
             "hook.c",
             "trampoline.c",

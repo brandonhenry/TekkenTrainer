@@ -55,7 +55,7 @@ test "sortedConst should return a array of pointers sorted by value" {
             return lhs.* < rhs.*;
         }
     }.call;
-    const array = SelfSortableArray(3, i32, lessThanFn){ .raw = [_]i32{ 2, 3, 1 } };
+    const array = SelfSortableArray(3, i32, lessThanFn){ .raw = .{ 2, 3, 1 } };
     const sorted = array.sortedConst();
     try testing.expectEqual(&array.raw[2], sorted[0]);
     try testing.expectEqual(&array.raw[0], sorted[1]);
@@ -68,7 +68,7 @@ test "sortedMutable should return a array of pointers sorted by value" {
             return lhs.* < rhs.*;
         }
     }.call;
-    var array = SelfSortableArray(3, i32, lessThanFn){ .raw = [_]i32{ 2, 3, 1 } };
+    var array = SelfSortableArray(3, i32, lessThanFn){ .raw = .{ 2, 3, 1 } };
     const sorted = array.sortedMutable();
     try testing.expectEqual(&array.raw[2], sorted[0]);
     try testing.expectEqual(&array.raw[0], sorted[1]);
