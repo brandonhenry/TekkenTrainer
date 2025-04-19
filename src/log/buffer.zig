@@ -21,15 +21,17 @@ pub const LogEntry = struct {
 
 pub fn BufferLogger(comptime config: BufferLoggerConfig) type {
     return struct {
-        var buffer: [config.buffer_size]u8 = undefined;
         var entries = misc.CircularBuffer(config.max_entries, LogEntry){};
+        var buffer: [config.buffer_size]u8 = undefined;
+        var mutex = std.Thread.Mutex{};
 
-        pub fn getEntry(index: usize) !LogEntry {
-            return try entries.get(index);
+        pub fn lockAndGetEntries() *const misc.CircularBuffer(config.max_entries, LogEntry) {
+            mutex.lock();
+            return &entries;
         }
 
-        pub fn getLen() usize {
-            return entries.len;
+        pub fn unlock() void {
+            mutex.unlock();
         }
 
         pub fn logFn(
@@ -41,6 +43,8 @@ pub fn BufferLogger(comptime config: BufferLoggerConfig) type {
             if (@intFromEnum(level) > @intFromEnum(config.level)) {
                 return;
             }
+            mutex.lock();
+            defer mutex.unlock();
             const last_entry = entries.getLast() catch {
                 log(&buffer, level, scope, format, args) catch return;
                 return;
@@ -148,9 +152,11 @@ test "should set correct values to entry fields" {
     logger.logFn(.warn, .scope_2, "Message: {}", .{3});
     logger.logFn(.err, .scope_3, "Message: {}", .{4});
 
-    try testing.expectEqual(4, logger.getLen());
+    const entries = logger.lockAndGetEntries();
+    defer logger.unlock();
+    try testing.expectEqual(4, entries.len);
 
-    const entry_1 = try logger.getEntry(0);
+    const entry_1 = try entries.get(0);
     try testing.expectEqual(1577934245123456789, entry_1.timestamp);
     try testing.expectEqualStrings("2020-01-02T03:04:05.123456789", entry_1.timestamp_str);
     try testing.expectEqual(.debug, entry_1.level);
@@ -160,7 +166,7 @@ test "should set correct values to entry fields" {
     try testing.expectEqual(0, entry_1.message[entry_1.message.len]);
     try testing.expectEqual(0, entry_1.full_message[entry_1.full_message.len]);
 
-    const entry_2 = try logger.getEntry(1);
+    const entry_2 = try entries.get(1);
     try testing.expectEqual(1577934245123456789, entry_2.timestamp);
     try testing.expectEqualStrings("2020-01-02T03:04:05.123456789", entry_2.timestamp_str);
     try testing.expectEqual(.info, entry_2.level);
@@ -170,7 +176,7 @@ test "should set correct values to entry fields" {
     try testing.expectEqual(0, entry_2.message[entry_2.message.len]);
     try testing.expectEqual(0, entry_2.full_message[entry_2.full_message.len]);
 
-    const entry_3 = try logger.getEntry(2);
+    const entry_3 = try entries.get(2);
     try testing.expectEqual(1577934245123456789, entry_3.timestamp);
     try testing.expectEqualStrings("2020-01-02T03:04:05.123456789", entry_3.timestamp_str);
     try testing.expectEqual(.warn, entry_3.level);
@@ -180,7 +186,7 @@ test "should set correct values to entry fields" {
     try testing.expectEqual(0, entry_3.message[entry_3.message.len]);
     try testing.expectEqual(0, entry_3.full_message[entry_3.full_message.len]);
 
-    const entry_4 = try logger.getEntry(3);
+    const entry_4 = try entries.get(3);
     try testing.expectEqual(1577934245123456789, entry_4.timestamp);
     try testing.expectEqualStrings("2020-01-02T03:04:05.123456789", entry_4.timestamp_str);
     try testing.expectEqual(.err, entry_4.level);
@@ -211,15 +217,12 @@ test "should filter based on log level correctly" {
     logger.logFn(.warn, std.log.default_log_scope, "Message: 3", .{});
     logger.logFn(.err, std.log.default_log_scope, "Message: 4", .{});
 
-    try testing.expectEqual(2, logger.getLen());
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [warning] Message: 3",
-        (try logger.getEntry(0)).full_message,
-    );
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [error] Message: 4",
-        (try logger.getEntry(1)).full_message,
-    );
+    const entries = logger.lockAndGetEntries();
+    defer logger.unlock();
+
+    try testing.expectEqual(2, entries.len);
+    try testing.expectEqualStrings("2020-01-02T03:04:05.123456789 [warning] Message: 3", (try entries.get(0)).full_message);
+    try testing.expectEqualStrings("2020-01-02T03:04:05.123456789 [error] Message: 4", (try entries.get(1)).full_message);
 }
 
 test "should discard earliest entries when exceeding max entries" {
@@ -242,15 +245,12 @@ test "should discard earliest entries when exceeding max entries" {
     logger.logFn(.debug, std.log.default_log_scope, "Message: 3", .{});
     logger.logFn(.debug, std.log.default_log_scope, "Message: 4", .{});
 
-    try testing.expectEqual(2, logger.getLen());
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [debug] Message: 3",
-        (try logger.getEntry(0)).full_message,
-    );
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [debug] Message: 4",
-        (try logger.getEntry(1)).full_message,
-    );
+    const entries = logger.lockAndGetEntries();
+    defer logger.unlock();
+
+    try testing.expectEqual(2, entries.len);
+    try testing.expectEqualStrings("2020-01-02T03:04:05.123456789 [debug] Message: 3", (try entries.get(0)).full_message);
+    try testing.expectEqualStrings("2020-01-02T03:04:05.123456789 [debug] Message: 4", (try entries.get(1)).full_message);
 }
 
 test "should discard earliest entries when exceeding buffer size" {
@@ -273,23 +273,31 @@ test "should discard earliest entries when exceeding buffer size" {
     logger.logFn(.debug, std.log.default_log_scope, "Message: 3", .{});
     logger.logFn(.debug, std.log.default_log_scope, "Message: 4", .{});
 
-    try testing.expectEqual(2, logger.getLen());
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [debug] Message: 3",
-        (try logger.getEntry(0)).full_message,
-    );
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [debug] Message: 4",
-        (try logger.getEntry(1)).full_message,
-    );
+    {
+        const entries = logger.lockAndGetEntries();
+        defer logger.unlock();
+
+        try testing.expectEqual(2, entries.len);
+        try testing.expectEqualStrings(
+            "2020-01-02T03:04:05.123456789 [debug] Message: 3",
+            (try entries.get(0)).full_message,
+        );
+        try testing.expectEqualStrings(
+            "2020-01-02T03:04:05.123456789 [debug] Message: 4",
+            (try entries.get(1)).full_message,
+        );
+    }
 
     logger.logFn(.debug, std.log.default_log_scope, "Message: 123", .{});
     logger.logFn(.debug, std.log.default_log_scope, "Message: 456", .{});
 
-    try testing.expectEqual(1, logger.getLen());
+    const entries = logger.lockAndGetEntries();
+    defer logger.unlock();
+
+    try testing.expectEqual(1, entries.len);
     try testing.expectEqualStrings(
         "2020-01-02T03:04:05.123456789 [debug] Message: 456",
-        (try logger.getEntry(0)).full_message,
+        (try entries.get(0)).full_message,
     );
 }
 
@@ -310,13 +318,15 @@ test "should discard all entries when full message is larger then the buffer" {
 
     logger.logFn(.debug, std.log.default_log_scope, "Message: 1", .{});
 
-    try testing.expectEqual(1, logger.getLen());
-    try testing.expectEqualStrings(
-        "2020-01-02T03:04:05.123456789 [debug] Message: 1",
-        (try logger.getEntry(0)).full_message,
-    );
+    {
+        const entries = logger.lockAndGetEntries();
+        defer logger.unlock();
+        try testing.expectEqual(1, entries.len);
+    }
 
     logger.logFn(.debug, std.log.default_log_scope, "Message: 123", .{});
 
-    try testing.expectEqual(0, logger.getLen());
+    const entries = logger.lockAndGetEntries();
+    defer logger.unlock();
+    try testing.expectEqual(0, entries.len);
 }
