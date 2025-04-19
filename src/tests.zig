@@ -19,6 +19,7 @@ test {
     _ = @import("injector/injected_module.zig");
     _ = @import("injector/process_loop.zig");
 
+    _ = @import("log/buffer.zig");
     _ = @import("log/composite.zig");
     _ = @import("log/console.zig");
     _ = @import("log/file.zig");

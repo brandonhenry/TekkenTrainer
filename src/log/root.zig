@@ -1,3 +1,4 @@
+pub const BufferLogger = @import("buffer.zig").BufferLogger;
 pub const LogFunction = @import("composite.zig").LogFunction;
 pub const CompositeLogger = @import("composite.zig").CompositeLogger;
 pub const ConsoleLogger = @import("console.zig").ConsoleLogger;
