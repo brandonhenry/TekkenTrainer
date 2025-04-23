@@ -68,10 +68,23 @@ pub fn build(b: *std.Build) void {
         .flags = &.{"-fno-sanitize=undefined"},
     });
 
-    // C++ dependency: imgui (cimgui)
+    // C++ dependency: imgui (imgui, cimgui, imgui_test_engine)
     const imgui_files = b.addWriteFiles();
-    _ = imgui_files.addCopyDirectory(b.dependency("cimgui", .{}).path("."), ".", .{});
-    _ = imgui_files.addCopyDirectory(b.dependency("imgui", .{}).path("."), "./imgui", .{});
+    _ = imgui_files.addCopyDirectory(
+        b.dependency("cimgui", .{}).path("."),
+        ".",
+        .{},
+    );
+    _ = imgui_files.addCopyDirectory(
+        b.dependency("imgui", .{}).path("."),
+        "./imgui",
+        .{},
+    );
+    _ = imgui_files.addCopyDirectory(
+        b.dependency("imgui_test_engine", .{}).path("./imgui_test_engine"),
+        "./imgui_test_engine",
+        .{},
+    );
     const imgui_dir = imgui_files.getDirectory();
     const imgui_lib = b.addStaticLibrary(.{
         .name = "imgui",
@@ -80,19 +93,25 @@ pub fn build(b: *std.Build) void {
     });
     imgui_lib.addIncludePath(imgui_dir);
     imgui_lib.addIncludePath(imgui_dir.path(b, "./imgui"));
-    imgui_lib.addCSourceFiles(.{
-        .root = imgui_dir,
-        .files = &.{
-            "./cimgui.cpp",
-            "./imgui/imgui.cpp",
-            "./imgui/imgui_demo.cpp",
-            "./imgui/imgui_draw.cpp",
-            "./imgui/imgui_tables.cpp",
-            "./imgui/imgui_widgets.cpp",
-            "./imgui/backends/imgui_impl_dx12.cpp",
-            "./imgui/backends/imgui_impl_win32.cpp",
-        },
-    });
+    imgui_lib.addIncludePath(imgui_dir.path(b, "./imgui_test_engine"));
+    imgui_lib.addCSourceFiles(.{ .root = imgui_dir, .files = &.{
+        "./cimgui.cpp",
+        "./imgui/imgui.cpp",
+        "./imgui/imgui_demo.cpp",
+        "./imgui/imgui_draw.cpp",
+        "./imgui/imgui_tables.cpp",
+        "./imgui/imgui_widgets.cpp",
+        "./imgui/backends/imgui_impl_dx12.cpp",
+        "./imgui/backends/imgui_impl_win32.cpp",
+        "./imgui_test_engine/imgui_capture_tool.cpp",
+        "./imgui_test_engine/imgui_te_context.cpp",
+        "./imgui_test_engine/imgui_te_coroutine.cpp",
+        "./imgui_test_engine/imgui_te_engine.cpp",
+        "./imgui_test_engine/imgui_te_exporters.cpp",
+        "./imgui_test_engine/imgui_te_perftool.cpp",
+        "./imgui_test_engine/imgui_te_ui.cpp",
+        "./imgui_test_engine/imgui_te_utils.cpp",
+    } });
     imgui_lib.linkSystemLibrary("d3dcompiler_47"); // Required by: imgui_impl_dx12.cpp
     imgui_lib.linkSystemLibrary("dwmapi"); // Required by: imgui_impl_win32.cpp
     switch (target.result.abi) { // Required by: imgui_impl_win32.cpp
@@ -103,6 +122,12 @@ pub fn build(b: *std.Build) void {
     imgui_lib.root_module.addCMacro("IMGUI_IMPL_API", "extern \"C\"");
     imgui_lib.root_module.addCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
     imgui_lib.root_module.addCMacro("IMGUI_IMPL_WIN32_DISABLE_GAMEPAD", "1");
+    imgui_lib.root_module.addCMacro("IMGUI_ENABLE_TEST_ENGINE", "");
+    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_IMPLOT", "0");
+    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_CAPTURE", "1");
+    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_STD_FUNCTION", "0");
+    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL", "0");
+    imgui_lib.root_module.addCMacro("IM_DEBUG_BREAK()", "IM_ASSERT(0)");
     imgui_lib.linkLibC();
     imgui_lib.linkLibCpp();
     const imgui_c = b.addTranslateC(.{

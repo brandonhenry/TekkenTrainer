@@ -81,6 +81,10 @@
             .url = "https://github.com/cimgui/cimgui/archive/refs/tags/1.91.8.tar.gz",
             .hash = "N-V-__8AAAfLMACQS8CniD-wfJqHpgk9hNObUFXyY5TA6mUn",
         },
+        .imgui_test_engine = .{
+            .url = "https://github.com/ocornut/imgui_test_engine/archive/refs/tags/v1.91.8.tar.gz",
+            .hash = "N-V-__8AALZdMQCq2uVLNAJzcrDx3QLTZP8y-3yFUiiSfwpP",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.
