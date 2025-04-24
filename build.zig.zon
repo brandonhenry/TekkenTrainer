@@ -74,16 +74,16 @@
             .hash = "N-V-__8AAGqvAwA-HO0baM9XpcCBlwOA6ysjcwqzSVNmniXP",
         },
         .imgui = .{
-            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.91.8.tar.gz",
-            .hash = "N-V-__8AAMSJaQAI_JPSpWWjM-wSA5n6iQTUKjsuQwfVSvUN",
+            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9.tar.gz",
+            .hash = "N-V-__8AACdKagBTmRnJthMADtaEgK7s5BL8vj7F0FAuH968",
         },
         .cimgui = .{
-            .url = "https://github.com/cimgui/cimgui/archive/refs/tags/1.91.8.tar.gz",
-            .hash = "N-V-__8AAAfLMACQS8CniD-wfJqHpgk9hNObUFXyY5TA6mUn",
+            .url = "https://github.com/cimgui/cimgui/archive/refs/tags/1.91.9.tar.gz",
+            .hash = "N-V-__8AALmvMQDoAE1ueswXhhEISNY0Yva77hVy5AlZ0Q25",
         },
         .imgui_test_engine = .{
-            .url = "https://github.com/ocornut/imgui_test_engine/archive/refs/tags/v1.91.8.tar.gz",
-            .hash = "N-V-__8AALZdMQCq2uVLNAJzcrDx3QLTZP8y-3yFUiiSfwpP",
+            .url = "https://github.com/ocornut/imgui_test_engine/archive/refs/tags/v1.91.9.tar.gz",
+            .hash = "N-V-__8AAFOZMQBrSaj52IqSx8tgHat5ks3bgsEQfBFc1iVu",
         },
     },
 
