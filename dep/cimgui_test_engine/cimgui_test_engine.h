@@ -96,6 +96,10 @@ typedef enum {
     ImGuiTestAction_COUNT
 } ImGuiTestAction_;
 typedef int ImGuiTestEngineExportFormat;
+typedef enum {
+    ImGuiTestEngineExportFormat_None = 0,
+    ImGuiTestEngineExportFormat_JUnitXml,
+} ImGuiTestEngineExportFormat_;
 
 typedef struct ImGuiTestCoroutineInterface ImGuiTestCoroutineInterface;
 typedef struct ImGuiTestEngine ImGuiTestEngine;
@@ -407,6 +411,9 @@ CIMGUI_API void teGetTestList(ImGuiTestEngine* engine, ImVector_ImGuiTestPtr* ou
 CIMGUI_API void teGetTestQueue(ImGuiTestEngine* engine, ImVector_ImGuiTestRunTask* out_tests);
 CIMGUI_API void teInstallDefaultCrashHandler();
 CIMGUI_API void teCrashHandler();
+CIMGUI_API void tePrintResultSummary(ImGuiTestEngine* engine);
+CIMGUI_API void teExport(ImGuiTestEngine* engine);
+CIMGUI_API void teExportEx(ImGuiTestEngine* engine, ImGuiTestEngineExportFormat format, const char* filename);
 CIMGUI_API ImGuiTestEngineIO* ImGuiTestEngineIO_ImGuiTestEngineIO(void);
 CIMGUI_API void ImGuiTestEngineIO_destroy(ImGuiTestEngineIO* self);
 CIMGUI_API ImGuiTestItemInfo* ImGuiTestItemInfo_ImGuiTestItemInfo(void);
@@ -638,7 +645,8 @@ CIMGUI_API void ImGuiTestContext_ItemOpen(ImGuiTestContext* self, ImGuiTestRef r
 CIMGUI_API void ImGuiTestContext_ItemClose(ImGuiTestContext* self, ImGuiTestRef ref, ImGuiTestOpFlags flags);
 CIMGUI_API void ImGuiTestContext_ItemInput(ImGuiTestContext* self, ImGuiTestRef ref, ImGuiTestOpFlags flags);
 CIMGUI_API void ImGuiTestContext_ItemNavActivate(ImGuiTestContext* self, ImGuiTestRef ref, ImGuiTestOpFlags flags);
-CIMGUI_API bool ImGuiTestContext_ItemOpenFullPath(ImGuiTestContext* self, ImGuiTestRef ref);
+// Not implemented in imgui_te_context.cpp
+// CIMGUI_API bool ImGuiTestContext_ItemOpenFullPath(ImGuiTestContext* self, ImGuiTestRef ref);
 CIMGUI_API void ImGuiTestContext_ItemActionAll(
     ImGuiTestContext* self,
     ImGuiTestAction action,

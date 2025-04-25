@@ -132,7 +132,7 @@ pub fn build(b: *std.Build) void {
     imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_IMPLOT", "0");
     imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_CAPTURE", "1");
     imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_STD_FUNCTION", "0");
-    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL", "0");
+    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL", "1");
     imgui_lib.root_module.addCMacro("IM_DEBUG_BREAK()", "IM_ASSERT(0)");
     imgui_lib.linkLibC();
     imgui_lib.linkLibCpp();

@@ -1,6 +1,7 @@
 #include "./imgui/imgui.h"
 #include "./imgui_test_engine/imgui_te_context.h"
 #include "./imgui_test_engine/imgui_te_engine.h"
+#include "./imgui_test_engine/imgui_te_exporters.h"
 
 #include "cimgui_test_engine.h"
 
@@ -118,6 +119,14 @@ CIMGUI_API void teGetTestQueue(ImGuiTestEngine* engine, ImVector_ImGuiTestRunTas
 CIMGUI_API void teInstallDefaultCrashHandler() { return ImGuiTestEngine_InstallDefaultCrashHandler(); }
 
 CIMGUI_API void teCrashHandler() { return ImGuiTestEngine_CrashHandler(); }
+
+CIMGUI_API void tePrintResultSummary(ImGuiTestEngine* engine) { return ImGuiTestEngine_PrintResultSummary(engine); }
+
+CIMGUI_API void teExport(ImGuiTestEngine* engine) { return ImGuiTestEngine_Export(engine); }
+
+CIMGUI_API void teExportEx(ImGuiTestEngine* engine, ImGuiTestEngineExportFormat format, const char* filename) {
+    return ImGuiTestEngine_ExportEx(engine, format, filename);
+}
 
 CIMGUI_API ImGuiTestEngineIO* ImGuiTestEngineIO_ImGuiTestEngineIO(void) { return IM_NEW(ImGuiTestEngineIO)(); }
 
@@ -718,9 +727,10 @@ CIMGUI_API void ImGuiTestContext_ItemNavActivate(ImGuiTestContext* self, ImGuiTe
     return self->ItemNavActivate(ref, flags);
 }
 
-CIMGUI_API bool ImGuiTestContext_ItemOpenFullPath(ImGuiTestContext* self, ImGuiTestRef ref) {
-    return self->ItemOpenFullPath(ref);
-}
+// Not implemented in imgui_te_context.cpp
+// CIMGUI_API bool ImGuiTestContext_ItemOpenFullPath(ImGuiTestContext* self, ImGuiTestRef ref) {
+//     return self->ItemOpenFullPath(ref);
+// }
 
 CIMGUI_API void ImGuiTestContext_ItemActionAll(
     ImGuiTestContext* self,
