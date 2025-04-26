@@ -23,12 +23,9 @@ pub const TestingContext = struct {
     imgui_context: *imgui.ImGuiContext,
 
     const Self = @This();
-    const TestFunction = fn (ctx: *imgui.ImGuiTestContext) anyerror!void;
+    const Function = fn (ctx: *imgui.ImGuiTestContext) anyerror!void;
 
     pub fn init() !Self {
-        if (!builtin.is_test) {
-            @compileError("TestingContext is only allowed to be used in tests.");
-        }
         const engine = imgui.teCreateContext() orelse {
             misc.errorContext().new("teCreateContext returned null.");
             return error.ImguiError;
@@ -70,31 +67,44 @@ pub const TestingContext = struct {
 
     pub fn runTest(
         self: *const Self,
-        comptime guiFunction: *const TestFunction,
-        comptime testFunction: *const TestFunction,
+        comptime guiFunction: *const Function,
+        comptime testFunction: *const Function,
     ) !void {
         const the_test = imgui.teRegisterTest(self.engine, "category", "test", null, 0);
         defer imgui.teUnregisterTest(self.engine, the_test);
 
-        the_test.*.GuiFunc = struct {
+        const GuiFunction = struct {
+            threadlocal var returned_error: ?anyerror = null;
             fn call(ctx: [*c]imgui.ImGuiTestContext) callconv(.c) void {
-                return guiFunction(ctx) catch |err| {
+                if (guiFunction(ctx)) {
+                    returned_error = null;
+                } else |err| {
                     misc.errorContext().append("Failed to execute test's GUI function.");
                     misc.errorContext().logError(err);
-                };
+                    returned_error = err;
+                }
             }
-        }.call;
-        the_test.*.TestFunc = struct {
+        };
+        the_test.*.GuiFunc = GuiFunction.call;
+
+        const TestFunction = struct {
+            threadlocal var returned_error: ?anyerror = null;
             fn call(ctx: [*c]imgui.ImGuiTestContext) callconv(.c) void {
-                return testFunction(ctx) catch |err| {
+                if (testFunction(ctx)) {
+                    returned_error = null;
+                } else |err| {
                     misc.errorContext().append("Failed to execute test's TEST function.");
                     misc.errorContext().logError(err);
-                };
+                    returned_error = err;
+                }
             }
-        }.call;
+        };
+        the_test.*.TestFunc = TestFunction.call;
 
         imgui.teQueueTest(self.engine, the_test, 0);
         while (!imgui.teIsTestQueueEmpty(self.engine)) {
+            misc.errorContext().clear();
+
             const imgui_io = imgui.igGetIO();
             imgui_io.*.DisplaySize = .{ .x = 1280, .y = 720 };
             imgui_io.*.DeltaTime = 1.0 / 60.00;
@@ -102,6 +112,13 @@ pub const TestingContext = struct {
             imgui.igNewFrame();
             imgui.igRender();
             imgui.tePostSwap(self.engine);
+
+            if (GuiFunction.returned_error) |err| {
+                return err;
+            }
+            if (TestFunction.returned_error) |err| {
+                return err;
+            }
         }
 
         try std.testing.expectEqual(imgui.ImGuiTestStatus_Success, the_test.*.Output.Status);
@@ -115,7 +132,7 @@ test "hello world imgui test engine 1" {
     try context.runTest(
         struct {
             var b = false;
-            fn guiFunction(ctx: *imgui.ImGuiTestContext) !void {
+            fn call(ctx: *imgui.ImGuiTestContext) !void {
                 _ = ctx;
                 _ = imgui.igBegin("Test Window", null, imgui.ImGuiWindowFlags_NoSavedSettings);
                 imgui.igText("Hello, automation world");
@@ -126,9 +143,9 @@ test "hello world imgui test engine 1" {
                 }
                 imgui.igEnd();
             }
-        }.guiFunction,
+        }.call,
         struct {
-            fn testFunction(ctx: *imgui.ImGuiTestContext) !void {
+            fn call(ctx: *imgui.ImGuiTestContext) !void {
                 imgui.ImGuiTestContext_SetRef1(ctx, path("Test Window"));
                 imgui.ImGuiTestContext_ItemClick(ctx, path("Click Me"), 0, 0);
                 imgui.ImGuiTestContext_ItemOpen(ctx, path("Node"), 0);
@@ -138,7 +155,7 @@ test "hello world imgui test engine 1" {
             fn path(p: [:0]const u8) imgui.ImGuiTestRef {
                 return .{ .ID = 0, .Path = p };
             }
-        }.testFunction,
+        }.call,
     );
 }
 
@@ -147,7 +164,7 @@ test "hello world imgui test engine 2" {
     try context.runTest(
         struct {
             var b = false;
-            fn guiFunction(ctx: *imgui.ImGuiTestContext) !void {
+            fn call(ctx: *imgui.ImGuiTestContext) !void {
                 _ = ctx;
                 _ = imgui.igBegin("Test Window", null, imgui.ImGuiWindowFlags_NoSavedSettings);
                 imgui.igText("Hello, automation world");
@@ -158,9 +175,9 @@ test "hello world imgui test engine 2" {
                 }
                 imgui.igEnd();
             }
-        }.guiFunction,
+        }.call,
         struct {
-            fn testFunction(ctx: *imgui.ImGuiTestContext) !void {
+            fn call(ctx: *imgui.ImGuiTestContext) !void {
                 imgui.ImGuiTestContext_SetRef1(ctx, path("Test Window"));
                 imgui.ImGuiTestContext_ItemClick(ctx, path("Click Me"), 0, 0);
                 imgui.ImGuiTestContext_ItemOpen(ctx, path("Node"), 0);
@@ -170,6 +187,6 @@ test "hello world imgui test engine 2" {
             fn path(p: [:0]const u8) imgui.ImGuiTestRef {
                 return .{ .ID = 0, .Path = p };
             }
-        }.testFunction,
+        }.call,
     );
 }
