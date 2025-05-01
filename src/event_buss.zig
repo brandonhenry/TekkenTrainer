@@ -128,8 +128,7 @@ pub const EventBuss = struct {
 
         ui_context.newFrame();
         imgui.igGetIO().*.MouseDrawCursor = true;
-        // imgui.igShowDemoWindow(null);
-        if (imgui.igBegin("Hello world.", null, imgui.ImGuiWindowFlags_NoCollapse)) {
+        if (imgui.igBegin("Hello world.", null, 0)) {
             imgui.igText("Hello world.");
             if (self.game_memory.player_1.toConstPointer()) |player_1| {
                 imgui.igText("Player 1 health: %d", player_1.health);
@@ -141,8 +140,8 @@ pub const EventBuss = struct {
             } else {
                 imgui.igText("Player 2 not found.");
             }
-            imgui.igEnd();
         }
+        imgui.igEnd();
         ui_context.endFrame();
 
         const buffer_context = dx12.beforeRender(buffer_count, srv_heap_size, dx12_context, swap_chain) catch |err| {

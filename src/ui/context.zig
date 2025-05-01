@@ -178,8 +178,8 @@ test "should render hello world successfully" {
     ui_context.newFrame();
     if (imgui.igBegin("Hello world.", null, 0)) {
         imgui.igText("Hello world.", .{});
-        imgui.igEnd();
     }
+    imgui.igEnd();
 
     ui_context.endFrame();
 

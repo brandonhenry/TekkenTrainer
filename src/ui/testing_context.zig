@@ -176,7 +176,7 @@ test "should pass a successful test" {
         .{},
         struct {
             fn call(_: ui.TestContext) !void {
-                _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_NoSavedSettings);
+                _ = imgui.igBegin("Window", null, 0);
                 imgui.igEnd();
             }
         }.call,
@@ -194,7 +194,7 @@ test "should fail the test when testing engine detects a fail" {
         .{ .disable_printing = true },
         struct {
             fn call(_: ui.TestContext) !void {
-                _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_NoSavedSettings);
+                _ = imgui.igBegin("Window", null, 0);
                 imgui.igEnd();
             }
         }.call,
@@ -213,7 +213,7 @@ test "should fail the test when gui function returns error" {
         .{ .disable_printing = true },
         struct {
             fn call(_: ui.TestContext) !void {
-                _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_NoSavedSettings);
+                _ = imgui.igBegin("Window", null, 0);
                 imgui.igEnd();
                 return error.TestError;
             }
@@ -233,7 +233,7 @@ test "should fail the test when test function returns error" {
         .{ .disable_printing = true },
         struct {
             fn call(_: ui.TestContext) !void {
-                _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_NoSavedSettings);
+                _ = imgui.igBegin("Window", null, 0);
                 imgui.igEnd();
             }
         }.call,
