@@ -110,14 +110,14 @@ pub fn BufferLogger(comptime config: BufferLoggerConfig) type {
 
         fn clearBufferRegion(region: []const u8) void {
             while (entries.getFirst() catch null) |entry| {
-                if (!colides(entry.buffer_region, region)) {
+                if (!collides(entry.buffer_region, region)) {
                     break;
                 }
                 _ = entries.removeFirst() catch unreachable;
             }
         }
 
-        fn colides(a: []const u8, b: []const u8) bool {
+        fn collides(a: []const u8, b: []const u8) bool {
             if (a.len == 0 or b.len == 0) {
                 return false;
             }

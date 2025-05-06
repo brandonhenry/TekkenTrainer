@@ -731,3 +731,10 @@ CIMGUI_API void ImGuiTestContext_DockNodeHideTabBar(ImGuiTestContext* self, ImGu
 CIMGUI_API void ImGuiTestContext_PerfCalcRef(ImGuiTestContext* self);
 CIMGUI_API void
 ImGuiTestContext_PerfCapture(ImGuiTestContext* self, const char* category, const char* test_name, const char* csv_file);
+
+// Custom functions:
+
+CIMGUI_API float ImGuiTestContext_GetScrollX(ImGuiTestContext* self, ImGuiTestRef window_ref);
+CIMGUI_API float ImGuiTestContext_GetScrollY(ImGuiTestContext* self, ImGuiTestRef window_ref);
+CIMGUI_API float ImGuiTestContext_GetScrollMaxX(ImGuiTestContext* self, ImGuiTestRef window_ref);
+CIMGUI_API float ImGuiTestContext_GetScrollMaxY(ImGuiTestContext* self, ImGuiTestRef window_ref);

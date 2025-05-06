@@ -957,3 +957,21 @@ CIMGUI_API void ImGuiTestContext_PerfCapture(
 ) {
     return self->PerfCapture(category, test_name, csv_file);
 }
+
+// Custom functions:
+
+CIMGUI_API float ImGuiTestContext_GetScrollX(ImGuiTestContext* self, ImGuiTestRef window_ref) {
+    return self->GetWindowByRef(window_ref)->Scroll.x;
+}
+
+CIMGUI_API float ImGuiTestContext_GetScrollY(ImGuiTestContext* self, ImGuiTestRef window_ref) {
+    return self->GetWindowByRef(window_ref)->Scroll.y;
+}
+
+CIMGUI_API float ImGuiTestContext_GetScrollMaxX(ImGuiTestContext* self, ImGuiTestRef window_ref) {
+    return self->GetWindowByRef(window_ref)->ScrollMax.x;
+}
+
+CIMGUI_API float ImGuiTestContext_GetScrollMaxY(ImGuiTestContext* self, ImGuiTestRef window_ref) {
+    return self->GetWindowByRef(window_ref)->ScrollMax.y;
+}

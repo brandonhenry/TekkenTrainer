@@ -10,6 +10,7 @@ pub const TestContext = struct {
         return switch (@TypeOf(any)) {
             imgui.ImGuiTestRef => any,
             imgui.ImGuiID => .{ .ID = any, .Path = null },
+            comptime_int => .{ .ID = any, .Path = null },
             [:0]const u8 => .{ .ID = 0, .Path = any },
             else => anyToRef(@as([:0]const u8, any)),
         };
@@ -685,5 +686,23 @@ pub const TestContext = struct {
 
     pub fn perfCapture(self: Self, category: [:0]const u8, test_name: [:0]const u8, csv_file: [:0]const u8) void {
         return imgui.ImGuiTestContext_PerfCapture(self.raw, category, test_name, csv_file);
+    }
+
+    // Custom functions:
+
+    pub fn getScrollX(self: Self, window_ref: anytype) f32 {
+        return imgui.ImGuiTestContext_GetScrollX(self.raw, anyToRef(window_ref));
+    }
+
+    pub fn getScrollY(self: Self, window_ref: anytype) f32 {
+        return imgui.ImGuiTestContext_GetScrollY(self.raw, anyToRef(window_ref));
+    }
+
+    pub fn getScrollMaxX(self: Self, window_ref: anytype) f32 {
+        return imgui.ImGuiTestContext_GetScrollMaxX(self.raw, anyToRef(window_ref));
+    }
+
+    pub fn getScrollMaxY(self: Self, window_ref: anytype) f32 {
+        return imgui.ImGuiTestContext_GetScrollMaxY(self.raw, anyToRef(window_ref));
     }
 };
