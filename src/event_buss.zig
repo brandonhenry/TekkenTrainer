@@ -10,6 +10,7 @@ const game = @import("game/root.zig");
 
 pub const EventBuss = struct {
     gpa: std.heap.GeneralPurposeAllocator(.{}),
+    timer: misc.Timer(.{}),
     dx12_context: ?dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?ui.Context,
     game_memory: game.Memory,
@@ -69,6 +70,7 @@ pub const EventBuss = struct {
 
         return .{
             .gpa = gpa,
+            .timer = .{},
             .dx12_context = dx12_context,
             .ui_context = ui_context,
             .game_memory = game_memory,
@@ -124,6 +126,9 @@ pub const EventBuss = struct {
         _ = base_dir;
         _ = window;
         _ = device;
+
+        const delta_time = self.timer.measureDeltaTime();
+        _ = delta_time;
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;
