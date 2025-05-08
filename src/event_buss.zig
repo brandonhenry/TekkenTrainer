@@ -141,6 +141,12 @@ pub const EventBuss = struct {
             if (imgui.igButton("Send Toast", .{})) {
                 ui.toasts.send(.info, null, "Toast sent. Delta time is: {}", .{delta_time});
             }
+            if (imgui.igButton("Log Error", .{})) {
+                misc.errorContext().new("Line 1 in causation chain.");
+                misc.errorContext().append("Line 2 in causation chain.");
+                misc.errorContext().append("Line 3 in causation chain.");
+                misc.errorContext().logError(error.Test);
+            }
             imgui.igText("Hello world.");
             if (self.game_memory.player_1.toConstPointer()) |player_1| {
                 imgui.igText("Player 1 health: %d", player_1.health);

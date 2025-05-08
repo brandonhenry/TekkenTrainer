@@ -5,6 +5,7 @@ const log = @import("log/root.zig");
 const os = @import("os/root.zig");
 const dx12 = @import("dx12/root.zig");
 const hooking = @import("hooking/root.zig");
+const ui = @import("ui/root.zig");
 const EventBuss = @import("event_buss.zig").EventBuss;
 
 pub const module_name = "irony.dll";
@@ -14,7 +15,11 @@ pub const buffer_logger = log.BufferLogger(.{});
 pub const file_logger = log.FileLogger(.{});
 pub const std_options = std.Options{
     .log_level = .info,
-    .logFn = log.CompositeLogger(&.{ buffer_logger.logFn, file_logger.logFn }).logFn,
+    .logFn = log.CompositeLogger(&.{
+        buffer_logger.logFn,
+        file_logger.logFn,
+        ui.toasts.logFn,
+    }).logFn,
 };
 const main_hooks = hooking.MainHooks(onHooksInit, onHooksDeinit, onHooksUpdate, beforeHooksResize, afterHooksResize);
 

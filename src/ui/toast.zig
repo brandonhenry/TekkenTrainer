@@ -129,17 +129,18 @@ pub fn Toasts(comptime config: ToastsConfig) type {
             mutex.lock();
             defer mutex.unlock();
             var index: usize = 0;
+            var current_y: f32 = 0.0;
             for (0..toasts.len) |i| {
                 const toast = toasts.get(i) catch continue;
                 if (toast.life_time >= toast.duration) {
                     continue;
                 }
-                drawToast(index, toast);
+                drawToast(toast, index, &current_y);
                 index += 1;
             }
         }
 
-        fn drawToast(index: usize, toast: *const Toast) void {
+        fn drawToast(toast: *const Toast, index: usize, current_y: *f32) void {
             var window_name_buffer: [32]u8 = undefined;
             const window_name = std.fmt.bufPrintZ(&window_name_buffer, "toast-{}", .{index}) catch unreachable;
             const window_flags = imgui.ImGuiWindowFlags_AlwaysAutoResize | imgui.ImGuiWindowFlags_NoDecoration | imgui.ImGuiWindowFlags_NoInputs | imgui.ImGuiWindowFlags_NoSavedSettings;
@@ -153,11 +154,11 @@ pub fn Toasts(comptime config: ToastsConfig) type {
             const min_x = -(window_size.x + config.margin);
             const max_x = config.margin;
             const animation_factor = getToastAnimationFactor(toast);
-            const float_index: f32 = @floatFromInt(index);
             const window_position = imgui.ImVec2{
                 .x = min_x + (animation_factor * (max_x - min_x)),
-                .y = config.margin + float_index * (window_size.y + config.margin),
+                .y = current_y.* + config.margin,
             };
+            current_y.* = window_position.y + window_size.y;
 
             imgui.igPushStyleVar_Float(imgui.ImGuiStyleVar_WindowBorderSize, 0);
             defer imgui.igPopStyleVar(1);
@@ -181,6 +182,21 @@ pub fn Toasts(comptime config: ToastsConfig) type {
                 return remaining_life_time / config.fly_out_time;
             }
             return 1.0;
+        }
+
+        pub fn logFn(
+            comptime level: std.log.Level,
+            comptime scope: @Type(.enum_literal),
+            comptime format: []const u8,
+            args: anytype,
+        ) void {
+            _ = scope;
+            const toast_type: ToastType = switch (level) {
+                .err => .err,
+                .warn => .warn,
+                else => return,
+            };
+            send(toast_type, null, format, args);
         }
     };
 }
@@ -400,6 +416,39 @@ test "should discard all toasts when message is larger then the buffer" {
                 ctx.yield(1);
 
                 try testing.expect(!ctx.itemExists("//toast-0"));
+            }
+        }.call,
+    );
+}
+
+test "should send toasts only for warning and error logs" {
+    const toasts = Toasts(.{
+        .buffer_size = 2048,
+        .max_toasts = 32,
+        .margin = 8.0,
+        .default_duration = 1.0,
+        .fly_in_time = 0.0,
+        .fly_out_time = 0.0,
+    });
+    const context = try ui.getTestingContext();
+    try context.runTest(
+        .{},
+        struct {
+            fn call(_: ui.TestContext) !void {
+                toasts.draw();
+            }
+        }.call,
+        struct {
+            fn call(ctx: ui.TestContext) !void {
+                toasts.logFn(.debug, std.log.default_log_scope, "Message: {}", .{1});
+                toasts.logFn(.info, std.log.default_log_scope, "Message: {}", .{2});
+                toasts.logFn(.warn, std.log.default_log_scope, "Message: {}", .{3});
+                toasts.logFn(.err, std.log.default_log_scope, "Message: {}", .{4});
+                ctx.yield(1);
+
+                try testing.expect(ctx.itemExists("//toast-0/Message: 3"));
+                try testing.expect(ctx.itemExists("//toast-1/Message: 4"));
+                try testing.expect(!ctx.itemExists("//toast-2"));
             }
         }.call,
     );
