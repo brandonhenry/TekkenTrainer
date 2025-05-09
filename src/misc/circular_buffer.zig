@@ -1,5 +1,4 @@
 const std = @import("std");
-const misc = @import("root.zig");
 
 pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
     if (capacity == 0) {
@@ -42,7 +41,6 @@ pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
 
         pub fn getFirst(self: *const Self) !(*const Element) {
             if (self.len == 0) {
-                misc.errorContext().new("Buffer is empty.");
                 return error.Empty;
             }
             return self.get(0) catch unreachable;
@@ -50,7 +48,6 @@ pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
 
         pub fn getLast(self: *const Self) !(*const Element) {
             if (self.len == 0) {
-                misc.errorContext().new("Buffer is empty.");
                 return error.Empty;
             }
             return self.get(self.len - 1) catch unreachable;
@@ -58,7 +55,6 @@ pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
 
         pub fn get(self: *const Self, index: usize) !(*const Element) {
             if (index >= self.len) {
-                misc.errorContext().newFmt("Provided index {} is out of bounds. (length = {})", .{ index, self.len });
                 return error.IndexOutOfBounds;
             }
             const array_index = self.getArrayIndex(index);
@@ -67,7 +63,6 @@ pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
 
         pub fn getMut(self: *Self, index: usize) !*Element {
             if (index >= self.len) {
-                misc.errorContext().newFmt("Provided index {} is out of bounds. (length = {})", .{ index, self.len });
                 return error.IndexOutOfBounds;
             }
             const array_index = self.getArrayIndex(index);
@@ -76,7 +71,6 @@ pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
 
         pub fn set(self: *Self, index: usize, element: Element) !void {
             if (index >= self.len) {
-                misc.errorContext().newFmt("Provided index {} is out of bounds. (length = {})", .{ index, self.len });
                 return error.IndexOutOfBounds;
             }
             const array_index = self.getArrayIndex(index);
