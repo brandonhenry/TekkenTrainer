@@ -2,6 +2,7 @@ pub const BaseDir = @import("base_dir.zig").BaseDir;
 pub const CircularBuffer = @import("circular_buffer.zig").CircularBuffer;
 pub const ErrorContextConfig = @import("error_context.zig").ErrorContextConfig;
 pub const ErrorContextItem = @import("error_context.zig").ErrorContextItem;
+pub const ErrorContextMessage = @import("error_context.zig").ErrorContextMessage;
 pub const ErrorContext = @import("error_context.zig").ErrorContext;
 pub threadlocal var error_context = ErrorContext(.{}){};
 pub const doSlicesCollide = @import("misc.zig").doSlicesCollide;

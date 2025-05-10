@@ -103,7 +103,7 @@ pub fn Toasts(comptime config: ToastsConfig) type {
             mutex.lock();
             defer mutex.unlock();
             for (0..toasts.len) |index| {
-                const toast = toasts.getMut(index) catch continue;
+                const toast = toasts.getMut(index) catch unreachable;
                 toast.life_time += delta_time;
             }
             while (toasts.getFirst() catch null) |toast| {
@@ -120,7 +120,7 @@ pub fn Toasts(comptime config: ToastsConfig) type {
             var index: usize = 0;
             var current_y: f32 = 0.0;
             for (0..toasts.len) |i| {
-                const toast = toasts.get(i) catch continue;
+                const toast = toasts.get(i) catch unreachable;
                 if (toast.life_time >= toast.duration) {
                     continue;
                 }

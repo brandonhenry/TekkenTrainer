@@ -10,7 +10,7 @@ pub fn logsWindow(comptime buffer_logger: type, open: ?*bool) void {
             const entries = buffer_logger.lockAndGetEntries();
             defer buffer_logger.unlock();
             for (0..entries.len) |index| {
-                const entry = entries.get(index) catch continue;
+                const entry = entries.get(index) catch unreachable;
                 textColored(getLogColor(entry.level), entry.full_message);
             }
         }
