@@ -21,10 +21,12 @@ pub const std_options = std.Options{
         ui.toasts.logFn,
     }).logFn,
 };
+const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
 const main_hooks = hooking.MainHooks(onHooksInit, onHooksDeinit, onHooksUpdate, beforeHooksResize, afterHooksResize);
 
-var base_dir = misc.BaseDir.working_dir;
 var module_handle_shared_value: ?os.SharedValue(w32.HINSTANCE) = null;
+var base_dir = misc.BaseDir.working_dir;
+var main_allocator: ?MainAllocator = null;
 var window_procedure: ?os.WindowProcedure = null;
 var event_buss: ?EventBuss = null;
 
@@ -117,6 +119,10 @@ fn init() void {
         misc.error_context.logError(err);
     }
 
+    std.log.debug("Initializing main allocator...", .{});
+    main_allocator = MainAllocator.init;
+    std.log.info("Main allocator initialized.", .{});
+
     std.log.debug("Initializing hooking...", .{});
     hooking.init() catch |err| {
         misc.error_context.append("Failed to initialize hooking.", .{});
@@ -149,6 +155,16 @@ fn deinit() void {
     } else |err| {
         misc.error_context.append("Failed to de-initialize hooking.", .{});
         misc.error_context.logError(err);
+    }
+
+    std.log.debug("De-initializing main allocator...", .{});
+    if (main_allocator) |*allocator| {
+        switch (allocator.deinit()) {
+            .ok => std.log.info("Main allocator de-initialized.", .{}),
+            .leak => std.log.err("Main allocator detected memory leaks.", .{}),
+        }
+    } else {
+        std.log.debug("Nothing to de-initialize.", .{});
     }
 
     std.log.info("Stopping file logging...", .{});
@@ -196,8 +212,10 @@ fn onHooksInit(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
+    const allocator = if (main_allocator) |*a| a else return;
+
     std.log.info("Initializing event buss...", .{});
-    event_buss = EventBuss.init(&base_dir, window, device, command_queue, swap_chain);
+    event_buss = EventBuss.init(allocator.allocator(), &base_dir, window, device, command_queue, swap_chain);
     std.log.info("Event buss initialized.", .{});
 
     std.log.debug("Initializing window procedure...", .{});
@@ -226,7 +244,7 @@ fn onHooksDeinit(
             misc.error_context.logError(err);
         }
     } else {
-        std.log.info("Nothing to de-initialize.", .{});
+        std.log.debug("Nothing to de-initialize.", .{});
     }
 
     std.log.info("De-initializing event buss...", .{});

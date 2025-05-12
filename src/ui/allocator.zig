@@ -3,31 +3,32 @@ const imgui = @import("imgui");
 
 const AllocatorWrapper = struct {
     allocator: std.mem.Allocator,
-    len_map: std.AutoHashMap(*anyopaque, usize),
+    map: std.AutoHashMap([*]align(alignment) u8, usize),
 
     const Self = @This();
-    const memory_alignment = 16;
+    const alignment = @alignOf(std.c.max_align_t);
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
             .allocator = allocator,
-            .len_map = std.AutoHashMap(*anyopaque, usize).init(allocator),
+            .map = std.AutoHashMap([*]align(alignment) u8, usize).init(allocator),
         };
     }
 
     pub fn deinit(self: *Self) void {
-        self.len_map.deinit();
+        self.map.deinit();
     }
 
     pub fn alloc(self: *Self, size: usize) !*anyopaque {
-        const slice = try self.allocator.alignedAlloc(u8, memory_alignment, size);
-        try self.len_map.put(slice.ptr, slice.len);
+        const slice = try self.allocator.alignedAlloc(u8, alignment, size);
+        try self.map.put(slice.ptr, slice.len);
         return slice.ptr;
     }
 
     pub fn free(self: *Self, ptr: *anyopaque) !void {
-        const len = (self.len_map.fetchRemove(ptr) orelse return error.SizeNotFound).value;
-        const slice = @as([*]align(memory_alignment) u8, @ptrCast(@alignCast(ptr)))[0..len];
+        const aligned: [*]align(alignment) u8 = @alignCast(@ptrCast(ptr));
+        const len = (self.map.fetchRemove(aligned) orelse return error.AllocationNotFound).value;
+        const slice = aligned[0..len];
         self.allocator.free(slice);
     }
 };
@@ -63,8 +64,8 @@ fn alloc(size: usize, _: ?*anyopaque) callconv(.c) ?*anyopaque {
 
 fn free(ptr: ?*anyopaque, _: ?*anyopaque) callconv(.c) void {
     if (current_wrapper) |*wrapper| {
-        if (ptr) |p| {
-            wrapper.free(p) catch |err| {
+        if (ptr) |pointer| {
+            wrapper.free(pointer) catch |err| {
                 std.log.err("Imgui failed to free memory. [{}]", .{err});
                 @panic("Imgui failed to free memory.");
             };

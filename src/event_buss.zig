@@ -9,7 +9,6 @@ const components = @import("components/root.zig");
 const game = @import("game/root.zig");
 
 pub const EventBuss = struct {
-    gpa: std.heap.GeneralPurposeAllocator(.{}),
     timer: misc.Timer(.{}),
     dx12_context: ?dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?ui.Context,
@@ -20,17 +19,16 @@ pub const EventBuss = struct {
     const srv_heap_size = 64;
 
     pub fn init(
+        allocator: std.mem.Allocator,
         base_dir: *const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
     ) Self {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
         std.log.debug("Initializing DX12 context...", .{});
         const dx12_context = if (dx12.Context(buffer_count, srv_heap_size).init(
-            gpa.allocator(),
+            allocator,
             device,
             swap_chain,
         )) |context| block: {
@@ -47,7 +45,7 @@ pub const EventBuss = struct {
             if (ui.Context.init(
                 buffer_count,
                 srv_heap_size,
-                gpa.allocator(),
+                allocator,
                 base_dir,
                 window,
                 device,
@@ -69,7 +67,6 @@ pub const EventBuss = struct {
         std.log.info("Game memory initialized.", .{});
 
         return .{
-            .gpa = gpa,
             .timer = .{},
             .dx12_context = dx12_context,
             .ui_context = ui_context,
@@ -107,11 +104,6 @@ pub const EventBuss = struct {
             std.log.info("DX12 context de-initialized.", .{});
         } else {
             std.log.debug("Nothing to de-initialize.", .{});
-        }
-
-        switch (self.gpa.deinit()) {
-            .ok => {},
-            .leak => std.log.err("GPA detected a memory leak.", .{}),
         }
     }
 

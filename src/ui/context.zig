@@ -8,6 +8,7 @@ const ui = @import("root.zig");
 
 pub const Context = struct {
     allocator: std.mem.Allocator,
+    old_allocator: ?std.mem.Allocator,
     imgui_context: *imgui.ImGuiContext,
     ini_file_path: ?[:0]const u8,
     test_allocation: if (builtin.is_test) *u8 else void,
@@ -25,6 +26,10 @@ pub const Context = struct {
         srv_descriptor_heap: *const w32.ID3D12DescriptorHeap,
         srv_heap_allocator: *dx12.DescriptorHeapAllocator(srv_heap_size),
     ) !Self {
+        const old_allocator = ui.getAllocator();
+        ui.setAllocator(allocator);
+        errdefer ui.setAllocator(old_allocator);
+
         const imgui_context = imgui.igCreateContext(null) orelse {
             misc.error_context.new("igCreateContext returned null.", .{});
             return error.ImguiError;
@@ -99,6 +104,7 @@ pub const Context = struct {
 
         return .{
             .allocator = allocator,
+            .old_allocator = old_allocator,
             .imgui_context = imgui_context,
             .ini_file_path = ini_file_path,
             .test_allocation = test_allocation,
@@ -114,6 +120,7 @@ pub const Context = struct {
             self.allocator.free(path);
         }
         imgui.igDestroyContext(self.imgui_context);
+        ui.setAllocator(self.old_allocator);
 
         if (builtin.is_test) {
             std.testing.allocator.destroy(self.test_allocation);
@@ -182,7 +189,6 @@ test "should render hello world successfully" {
         imgui.igText("Hello world.", .{});
     }
     imgui.igEnd();
-
     ui_context.endFrame();
 
     const buffer_context = try dx12.beforeRender(3, 64, &dx12_context, testing_context.swap_chain);
