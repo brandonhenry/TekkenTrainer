@@ -52,6 +52,7 @@ test {
     _ = @import("os/shared_value.zig");
     _ = @import("os/window_procedure.zig");
 
+    _ = @import("ui/allocator.zig");
     _ = @import("ui/context.zig"); // Make sure this test gets executed before UI testing context is initialized.
     _ = @import("ui/testing_context.zig"); // First test using UI testing context.
     _ = @import("ui/toasts.zig");

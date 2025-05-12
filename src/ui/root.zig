@@ -1,3 +1,5 @@
+pub const setAllocator = @import("allocator.zig").setAllocator;
+pub const getAllocator = @import("allocator.zig").getAllocator;
 pub const backend = @import("backend.zig");
 pub const Context = @import("context.zig").Context;
 pub const getTestingContext = @import("testing_context.zig").getTestingContext;
