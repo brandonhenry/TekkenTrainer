@@ -4,22 +4,47 @@ const imgui = @import("imgui");
 const misc = @import("../misc/root.zig");
 const ui = @import("root.zig");
 
+threadlocal var allocator_instance = std.heap.GeneralPurposeAllocator(.{}){};
 threadlocal var instance: ?TestingContext = null;
+threadlocal var times_initialized: usize = 0;
 
 pub fn getTestingContext() !(*const TestingContext) {
     if (!builtin.is_test) {
         @compileError("TestingContext is only allowed to be used in tests.");
     }
     if (instance == null) {
-        instance = TestingContext.init() catch |err| {
+        instance = TestingContext.init(allocator_instance.allocator()) catch |err| {
             misc.error_context.append("Failed to initialize UI testing context.", .{});
             return err;
         };
+        times_initialized += 1;
+        if (times_initialized > 1) {
+            std.log.err(
+                "UI testing context initialized {} times." ++
+                    "This could be because the de-initialization happened in-between UI tests and not after all UI tests.",
+                .{times_initialized},
+            );
+        }
     }
     return &instance.?;
 }
 
+pub fn deinitTestingContextAndDetectLeaks() void {
+    if (!builtin.is_test) {
+        @compileError("TestingContext is only allowed to be used in tests.");
+    }
+    if (instance) |*context| {
+        context.deinit();
+        instance = null;
+    }
+    if (allocator_instance.detectLeaks()) {
+        std.log.err("UI testing context detected a memory leak.", .{});
+    }
+}
+
 pub const TestingContext = struct {
+    allocator: std.mem.Allocator,
+    old_allocator: ?std.mem.Allocator,
     engine: *imgui.ImGuiTestEngine,
     imgui_context: *imgui.ImGuiContext,
 
@@ -30,7 +55,11 @@ pub const TestingContext = struct {
         disable_printing: bool = false,
     };
 
-    pub fn init() !Self {
+    pub fn init(allocator: std.mem.Allocator) !Self {
+        const old_allocator = ui.getAllocator();
+        ui.setAllocator(allocator);
+        errdefer ui.setAllocator(old_allocator);
+
         const engine = imgui.teCreateContext() orelse {
             misc.error_context.new("teCreateContext returned null.", .{});
             return error.ImguiError;
@@ -59,6 +88,8 @@ pub const TestingContext = struct {
         errdefer imgui.teStop(engine);
 
         return .{
+            .allocator = allocator,
+            .old_allocator = old_allocator,
             .engine = engine,
             .imgui_context = imgui_context,
         };
@@ -68,6 +99,7 @@ pub const TestingContext = struct {
         imgui.teStop(self.engine);
         imgui.igDestroyContext(self.imgui_context);
         imgui.teDestroyContext(self.engine);
+        ui.setAllocator(self.old_allocator);
     }
 
     pub fn runTest(

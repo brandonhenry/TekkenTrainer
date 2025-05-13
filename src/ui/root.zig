@@ -3,6 +3,7 @@ pub const getAllocator = @import("allocator.zig").getAllocator;
 pub const backend = @import("backend.zig");
 pub const Context = @import("context.zig").Context;
 pub const getTestingContext = @import("testing_context.zig").getTestingContext;
+pub const deinitTestingContextAndDetectLeaks = @import("testing_context.zig").deinitTestingContextAndDetectLeaks;
 pub const TestContext = @import("test_context.zig").TestContext;
 pub const TestingContext = @import("testing_context.zig").TestingContext;
 pub const ToastType = @import("toasts.zig").ToastType;
