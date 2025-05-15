@@ -13,6 +13,7 @@ pub const AttackType = enum(u32) {
     throw = 0x60000A1D,
     projectile = 0x10000302,
     antiair_only = 0x10000B1A,
+    _,
 };
 
 pub const HitOutcome = enum(u32) {
@@ -36,6 +37,7 @@ pub const HitOutcome = enum(u32) {
     normal_hit_crouching_back = 17,
     normal_hit_standing_right = 18,
     normal_hit_crouching_right = 19,
+    _,
 };
 
 pub const Stun = packed struct(u32) {

@@ -1,6 +1,8 @@
 const std = @import("std");
 const os = @import("../os/root.zig");
 
+pub const pointer_trail_tag = opaque {};
+
 pub fn PointerTrail(comptime Type: type) type {
     return struct {
         buffer: [max_len]?usize,
@@ -8,6 +10,7 @@ pub fn PointerTrail(comptime Type: type) type {
 
         const Self = @This();
         const max_len = 32;
+        pub const tag = pointer_trail_tag;
 
         pub fn fromArray(array: anytype) Self {
             if (@typeInfo(@TypeOf(array)) != .array) {

@@ -1,11 +1,15 @@
 pub const BitfieldMember = @import("bitfield.zig").BitfieldMember;
 pub const Bitfield = @import("bitfield.zig").Bitfield;
+pub const converted_value_tag = @import("converted_value.zig").converted_value_tag;
 pub const ConvertedValue = @import("converted_value.zig").ConvertedValue;
 pub const Pattern = @import("pattern.zig").Pattern;
+pub const pointer_tag = @import("pointer.zig").pointer_tag;
 pub const Pointer = @import("pointer.zig").Pointer;
+pub const pointer_trail_tag = @import("pointer_trail.zig").pointer_trail_tag;
 pub const PointerTrail = @import("pointer_trail.zig").PointerTrail;
 pub const Range = @import("range.zig").Range;
 pub const resolveRelativeOffset = @import("relative_offset.zig").resolveRelativeOffset;
+pub const self_sortable_array_tag = @import("self_sortable_array.zig").self_sortable_array_tag;
 pub const SelfSortableArray = @import("self_sortable_array.zig").SelfSortableArray;
 pub const StructWithOffsetsMember = @import("struct_with_offsets.zig").StructWithOffsetsMember;
 pub const StructWithOffsets = @import("struct_with_offsets.zig").StructWithOffsets;

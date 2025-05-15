@@ -1,5 +1,7 @@
 const std = @import("std");
 
+pub const self_sortable_array_tag = opaque {};
+
 pub fn SelfSortableArray(
     comptime length: usize,
     comptime Element: type,
@@ -9,6 +11,7 @@ pub fn SelfSortableArray(
         raw: [length]Element,
 
         const Self = @This();
+        pub const tag = self_sortable_array_tag;
 
         pub fn sortedConst(self: *const Self) [length]*const Element {
             var pointers: [length]*const Element = undefined;

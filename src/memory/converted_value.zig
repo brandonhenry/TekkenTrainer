@@ -1,5 +1,7 @@
 const std = @import("std");
 
+pub const converted_value_tag = opaque {};
+
 pub fn ConvertedValue(
     comptime Raw: type,
     comptime Value: type,
@@ -10,6 +12,7 @@ pub fn ConvertedValue(
         raw: Raw,
 
         const Self = @This();
+        pub const tag = converted_value_tag;
 
         pub fn getValue(self: *const Self) Value {
             if (rawToValue) |convert| {

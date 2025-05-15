@@ -1,11 +1,14 @@
 const std = @import("std");
 const os = @import("../os/root.zig");
 
+pub const pointer_tag = opaque {};
+
 pub fn Pointer(comptime Type: type) type {
     return packed struct {
         address: usize,
 
         const Self = @This();
+        pub const tag = pointer_tag;
 
         pub fn toConstPointer(self: *const Self) ?*const Type {
             const is_valid = os.isMemoryReadable(self.address, @sizeOf(Type));
