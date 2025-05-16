@@ -13,6 +13,7 @@ pub fn drawData(label: [:0]const u8, pointer: anytype) void {
         .label = label,
         .type_name = type_name,
         .offset = 0,
+        .bit_offset = 0,
         .parent = null,
     };
     drawAny(&ctx, pointer);
@@ -279,10 +280,12 @@ fn drawArray(ctx: *const Context, pointer: anytype) void {
     const ElementType = @typeInfo(@TypeOf(pointer.*)).array.child;
     for (pointer, 0..) |*element_pointer, index| {
         var buffer: [64]u8 = undefined;
+        const offset = @intFromPtr(element_pointer) - @intFromPtr(pointer);
         const element_ctx = Context{
             .label = std.fmt.bufPrintZ(&buffer, "{}", .{index}) catch error_string,
             .type_name = @typeName(ElementType),
-            .offset = @intFromPtr(element_pointer) - @intFromPtr(pointer),
+            .offset = offset,
+            .bit_offset = std.mem.byte_size_in_bits * offset,
             .parent = ctx,
         };
         drawAny(&element_ctx, element_pointer);
@@ -306,7 +309,8 @@ fn drawStruct(ctx: *const Context, pointer: anytype) void {
         const field_ctx = Context{
             .label = field.name,
             .type_name = @typeName(field.type),
-            .offset = @intFromPtr(field_pointer) - @intFromPtr(pointer),
+            .offset = @offsetOf(@TypeOf(pointer.*), field.name),
+            .bit_offset = @bitOffsetOf(@TypeOf(pointer.*), field.name),
             .parent = ctx,
         };
         drawAny(&field_ctx, field_pointer);
@@ -324,10 +328,12 @@ fn drawUnion(ctx: *const Context, pointer: anytype) void {
     const info = @typeInfo(@TypeOf(pointer.*)).@"union";
     if (info.tag_type) |tag_type| {
         const tag_pointer = &@as(tag_type, pointer.*);
+        const tag_offset = @intFromPtr(tag_pointer) - @intFromPtr(pointer);
         const tag_ctx = Context{
             .label = "tag",
             .type_name = @typeName(tag_type),
-            .offset = @intFromPtr(tag_pointer) - @intFromPtr(pointer),
+            .offset = tag_offset,
+            .bit_offset = std.mem.byte_size_in_bits * tag_offset,
             .parent = ctx,
         };
         drawAny(&tag_ctx, tag_pointer);
@@ -335,10 +341,12 @@ fn drawUnion(ctx: *const Context, pointer: anytype) void {
         const value_pointer = switch (pointer.*) {
             inline else => |*ptr| ptr,
         };
+        const value_offset = @intFromPtr(value_pointer) - @intFromPtr(pointer);
         const value_ctx = Context{
             .label = "value",
             .type_name = @typeName(@TypeOf(value_pointer.*)),
-            .offset = value_pointer - pointer,
+            .offset = value_offset,
+            .bit_offset = std.mem.byte_size_in_bits * value_offset,
             .parent = ctx,
         };
         drawAny(&value_ctx, value_pointer);
@@ -348,6 +356,7 @@ fn drawUnion(ctx: *const Context, pointer: anytype) void {
             .label = field.name,
             .type_name = @typeName(field.type),
             .offset = 0,
+            .bit_offset = 0,
             .parent = ctx,
         };
         drawAny(&field_ctx, field_pointer);
@@ -362,6 +371,7 @@ const Context = struct {
     label: [:0]const u8,
     type_name: [:0]const u8,
     offset: usize,
+    bit_offset: usize,
     parent: ?*const Context,
 
     const Self = @This();
@@ -431,6 +441,12 @@ fn beginMenu(ctx: *const Context, pointer: anytype) bool {
     const size = @sizeOf(@TypeOf(pointer.*));
     const size_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ size, size }) catch error_string;
     drawMenuText("size", size_text);
+    const bit_offset = ctx.bit_offset;
+    const bit_offset_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ bit_offset, bit_offset }) catch error_string;
+    drawMenuText("bit offset", bit_offset_text);
+    const bit_size = @bitSizeOf(@TypeOf(pointer.*));
+    const bit_size_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ bit_size, bit_size }) catch error_string;
+    drawMenuText("bit size", bit_size_text);
 
     return true;
 }
