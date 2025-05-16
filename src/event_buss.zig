@@ -129,12 +129,7 @@ pub const EventBuss = struct {
         imgui.igGetIO().*.MouseDrawCursor = true;
         ui.toasts.draw();
         components.drawLogsWindow(dll.buffer_logger, null);
-        game_memory: {
-            const is_open = imgui.igBegin("Game Memory", null, 0);
-            defer imgui.igEnd();
-            if (!is_open) break :game_memory;
-            components.drawData("game memory", &self.game_memory);
-        }
+        components.drawGameMemoryWindow(&self.game_memory, null);
         hello_world: {
             const is_open = imgui.igBegin("Hello World", null, 0);
             defer imgui.igEnd();
