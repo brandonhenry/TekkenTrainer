@@ -12,8 +12,9 @@ pub fn drawData(label: [:0]const u8, pointer: anytype) void {
     const ctx = Context{
         .label = label,
         .type_name = type_name,
-        .offset = 0,
+        .address = @intFromPtr(pointer),
         .bit_offset = 0,
+        .bit_size = @bitSizeOf(@TypeOf(pointer.*)),
         .parent = null,
     };
     drawAny(&ctx, pointer);
@@ -37,9 +38,9 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
         drawSelfSortableArray(ctx, pointer);
     } else switch (@typeInfo(ChildType)) {
         .pointer => drawAny(ctx, pointer.*),
-        .void => drawVoid(ctx, pointer),
-        .null => drawNull(ctx, pointer),
-        .undefined => drawUndefined(ctx, pointer),
+        .void => drawVoid(ctx),
+        .null => drawNull(ctx),
+        .undefined => drawUndefined(ctx),
         .bool => drawBool(ctx, pointer),
         .int => drawNumber(ctx, pointer),
         .float => drawNumber(ctx, pointer),
@@ -75,7 +76,7 @@ fn drawPointer(ctx: *const Context, pointer: anytype) void {
     const text = "Invalid pointer.";
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -91,7 +92,7 @@ fn drawPointerTrail(ctx: *const Context, pointer: anytype) void {
     const text = "Invalid pointer trail.";
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -104,33 +105,33 @@ fn drawSelfSortableArray(ctx: *const Context, pointer: anytype) void {
 
 // Rendering of language types.
 
-fn drawVoid(ctx: *const Context, pointer: anytype) void {
+fn drawVoid(ctx: *const Context) void {
     const text = "{} (void instance)";
     drawText(ctx, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
     drawMenuText("value", text);
 }
 
-fn drawNull(ctx: *const Context, pointer: anytype) void {
+fn drawNull(ctx: *const Context) void {
     const text = "null";
     drawText(ctx, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
     drawMenuText("value", text);
 }
 
-fn drawUndefined(ctx: *const Context, pointer: anytype) void {
+fn drawUndefined(ctx: *const Context) void {
     const text = "undefined";
     drawText(ctx, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -141,7 +142,7 @@ fn drawBool(ctx: *const Context, pointer: *const bool) void {
     const text = if (pointer.*) "true" else "false";
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -155,7 +156,7 @@ fn drawNumber(ctx: *const Context, pointer: anytype) void {
     const text = std.fmt.bufPrintZ(&buffer, "{}", .{value}) catch error_string;
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -191,7 +192,7 @@ fn drawMemoryAddress(ctx: *const Context, pointer: anytype) void {
     const text = std.fmt.bufPrintZ(&buffer, "0x{X}", .{address}) catch error_string;
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -202,7 +203,7 @@ fn drawType(ctx: *const Context, pointer: *const type) void {
     const text = @typeName(pointer.*);
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -213,7 +214,7 @@ fn drawEnumLiteral(ctx: *const Context, pointer: anytype) void {
     const text = @tagName(pointer.*);
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -235,7 +236,7 @@ fn drawEnum(ctx: *const Context, pointer: anytype) void {
     }
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -246,7 +247,7 @@ fn drawError(ctx: *const Context, pointer: anytype) void {
     const text = @errorName(pointer.*);
     drawText(ctx.label, text);
 
-    if (!beginMenu(ctx, pointer)) return;
+    if (!beginMenu(ctx)) return;
     defer endMenu();
 
     drawSeparator();
@@ -271,21 +272,20 @@ fn drawErrorUnion(ctx: *const Context, pointer: anytype) void {
 
 fn drawArray(ctx: *const Context, pointer: anytype) void {
     const node_open = beginNode(ctx.label);
-    if (beginMenu(ctx, pointer)) {
+    if (beginMenu(ctx)) {
         defer endMenu();
     }
     if (!node_open) return;
     defer endNode();
 
-    const ElementType = @typeInfo(@TypeOf(pointer.*)).array.child;
     for (pointer, 0..) |*element_pointer, index| {
         var buffer: [64]u8 = undefined;
-        const offset = @intFromPtr(element_pointer) - @intFromPtr(pointer);
         const element_ctx = Context{
             .label = std.fmt.bufPrintZ(&buffer, "{}", .{index}) catch error_string,
-            .type_name = @typeName(ElementType),
-            .offset = offset,
-            .bit_offset = std.mem.byte_size_in_bits * offset,
+            .type_name = @typeName(@TypeOf(element_pointer.*)),
+            .address = @intFromPtr(element_pointer),
+            .bit_offset = std.mem.byte_size_in_bits * (@intFromPtr(element_pointer) - @intFromPtr(pointer)),
+            .bit_size = @bitSizeOf(@TypeOf(element_pointer.*)),
             .parent = ctx,
         };
         drawAny(&element_ctx, element_pointer);
@@ -294,7 +294,7 @@ fn drawArray(ctx: *const Context, pointer: anytype) void {
 
 fn drawStruct(ctx: *const Context, pointer: anytype) void {
     const node_open = beginNode(ctx.label);
-    if (beginMenu(ctx, pointer)) {
+    if (beginMenu(ctx)) {
         defer endMenu();
     }
     if (!node_open) return;
@@ -306,11 +306,15 @@ fn drawStruct(ctx: *const Context, pointer: anytype) void {
             continue;
         }
         const field_pointer = &@field(pointer, field.name);
+        const bit_size = @bitSizeOf(@TypeOf(field_pointer.*));
+        const byte_size = @sizeOf(@TypeOf(field_pointer.*));
+        const final_size = if (info.layout == .@"packed") bit_size else std.mem.byte_size_in_bits * byte_size;
         const field_ctx = Context{
             .label = field.name,
             .type_name = @typeName(field.type),
-            .offset = @offsetOf(@TypeOf(pointer.*), field.name),
+            .address = @intFromPtr(field_pointer),
             .bit_offset = @bitOffsetOf(@TypeOf(pointer.*), field.name),
+            .bit_size = final_size,
             .parent = ctx,
         };
         drawAny(&field_ctx, field_pointer);
@@ -319,21 +323,21 @@ fn drawStruct(ctx: *const Context, pointer: anytype) void {
 
 fn drawUnion(ctx: *const Context, pointer: anytype) void {
     const node_open = beginNode(ctx.label);
-    if (beginMenu(ctx, pointer)) {
+    if (beginMenu(ctx)) {
         defer endMenu();
     }
     if (!node_open) return;
     defer endNode();
 
     const info = @typeInfo(@TypeOf(pointer.*)).@"union";
-    if (info.tag_type) |tag_type| {
-        const tag_pointer = &@as(tag_type, pointer.*);
-        const tag_offset = @intFromPtr(tag_pointer) - @intFromPtr(pointer);
+    if (info.tag_type) |Tag| {
+        const tag_pointer = &@as(Tag, pointer.*);
         const tag_ctx = Context{
             .label = "tag",
-            .type_name = @typeName(tag_type),
-            .offset = tag_offset,
-            .bit_offset = std.mem.byte_size_in_bits * tag_offset,
+            .type_name = @typeName(Tag),
+            .address = @intFromPtr(tag_pointer),
+            .bit_offset = 0,
+            .bit_size = @bitSizeOf(Tag),
             .parent = ctx,
         };
         drawAny(&tag_ctx, tag_pointer);
@@ -341,12 +345,12 @@ fn drawUnion(ctx: *const Context, pointer: anytype) void {
         const value_pointer = switch (pointer.*) {
             inline else => |*ptr| ptr,
         };
-        const value_offset = @intFromPtr(value_pointer) - @intFromPtr(pointer);
         const value_ctx = Context{
             .label = "value",
             .type_name = @typeName(@TypeOf(value_pointer.*)),
-            .offset = value_offset,
-            .bit_offset = std.mem.byte_size_in_bits * value_offset,
+            .address = @intFromPtr(value_pointer),
+            .bit_offset = std.mem.byte_size_in_bits * (@intFromPtr(value_pointer) - @intFromPtr(pointer)),
+            .bit_size = @bitSizeOf(@TypeOf(value_pointer.*)),
             .parent = ctx,
         };
         drawAny(&value_ctx, value_pointer);
@@ -355,8 +359,9 @@ fn drawUnion(ctx: *const Context, pointer: anytype) void {
         const field_ctx = Context{
             .label = field.name,
             .type_name = @typeName(field.type),
-            .offset = 0,
+            .address = @intFromPtr(field_pointer),
             .bit_offset = 0,
+            .bit_size = @bitSizeOf(field.type),
             .parent = ctx,
         };
         drawAny(&field_ctx, field_pointer);
@@ -370,8 +375,9 @@ const error_string = "display error";
 const Context = struct {
     label: [:0]const u8,
     type_name: [:0]const u8,
-    offset: usize,
+    address: usize,
     bit_offset: usize,
+    bit_size: usize,
     parent: ?*const Context,
 
     const Self = @This();
@@ -419,7 +425,7 @@ fn endNode() void {
     imgui.igTreePop();
 }
 
-fn beginMenu(ctx: *const Context, pointer: anytype) bool {
+fn beginMenu(ctx: *const Context) bool {
     imgui.igSetItemTooltip("Right-click to open popup.");
     const menu_open = imgui.igBeginPopupContextItem(ctx.label, imgui.ImGuiPopupFlags_MouseButtonRight);
     if (!menu_open) return false;
@@ -429,26 +435,24 @@ fn beginMenu(ctx: *const Context, pointer: anytype) bool {
     drawMenuText("label", ctx.label);
     drawMenuText("path", ctx.getPath(&buffer) catch error_string);
     drawMenuText("type", ctx.type_name);
-
     drawSeparator();
-
-    const address = @intFromPtr(pointer);
-    const address_text = std.fmt.bufPrintZ(&buffer, "0x{X}", .{address}) catch error_string;
-    drawMenuText("address", address_text);
-    const offset = ctx.offset;
-    const offset_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ offset, offset }) catch error_string;
-    drawMenuText("offset", offset_text);
-    const size = @sizeOf(@TypeOf(pointer.*));
-    const size_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ size, size }) catch error_string;
-    drawMenuText("size", size_text);
-    const bit_offset = ctx.bit_offset;
-    const bit_offset_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ bit_offset, bit_offset }) catch error_string;
-    drawMenuText("bit offset", bit_offset_text);
-    const bit_size = @bitSizeOf(@TypeOf(pointer.*));
-    const bit_size_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ bit_size, bit_size }) catch error_string;
-    drawMenuText("bit size", bit_size_text);
+    drawMenuText("address", std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ ctx.address, ctx.address }) catch error_string);
+    drawMenuText("offset", bitsToText(&buffer, ctx.bit_offset) catch error_string);
+    drawMenuText("size", bitsToText(&buffer, ctx.bit_size) catch error_string);
 
     return true;
+}
+
+fn bitsToText(buffer: []u8, bits_value: usize) ![:0]u8 {
+    const bytes = bits_value / std.mem.byte_size_in_bits;
+    const bits = bits_value % std.mem.byte_size_in_bits;
+    if (bits == 0) {
+        return std.fmt.bufPrintZ(buffer, "{} (0x{X}) bytes", .{ bytes, bytes });
+    } else if (bytes == 0) {
+        return std.fmt.bufPrintZ(buffer, "{} (0x{X}) bits", .{ bits, bits });
+    } else {
+        return std.fmt.bufPrintZ(buffer, "{} (0x{X}) bytes, {} (0x{X}) bits", .{ bytes, bytes, bits, bits });
+    }
 }
 
 fn endMenu() void {
