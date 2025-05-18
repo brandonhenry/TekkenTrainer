@@ -260,6 +260,18 @@ fn drawStruct(ctx: *const Context, pointer: anytype) void {
     defer endNode();
 
     const info = @typeInfo(@TypeOf(pointer.*)).@"struct";
+    if (info.backing_integer) |BackingInt| {
+        const backing_int_pointer: *const BackingInt = @ptrCast(pointer);
+        const backing_int_ctx = Context{
+            .label = "backing integer",
+            .type_name = @typeName(BackingInt),
+            .address = @intFromPtr(backing_int_pointer),
+            .bit_offset = null,
+            .bit_size = @bitSizeOf(BackingInt),
+            .parent = ctx,
+        };
+        drawAny(&backing_int_ctx, backing_int_pointer);
+    }
     inline for (info.fields) |*field| {
         if (comptime std.mem.startsWith(u8, field.name, "_")) {
             continue;
@@ -434,8 +446,7 @@ fn drawCustomPointer(ctx: *const Context, pointer: anytype) void {
     drawAny(&address_ctx, address_pointer);
 
     const value_pointer = pointer.toConstPointer() orelse {
-        drawText(ctx.label, "Invalid pointer.");
-        useDefaultMenu(ctx);
+        drawText("value", "not readable");
         return;
     };
     const value_ctx = Context{
@@ -467,8 +478,7 @@ fn drawPointerTrail(ctx: *const Context, pointer: anytype) void {
     drawAny(&offsets_ctx, offsets_pointer);
 
     const value_pointer = pointer.toConstPointer() orelse {
-        drawText(ctx.label, "Invalid pointer trail.");
-        useDefaultMenu(ctx);
+        drawText("value", "not readable");
         return;
     };
     const value_ctx = Context{
