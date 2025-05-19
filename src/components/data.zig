@@ -255,7 +255,16 @@ fn drawArray(ctx: *const Context, pointer: anytype) void {
 
 fn drawStruct(ctx: *const Context, pointer: anytype) void {
     const node_open = beginNode(ctx.label);
-    useDefaultMenu(ctx);
+    const storage = imgui.igGetStateStorage();
+    const show_hidden_id = imgui.igGetID_Str("show_hidden");
+    var show_hidden = imgui.ImGuiStorage_GetBool(storage, show_hidden_id, false);
+    if (beginMenu(ctx.label)) {
+        defer endMenu();
+        drawDefaultMenuItems(ctx);
+        drawSeparator();
+        _ = imgui.igCheckbox("Show Hidden Fields", &show_hidden);
+    }
+    imgui.ImGuiStorage_SetBool(storage, show_hidden_id, show_hidden);
     if (!node_open) return;
     defer endNode();
 
@@ -273,22 +282,22 @@ fn drawStruct(ctx: *const Context, pointer: anytype) void {
         drawAny(&backing_int_ctx, backing_int_pointer);
     }
     inline for (info.fields) |*field| {
-        if (comptime std.mem.startsWith(u8, field.name, "_")) {
-            continue;
+        const is_hidden = comptime std.mem.startsWith(u8, field.name, "_");
+        if (!is_hidden or show_hidden) {
+            const field_pointer = &@field(pointer, field.name);
+            const bit_size = @bitSizeOf(@TypeOf(field_pointer.*));
+            const byte_size = @sizeOf(@TypeOf(field_pointer.*));
+            const final_size = if (info.layout == .@"packed") bit_size else std.mem.byte_size_in_bits * byte_size;
+            const field_ctx = Context{
+                .label = field.name,
+                .type_name = @typeName(field.type),
+                .address = @intFromPtr(field_pointer),
+                .bit_offset = @bitOffsetOf(@TypeOf(pointer.*), field.name),
+                .bit_size = final_size,
+                .parent = ctx,
+            };
+            drawAny(&field_ctx, field_pointer);
         }
-        const field_pointer = &@field(pointer, field.name);
-        const bit_size = @bitSizeOf(@TypeOf(field_pointer.*));
-        const byte_size = @sizeOf(@TypeOf(field_pointer.*));
-        const final_size = if (info.layout == .@"packed") bit_size else std.mem.byte_size_in_bits * byte_size;
-        const field_ctx = Context{
-            .label = field.name,
-            .type_name = @typeName(field.type),
-            .address = @intFromPtr(field_pointer),
-            .bit_offset = @bitOffsetOf(@TypeOf(pointer.*), field.name),
-            .bit_size = final_size,
-            .parent = ctx,
-        };
-        drawAny(&field_ctx, field_pointer);
     }
 }
 
