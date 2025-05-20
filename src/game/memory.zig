@@ -20,13 +20,11 @@ pub const Memory = struct {
         return .{
             .player_1 = trail("player_1", game.Player, .{
                 relativeOffset(u32, add(3, pattern(r, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
-                0x0,
                 0x30,
                 0x0,
             }),
             .player_2 = trail("player_2", game.Player, .{
                 relativeOffset(u32, add(3, pattern(r, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
-                0x0,
                 0x38,
                 0x0,
             }),
