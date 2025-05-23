@@ -3,40 +3,39 @@ const imgui = @import("imgui");
 const memory = @import("../memory/root.zig");
 
 pub fn drawData(label: [:0]const u8, pointer: anytype) void {
-    const type_name = switch (@typeInfo(@TypeOf(pointer))) {
-        .pointer => |info| @typeName(info.child),
-        else => @compileError(
+    if (@typeInfo(@TypeOf(pointer)) != .pointer or @typeInfo(@TypeOf(pointer)).pointer.size != .one) {
+        @compileError(
             "The drawData function expects a pointer but provided value is of type: " ++ @typeName(@TypeOf(pointer)),
-        ),
-    };
+        );
+    }
+    const Type = @TypeOf(pointer.*);
     const ctx = Context{
         .label = label,
-        .type_name = type_name,
+        .type_name = @typeName(Type),
         .address = @intFromPtr(pointer),
         .bit_offset = null,
-        .bit_size = @bitSizeOf(@TypeOf(pointer.*)),
+        .bit_size = @bitSizeOf(Type),
         .parent = null,
     };
     drawAny(&ctx, pointer);
 }
 
 fn drawAny(ctx: *const Context, pointer: anytype) void {
-    const base_info = @typeInfo(@TypeOf(pointer));
-    const ChildType = switch (base_info) {
-        .pointer => |info| info.child,
-        else => @compileError(
+    if (@typeInfo(@TypeOf(pointer)) != .pointer or @typeInfo(@TypeOf(pointer)).pointer.size != .one) {
+        @compileError(
             "The drawAny function expects a pointer but provided value is of type: " ++ @typeName(@TypeOf(pointer)),
-        ),
-    };
-    if (hasTag(ChildType, memory.converted_value_tag)) {
+        );
+    }
+    const Type = @TypeOf(pointer.*);
+    if (hasTag(Type, memory.converted_value_tag)) {
         drawConvertedValue(ctx, pointer);
-    } else if (hasTag(ChildType, memory.pointer_tag)) {
+    } else if (hasTag(Type, memory.pointer_tag)) {
         drawCustomPointer(ctx, pointer);
-    } else if (hasTag(ChildType, memory.pointer_trail_tag)) {
+    } else if (hasTag(Type, memory.pointer_trail_tag)) {
         drawPointerTrail(ctx, pointer);
-    } else if (hasTag(ChildType, memory.self_sortable_array_tag)) {
+    } else if (hasTag(Type, memory.self_sortable_array_tag)) {
         drawSelfSortableArray(ctx, pointer);
-    } else switch (@typeInfo(ChildType)) {
+    } else switch (@typeInfo(Type)) {
         .void => drawVoid(ctx),
         .null => drawNull(ctx),
         .undefined => drawUndefined(ctx),
@@ -57,7 +56,7 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
         .@"struct" => drawStruct(ctx, pointer),
         .@"union" => drawUnion(ctx, pointer),
         .pointer => drawPointer(ctx, pointer),
-        else => @compileError("Unsupported data type: " ++ @tagName(@typeInfo(ChildType))),
+        else => @compileError("Unsupported data type: " ++ @tagName(@typeInfo(Type))),
     }
 }
 
