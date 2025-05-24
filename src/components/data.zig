@@ -1,6 +1,8 @@
 const std = @import("std");
 const imgui = @import("imgui");
+const builtin = @import("builtin");
 const memory = @import("../memory/root.zig");
+const ui = @import("../ui/root.zig");
 
 pub fn drawData(label: [:0]const u8, pointer: anytype) void {
     if (@typeInfo(@TypeOf(pointer)) != .pointer or @typeInfo(@TypeOf(pointer)).pointer.size != .one) {
@@ -8,7 +10,7 @@ pub fn drawData(label: [:0]const u8, pointer: anytype) void {
             "The drawData function expects a pointer but provided value is of type: " ++ @typeName(@TypeOf(pointer)),
         );
     }
-    const Type = @TypeOf(pointer.*);
+    const Type = @typeInfo(@TypeOf(pointer)).pointer.child;
     const ctx = Context{
         .label = label,
         .type_name = @typeName(Type),
@@ -26,7 +28,7 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
             "The drawAny function expects a pointer but provided value is of type: " ++ @typeName(@TypeOf(pointer)),
         );
     }
-    const Type = @TypeOf(pointer.*);
+    const Type = @typeInfo(@TypeOf(pointer)).pointer.child;
     if (hasTag(Type, memory.converted_value_tag)) {
         drawConvertedValue(ctx, pointer);
     } else if (hasTag(Type, memory.pointer_tag)) {
@@ -44,8 +46,6 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
         .float => drawNumber(ctx, pointer),
         .comptime_float => drawNumber(ctx, pointer),
         .comptime_int => drawNumber(ctx, pointer),
-        .@"fn" => drawMemoryAddress(ctx, pointer),
-        .@"opaque" => drawMemoryAddress(ctx, pointer),
         .type => drawType(ctx, pointer),
         .enum_literal => drawEnumLiteral(ctx, pointer),
         .@"enum" => drawEnum(ctx, pointer),
@@ -55,7 +55,11 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
         .array => drawArray(ctx, pointer),
         .@"struct" => drawStruct(ctx, pointer),
         .@"union" => drawUnion(ctx, pointer),
-        .pointer => drawPointer(ctx, pointer),
+        .pointer => |info| switch (@typeInfo(info.child)) {
+            .@"fn" => drawMemoryAddress(ctx, pointer),
+            .@"opaque" => drawMemoryAddress(ctx, pointer),
+            else => drawPointer(ctx, pointer),
+        },
         else => @compileError("Unsupported data type: " ++ @tagName(@typeInfo(Type))),
     }
 }
@@ -64,9 +68,9 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
 
 fn drawVoid(ctx: *const Context) void {
     const text = "{} (void instance)";
-    drawText(ctx, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -76,9 +80,9 @@ fn drawVoid(ctx: *const Context) void {
 
 fn drawNull(ctx: *const Context) void {
     const text = "null";
-    drawText(ctx.label, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -88,9 +92,9 @@ fn drawNull(ctx: *const Context) void {
 
 fn drawUndefined(ctx: *const Context) void {
     const text = "undefined";
-    drawText(ctx, text);
+    drawTreeText(ctx, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -100,9 +104,9 @@ fn drawUndefined(ctx: *const Context) void {
 
 fn drawBool(ctx: *const Context, pointer: *const bool) void {
     const text = if (pointer.*) "true" else "false";
-    drawText(ctx.label, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -121,53 +125,28 @@ fn drawNumber(ctx: *const Context, pointer: anytype) void {
     } else block: {
         break :block std.fmt.bufPrintZ(&buffer, "{}", .{value}) catch error_string;
     };
-    drawText(ctx.label, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
     drawSeparator();
     drawMenuText("value", text);
     drawSeparator();
-
-    const bits = @bitSizeOf(@TypeOf(value));
-    const UType = @Type(std.builtin.Type{ .int = .{ .signedness = .unsigned, .bits = bits } });
-    const u_value: UType = @bitCast(value);
-    const u_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ u_value, u_value }) catch error_string;
-    drawMenuText(@typeName(UType), u_text);
-    const IType = @Type(std.builtin.Type{ .int = .{ .signedness = .signed, .bits = bits } });
-    const i_value: IType = @bitCast(value);
-    const i_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ i_value, i_value }) catch error_string;
-    drawMenuText(@typeName(IType), i_text);
-    if (bits == 16 or bits == 32 or bits == 64 or bits == 80 or bits == 128) {
-        const FType = @Type(std.builtin.Type{ .float = .{ .bits = bits } });
-        const f_value: FType = @bitCast(value);
-        const f_text = std.fmt.bufPrintZ(&buffer, "{}", .{f_value}) catch error_string;
-        drawMenuText(@typeName(FType), f_text);
-    }
-
-    if (bits == 8) {
-        drawSeparator();
-        if (std.ascii.isPrint(u_value)) {
-            const char_text = std.fmt.bufPrintZ(&buffer, "{c}", .{u_value}) catch error_string;
-            drawMenuText("character", char_text);
-        } else {
-            drawMenuText("character", "not printable");
-        }
-    }
+    drawNumberMenuItems(value);
 }
 
 fn drawMemoryAddress(ctx: *const Context, pointer: anytype) void {
     const casted_pointer: *const usize = @ptrCast(pointer);
-    drawAny(ctx, casted_pointer);
+    drawNumber(ctx, casted_pointer);
 }
 
 fn drawType(ctx: *const Context, pointer: *const type) void {
     const text = @typeName(pointer.*);
-    drawText(ctx.label, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -177,9 +156,9 @@ fn drawType(ctx: *const Context, pointer: *const type) void {
 
 fn drawEnumLiteral(ctx: *const Context, pointer: anytype) void {
     const text = @tagName(pointer.*);
-    drawText(ctx.label, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -202,21 +181,25 @@ fn drawEnum(ctx: *const Context, pointer: anytype) void {
         drawAny(ctx, &value);
         return;
     }
-    drawText(ctx.label, text);
+    drawTreeText(ctx.label, text);
 
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
     drawSeparator();
     drawMenuText("value", text);
+    drawSeparator();
+    drawNumberMenuItems(value);
 }
 
 fn drawError(ctx: *const Context, pointer: anytype) void {
-    const text = @errorName(pointer.*);
-    drawText(ctx.label, text);
+    var buffer: [string_buffer_size]u8 = undefined;
 
-    if (!beginMenu(ctx.label)) return;
+    const text = std.fmt.bufPrintZ(&buffer, "error.{s}", .{@errorName(pointer.*)}) catch error_string;
+    drawTreeText(ctx.label, text);
+
+    if (!beginMenu()) return;
     defer endMenu();
 
     drawDefaultMenuItems(ctx);
@@ -234,9 +217,9 @@ fn drawOptional(ctx: *const Context, pointer: anytype) void {
 
 fn drawErrorUnion(ctx: *const Context, pointer: anytype) void {
     if (pointer.*) |*data| {
-        drawAny(ctx.label, data);
+        drawAny(ctx, data);
     } else |err| {
-        drawError(ctx.label, &err);
+        drawError(ctx, &err);
     }
 }
 
@@ -269,7 +252,7 @@ fn drawStruct(ctx: *const Context, pointer: anytype) void {
     const cast_to_array_id = imgui.igGetID_Str("cast_to_array");
     var show_hidden = imgui.ImGuiStorage_GetBool(storage, show_hidden_id, false);
     var cast_to_array = imgui.ImGuiStorage_GetBool(storage, cast_to_array_id, false);
-    if (beginMenu(ctx.label)) {
+    if (beginMenu()) {
         defer endMenu();
         drawDefaultMenuItems(ctx);
         drawSeparator();
@@ -408,13 +391,14 @@ fn drawPointer(ctx: *const Context, pointer: anytype) void {
     const info = @typeInfo(@TypeOf(pointer.*)).pointer;
     switch (info.size) {
         .one => {
+            const Value = @typeInfo(@TypeOf(pointer)).pointer.child;
             const value_pointer = pointer.*;
             const value_ctx = Context{
                 .label = "value",
-                .type_name = @typeName(@TypeOf(value_pointer.*)),
+                .type_name = @typeName(Value),
                 .address = @intFromPtr(value_pointer),
                 .bit_offset = null,
-                .bit_size = @bitSizeOf(@TypeOf(value_pointer.*)),
+                .bit_size = @bitSizeOf(Value),
                 .parent = ctx,
             };
             drawAny(&value_ctx, value_pointer);
@@ -501,7 +485,7 @@ fn drawCustomPointer(ctx: *const Context, pointer: anytype) void {
     drawAny(&address_ctx, address_pointer);
 
     const value_pointer = maybe_value_pointer orelse {
-        drawText("value", "not readable");
+        drawTreeText("value", "not readable");
         return;
     };
     const value_ctx = Context{
@@ -537,7 +521,7 @@ fn drawPointerTrail(ctx: *const Context, pointer: anytype) void {
     drawAny(&offsets_ctx, offsets_pointer);
 
     const value_pointer = maybe_value_pointer orelse {
-        drawText("value", "not readable");
+        drawTreeText("value", "not readable");
         return;
     };
     const value_ctx = Context{
@@ -621,14 +605,16 @@ pub inline fn hasTag(comptime Type: type, comptime tag: type) bool {
     }
 }
 
-fn drawText(label: [:0]const u8, text: [:0]const u8) void {
+fn drawTreeText(label: [:0]const u8, text: [:0]const u8) void {
     imgui.igIndent(0.0);
     defer imgui.igUnindent(0.0);
-    imgui.igBeginGroup();
-    defer imgui.igEndGroup();
-    imgui.igText("%s:", label.ptr);
-    imgui.igSameLine(0.0, -0.1);
-    imgui.igText("%s", text.ptr);
+    drawText(label, text);
+    var min: imgui.ImVec2 = undefined;
+    var max: imgui.ImVec2 = undefined;
+    imgui.igGetItemRectMin(&min);
+    imgui.igGetItemRectMax(&max);
+    const rect = imgui.ImRect{ .Min = min, .Max = max };
+    _ = imgui.igItemAdd(rect, imgui.igGetID_Str(label), null, imgui.ImGuiItemFlags_NoNav);
 }
 
 fn beginNode(label: [:0]const u8) bool {
@@ -647,8 +633,8 @@ fn popErrorStyle() void {
     imgui.igPopStyleColor(1);
 }
 
-fn beginMenu(id: [:0]const u8) bool {
-    return imgui.igBeginPopupContextItem(id, imgui.ImGuiPopupFlags_MouseButtonRight);
+fn beginMenu() bool {
+    return imgui.igBeginPopupContextItem(null, imgui.ImGuiPopupFlags_MouseButtonRight);
 }
 
 fn endMenu() void {
@@ -656,7 +642,7 @@ fn endMenu() void {
 }
 
 fn useDefaultMenu(ctx: *const Context) void {
-    if (!beginMenu(ctx.label)) return;
+    if (!beginMenu()) return;
     defer endMenu();
     drawDefaultMenuItems(ctx);
 }
@@ -674,6 +660,38 @@ fn drawDefaultMenuItems(ctx: *const Context) void {
     drawMenuText("size", bitsToText(&buffer, ctx.bit_size) catch error_string);
 }
 
+fn drawNumberMenuItems(value: anytype) void {
+    var buffer: [string_buffer_size]u8 = undefined;
+    const bits = @bitSizeOf(@TypeOf(value));
+
+    const UType = @Type(std.builtin.Type{ .int = .{ .signedness = .unsigned, .bits = bits } });
+    const u_value: UType = @bitCast(value);
+    const u_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ u_value, u_value }) catch error_string;
+    drawMenuText(@typeName(UType), u_text);
+
+    const IType = @Type(std.builtin.Type{ .int = .{ .signedness = .signed, .bits = bits } });
+    const i_value: IType = @bitCast(value);
+    const i_text = std.fmt.bufPrintZ(&buffer, "{} (0x{X})", .{ i_value, i_value }) catch error_string;
+    drawMenuText(@typeName(IType), i_text);
+
+    if (bits == 16 or bits == 32 or bits == 64 or bits == 80 or bits == 128) {
+        const FType = @Type(std.builtin.Type{ .float = .{ .bits = bits } });
+        const f_value: FType = @bitCast(value);
+        const f_text = std.fmt.bufPrintZ(&buffer, "{}", .{f_value}) catch error_string;
+        drawMenuText(@typeName(FType), f_text);
+    }
+
+    if (bits == 8) {
+        drawSeparator();
+        if (std.ascii.isPrint(u_value)) {
+            const char_text = std.fmt.bufPrintZ(&buffer, "{c}", .{u_value}) catch error_string;
+            drawMenuText("character", char_text);
+        } else {
+            drawMenuText("character", "not printable");
+        }
+    }
+}
+
 fn bitsToText(buffer: []u8, bits_value: usize) ![:0]u8 {
     const bytes = bits_value / std.mem.byte_size_in_bits;
     const bits = bits_value % std.mem.byte_size_in_bits;
@@ -687,11 +705,481 @@ fn bitsToText(buffer: []u8, bits_value: usize) ![:0]u8 {
 }
 
 fn drawMenuText(label: [:0]const u8, text: [:0]const u8) void {
-    imgui.igText("%s:", label.ptr);
-    imgui.igSameLine(0.0, -0.1);
-    imgui.igText("%s", text.ptr);
+    drawText(label, text);
+}
+
+fn drawText(label: [:0]const u8, text: [:0]const u8) void {
+    imgui.igText("%s: %s", label.ptr, text.ptr);
+    if (builtin.is_test) {
+        var buffer: [string_buffer_size]u8 = undefined;
+        const full_text = std.fmt.bufPrintZ(&buffer, "{s}: {s}", .{ label, text }) catch error_string;
+        var min: imgui.ImVec2 = undefined;
+        var max: imgui.ImVec2 = undefined;
+        imgui.igGetItemRectMin(&min);
+        imgui.igGetItemRectMax(&max);
+        const rect = imgui.ImRect{ .Min = min, .Max = max };
+        imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(label), &rect, null);
+        imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(full_text), &rect, null);
+    }
 }
 
 fn drawSeparator() void {
     imgui.igSeparator();
+}
+
+const testing = std.testing;
+
+test "should draw void correctly" {
+    const Test = struct {
+        var value: void = {};
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: {} (void instance)");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: void");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 0 (0x0) bytes");
+            try ctx.expectItemExists("value: {} (void instance)");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw null correctly" {
+    const Test = struct {
+        var value: ?void = null;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: null");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: ?void");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 1 (0x1) bytes");
+            try ctx.expectItemExists("value: null");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw bool correctly" {
+    const Test = struct {
+        var value: bool = false;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: false");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: bool");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 1 (0x1) bits");
+            try ctx.expectItemExists("value: false");
+
+            value = true;
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: true");
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("value: true");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw int correctly" {
+    const Test = struct {
+        var value: u8 = 97;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: 97 (0x61) 'a'");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: u8");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 1 (0x1) bytes");
+            try ctx.expectItemExists("value: 97 (0x61) 'a'");
+            try ctx.expectItemExists("u8: 97 (0x61)");
+            try ctx.expectItemExists("i8: 97 (0x61)");
+            try ctx.expectItemExists("character: a");
+
+            value = 255;
+            ctx.yield(1);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("u8: 255 (0xFF)");
+            try ctx.expectItemExists("i8: -1 (0x-1)");
+            try ctx.expectItemExists("character: not printable");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw float correctly" {
+    const Test = struct {
+        var value: f32 = -1.0;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: -1e0");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: f32");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 4 (0x4) bytes");
+            try ctx.expectItemExists("value: -1e0");
+            try ctx.expectItemExists("u32: 3212836864 (0xBF800000)");
+            try ctx.expectItemExists("i32: -1082130432 (0x-40800000)");
+            try ctx.expectItemExists("f32: -1e0");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw enum correctly" {
+    const Enum = enum(u8) { test_value = 255, _ };
+    const Test = struct {
+        var value: Enum = .test_value;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: test_value");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: " ++ @typeName(Enum));
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 1 (0x1) bytes");
+            try ctx.expectItemExists("value: test_value");
+            try ctx.expectItemExists("u8: 255 (0xFF)");
+            try ctx.expectItemExists("i8: -1 (0x-1)");
+            try ctx.expectItemExists("character: not printable");
+
+            value = @enumFromInt(97);
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: 97 (0x61) 'a'");
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("value: 97 (0x61) 'a'");
+            try ctx.expectItemExists("u8: 97 (0x61)");
+            try ctx.expectItemExists("i8: 97 (0x61)");
+            try ctx.expectItemExists("character: a");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw error correctly" {
+    const Test = struct {
+        var value: anyerror = error.TestError;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: error.TestError");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: anyerror");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            const size = @sizeOf(anyerror);
+            const size_str = try std.fmt.allocPrintZ(testing.allocator, "size: {} (0x{X}) bytes", .{ size, size });
+            defer testing.allocator.free(size_str);
+            try ctx.expectItemExists(size_str);
+            try ctx.expectItemExists("value: error.TestError");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw optional correctly" {
+    const Test = struct {
+        var value: ?bool = null;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: null");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: ?bool");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists("size: 2 (0x2) bytes");
+            try ctx.expectItemExists("value: null");
+
+            value = true;
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: true");
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("value: true");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw error union correctly" {
+    const Test = struct {
+        var value: anyerror!bool = false;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: false");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: anyerror!bool");
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            const size = @sizeOf(anyerror!bool);
+            const size_str = try std.fmt.allocPrintZ(testing.allocator, "size: {} (0x{X}) bytes", .{ size, size });
+            defer testing.allocator.free(size_str);
+            try ctx.expectItemExists(size_str);
+            try ctx.expectItemExists("value: false");
+
+            value = error.TestError;
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: error.TestError");
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("value: error.TestError");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw function correctly" {
+    const Test = struct {
+        var value: *const fn (i32, i32) i32 = add;
+
+        fn add(a: i32, b: i32) i32 {
+            return a + b;
+        }
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            const address = @intFromPtr(&value);
+            const int_value = @intFromPtr(value);
+            const size = @sizeOf(usize);
+
+            const test_str = try std.fmt.allocPrintZ(testing.allocator, "test: {} (0x{X})", .{ int_value, int_value });
+            defer testing.allocator.free(test_str);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            const size_str = try std.fmt.allocPrintZ(testing.allocator, "size: {} (0x{X}) bytes", .{ size, size });
+            defer testing.allocator.free(size_str);
+            const value_str = try std.fmt.allocPrintZ(testing.allocator, "value: {} (0x{X})", .{ int_value, int_value });
+            defer testing.allocator.free(value_str);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists(test_str);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: *const fn (i32, i32) i32");
+            try ctx.expectItemExists(address_str);
+            try ctx.expectItemExists(size_str);
+            try ctx.expectItemExists(value_str);
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should draw opaque correctly" {
+    const Test = struct {
+        var value: *const opaque {} = @ptrFromInt(1234);
+
+        fn guiFunction(_: ui.TestContext) !void {
+            const is_open = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            if (!is_open) {
+                return;
+            }
+            drawData("test", &value);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test: 1234 (0x4D2)");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: " ++ @typeName(@TypeOf(value)));
+            const address = @intFromPtr(&value);
+            const address_str = try std.fmt.allocPrintZ(testing.allocator, "address: {} (0x{X})", .{ address, address });
+            defer testing.allocator.free(address_str);
+            try ctx.expectItemExists(address_str);
+            const size = @sizeOf(usize);
+            const size_str = try std.fmt.allocPrintZ(testing.allocator, "size: {} (0x{X}) bytes", .{ size, size });
+            defer testing.allocator.free(size_str);
+            try ctx.expectItemExists("value: 1234 (0x4D2)");
+            try ctx.expectItemExists("u64: 1234 (0x4D2)");
+            try ctx.expectItemExists("i64: 1234 (0x4D2)");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
 }
