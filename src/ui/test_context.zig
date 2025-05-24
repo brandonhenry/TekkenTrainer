@@ -302,11 +302,11 @@ pub const TestContext = struct {
         return imgui.ImGuiTestContext_MouseWheelY(self.raw, dy);
     }
 
-    pub fn mouseMoveToVoid(self: Self, viewport: *imgui.ImGuiViewport) void {
+    pub fn mouseMoveToVoid(self: Self, viewport: ?*imgui.ImGuiViewport) void {
         return imgui.ImGuiTestContext_MouseMoveToVoid(self.raw, viewport);
     }
 
-    pub fn mouseClickOnVoid(self: Self, button: imgui.ImGuiMouseButton, viewport: *imgui.ImGuiViewport) void {
+    pub fn mouseClickOnVoid(self: Self, button: imgui.ImGuiMouseButton, viewport: ?*imgui.ImGuiViewport) void {
         return imgui.ImGuiTestContext_MouseClickOnVoid(self.raw, button, viewport);
     }
 
@@ -699,7 +699,19 @@ pub const TestContext = struct {
         } else {
             std.log.err("Failed to find item with ID: {}", .{ref_object.ID});
         }
-        return error.ItemNotFound;
+        return error.ExpectedItemNotFound;
+    }
+
+    pub fn expectItemNotExists(self: Self, ref: anytype) !void {
+        const exists = self.itemExists(ref);
+        if (!exists) return;
+        const ref_object = anyToRef(ref);
+        if (ref_object.Path != null) {
+            std.log.err("Item was expected not to exist but was still found: \"{s}\"", .{ref_object.Path});
+        } else {
+            std.log.err("Item was expected not to exist but was still found: {}", .{ref_object.ID});
+        }
+        return error.UnexpectedItemFound;
     }
 
     pub fn getScrollX(self: Self, window_ref: anytype) f32 {
