@@ -41,38 +41,38 @@ pub const HitOutcome = enum(u32) {
 };
 
 pub const Stun = packed struct(u32) {
-    _0: u1 = 0,
-    _1: u1 = 0,
-    _2: u1 = 0,
-    _3: u1 = 0,
-    _4: u1 = 0,
-    _5: u1 = 0,
-    _6: u1 = 0,
-    _7: u1 = 0,
-    _8: u1 = 0,
-    _9: u1 = 0,
-    _10: u1 = 0,
-    _11: u1 = 0,
-    _12: u1 = 0,
-    _13: u1 = 0,
-    _14: u1 = 0,
-    _15: u1 = 0,
-    any_stun: u1 = 0,
-    _17: u1 = 0,
-    _18: u1 = 0,
-    _19: u1 = 0,
-    _20: u1 = 0,
-    _21: u1 = 0,
-    _22: u1 = 0,
-    _23: u1 = 0,
-    attacking: u1 = 0,
-    _25: u1 = 0,
-    _26: u1 = 0,
-    _27: u1 = 0,
-    _28: u1 = 0,
-    _29: u1 = 0,
-    _30: u1 = 0,
-    _31: u1 = 0,
+    _0: bool = false,
+    _1: bool = false,
+    _2: bool = false,
+    _3: bool = false,
+    _4: bool = false,
+    _5: bool = false,
+    _6: bool = false,
+    _7: bool = false,
+    _8: bool = false,
+    _9: bool = false,
+    _10: bool = false,
+    _11: bool = false,
+    _12: bool = false,
+    _13: bool = false,
+    _14: bool = false,
+    _15: bool = false,
+    any_stun: bool = false,
+    _17: bool = false,
+    _18: bool = false,
+    _19: bool = false,
+    _20: bool = false,
+    _21: bool = false,
+    _22: bool = false,
+    _23: bool = false,
+    attacking: bool = false,
+    _25: bool = false,
+    _26: bool = false,
+    _27: bool = false,
+    _28: bool = false,
+    _29: bool = false,
+    _30: bool = false,
+    _31: bool = false,
 
     const Self = @This();
 
@@ -85,44 +85,44 @@ pub const Stun = packed struct(u32) {
     }
 
     comptime {
-        std.debug.assert((Self{ .any_stun = 1 }).toInt() == 65536);
-        std.debug.assert((Self{ .attacking = 1 }).toInt() == 16777216);
+        std.debug.assert((Self{ .any_stun = true }).toInt() == 65536);
+        std.debug.assert((Self{ .attacking = true }).toInt() == 16777216);
     }
 };
 
 pub const CancelFlags = packed struct(u32) {
-    _0: u1 = 0,
-    _1: u1 = 0,
-    _2: u1 = 0,
-    _3: u1 = 0,
-    _4: u1 = 0,
-    _5: u1 = 0,
-    _6: u1 = 0,
-    _7: u1 = 0,
-    _8: u1 = 0,
-    _9: u1 = 0,
-    _10: u1 = 0,
-    _11: u1 = 0,
-    _12: u1 = 0,
-    _13: u1 = 0,
-    _14: u1 = 0,
-    _15: u1 = 0,
-    cancellable: u1 = 0,
-    _17: u1 = 0,
-    _18: u1 = 0,
-    _19: u1 = 0,
-    _20: u1 = 0,
-    _21: u1 = 0,
-    _22: u1 = 0,
-    _23: u1 = 0,
-    _24: u1 = 0,
-    _25: u1 = 0,
-    _26: u1 = 0,
-    _27: u1 = 0,
-    _28: u1 = 0,
-    _29: u1 = 0,
-    _30: u1 = 0,
-    _31: u1 = 0,
+    _0: bool = false,
+    _1: bool = false,
+    _2: bool = false,
+    _3: bool = false,
+    _4: bool = false,
+    _5: bool = false,
+    _6: bool = false,
+    _7: bool = false,
+    _8: bool = false,
+    _9: bool = false,
+    _10: bool = false,
+    _11: bool = false,
+    _12: bool = false,
+    _13: bool = false,
+    _14: bool = false,
+    _15: bool = false,
+    cancellable: bool = false,
+    _17: bool = false,
+    _18: bool = false,
+    _19: bool = false,
+    _20: bool = false,
+    _21: bool = false,
+    _22: bool = false,
+    _23: bool = false,
+    _24: bool = false,
+    _25: bool = false,
+    _26: bool = false,
+    _27: bool = false,
+    _28: bool = false,
+    _29: bool = false,
+    _30: bool = false,
+    _31: bool = false,
 
     const Self = @This();
 
@@ -135,7 +135,7 @@ pub const CancelFlags = packed struct(u32) {
     }
 
     comptime {
-        std.debug.assert((Self{ .cancellable = 1 }).toInt() == 65536);
+        std.debug.assert((Self{ .cancellable = true }).toInt() == 65536);
     }
 };
 

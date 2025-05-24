@@ -102,7 +102,7 @@ fn drawUndefined(ctx: *const Context) void {
     drawMenuText("value", text);
 }
 
-fn drawBool(ctx: *const Context, pointer: *const bool) void {
+fn drawBool(ctx: *const Context, pointer: anytype) void {
     const text = if (pointer.*) "true" else "false";
     drawTreeText(ctx.label, text);
 

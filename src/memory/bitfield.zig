@@ -3,7 +3,7 @@ const std = @import("std");
 pub const BitfieldMember = struct {
     name: [:0]const u8,
     position: usize,
-    default_value: u1 = 0,
+    default_value: bool = false,
 };
 
 pub fn Bitfield(comptime backing_integer: type, comptime members: []const BitfieldMember) type {
@@ -35,14 +35,14 @@ pub fn Bitfield(comptime backing_integer: type, comptime members: []const Bitfie
         }
         fields[bit] = if (member_at_bit) |member| .{
             .name = member.name,
-            .type = u1,
-            .default_value_ptr = if (member.default_value == 1) &@as(u1, 1) else &@as(u1, 0),
+            .type = bool,
+            .default_value_ptr = if (member.default_value == true) &true else &false,
             .is_comptime = false,
             .alignment = 0,
         } else .{
             .name = std.fmt.comptimePrint("_{}", .{bit}),
-            .type = u1,
-            .default_value_ptr = &@as(u1, 0),
+            .type = bool,
+            .default_value_ptr = &false,
             .is_comptime = false,
             .alignment = 0,
         };
@@ -73,9 +73,9 @@ test "should place members at correct bits" {
         .{ .name = "bit_10", .position = 10 },
         .{ .name = "bit_6", .position = 6 },
     });
-    const bit_3: u16 = @bitCast(Bits{ .bit_3 = 1 });
-    const bit_10: u16 = @bitCast(Bits{ .bit_10 = 1 });
-    const bit_6: u16 = @bitCast(Bits{ .bit_6 = 1 });
+    const bit_3: u16 = @bitCast(Bits{ .bit_3 = true });
+    const bit_10: u16 = @bitCast(Bits{ .bit_10 = true });
+    const bit_6: u16 = @bitCast(Bits{ .bit_6 = true });
     try testing.expectEqual(8, bit_3);
     try testing.expectEqual(1024, bit_10);
     try testing.expectEqual(64, bit_6);
@@ -83,8 +83,8 @@ test "should place members at correct bits" {
 
 test "should have correctly working default member values" {
     const Bits = Bitfield(u16, &.{
-        .{ .name = "bit_3", .position = 3, .default_value = 0 },
-        .{ .name = "bit_10", .position = 10, .default_value = 1 },
+        .{ .name = "bit_3", .position = 3, .default_value = false },
+        .{ .name = "bit_10", .position = 10, .default_value = true },
         .{ .name = "bit_6", .position = 6 },
     });
     const default_value: u16 = @bitCast(Bits{});
