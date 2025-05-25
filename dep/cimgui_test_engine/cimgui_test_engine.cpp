@@ -960,6 +960,13 @@ CIMGUI_API void ImGuiTestContext_PerfCapture(
 
 // Custom functions:
 
+CIMGUI_API void teClearUiState() {
+    ImGuiContext& context = *ImGui::GetCurrentContext();
+    for (ImGuiWindow* window : context.Windows) {
+        window->StateStorage.Clear();
+    }
+}
+
 CIMGUI_API float ImGuiTestContext_GetScrollX(ImGuiTestContext* self, ImGuiTestRef window_ref) {
     return self->GetWindowByRef(window_ref)->Scroll.x;
 }

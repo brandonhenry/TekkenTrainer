@@ -149,6 +149,7 @@ pub const TestingContext = struct {
         TestFunction.returned_error = null;
         the_test.*.TestFunc = TestFunction.call;
 
+        imgui.teClearUiState();
         imgui.teQueueTest(self.engine, the_test, config.run_flags);
         while (!imgui.teIsTestQueueEmpty(self.engine)) {
             misc.error_context.clear();

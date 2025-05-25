@@ -734,6 +734,7 @@ ImGuiTestContext_PerfCapture(ImGuiTestContext* self, const char* category, const
 
 // Custom functions:
 
+CIMGUI_API void teClearUiState();
 CIMGUI_API float ImGuiTestContext_GetScrollX(ImGuiTestContext* self, ImGuiTestRef window_ref);
 CIMGUI_API float ImGuiTestContext_GetScrollY(ImGuiTestContext* self, ImGuiTestRef window_ref);
 CIMGUI_API float ImGuiTestContext_GetScrollMaxX(ImGuiTestContext* self, ImGuiTestRef window_ref);

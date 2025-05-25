@@ -1149,7 +1149,7 @@ test "should draw array correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("array", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1157,12 +1157,12 @@ test "should draw array correctly" {
             const element_address = @intFromPtr(&value[2]);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("array");
-            ctx.itemClick("array", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: array");
-            try ctx.expectItemExists("path: array");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: [3]u32");
 
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ array_address, array_address });
@@ -1170,15 +1170,15 @@ test "should draw array correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("array", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("array/0: 1 (0x1)");
-            try ctx.expectItemExists("array/1: 2 (0x2)");
-            try ctx.expectItemExists("array/2: 3 (0x3)");
-            ctx.itemClick("array/2", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/0: 1 (0x1)");
+            try ctx.expectItemExists("test/1: 2 (0x2)");
+            try ctx.expectItemExists("test/2: 3 (0x3)");
+            ctx.itemClick("test/2", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: 2");
-            try ctx.expectItemExists("path: array.2");
+            try ctx.expectItemExists("path: test.2");
             try ctx.expectItemExists("type: u32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ element_address, element_address });
             try ctx.expectItemExists("offset: 8 (0x8) bytes");
@@ -1204,7 +1204,7 @@ test "should draw struct correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("struct", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1212,28 +1212,28 @@ test "should draw struct correctly" {
             const field_address = @intFromPtr(&value.field_2);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("struct");
-            ctx.itemClick("struct", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: struct");
-            try ctx.expectItemExists("path: struct");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: " ++ @typeName(Struct));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ struct_address, struct_address });
             try ctx.expectItemExists("size: 16 (0x10) bytes");
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("struct", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemNotExists("struct/_field_0");
-            try ctx.expectItemExists("struct/field_1: 2 (0x2)");
-            try ctx.expectItemExists("struct/field_2: 3 (0x3)");
-            try ctx.expectItemNotExists("struct/_field_3");
-            ctx.itemClick("struct/field_2", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemNotExists("test/_field_0");
+            try ctx.expectItemExists("test/field_1: 2 (0x2)");
+            try ctx.expectItemExists("test/field_2: 3 (0x3)");
+            try ctx.expectItemNotExists("test/_field_3");
+            ctx.itemClick("test/field_2", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: field_2");
-            try ctx.expectItemExists("path: struct.field_2");
+            try ctx.expectItemExists("path: test.field_2");
             try ctx.expectItemExists("type: u32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ field_address, field_address });
             try ctx.expectItemExists("offset: 8 (0x8) bytes");
@@ -1242,40 +1242,40 @@ test "should draw struct correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("struct", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
             ctx.setRef("//$FOCUSED");
             ctx.itemClick("Show Hidden Fields", imgui.ImGuiMouseButton_Left, 0);
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("struct/_field_0: 1 (0x1)");
-            try ctx.expectItemExists("struct/field_1: 2 (0x2)");
-            try ctx.expectItemExists("struct/field_2: 3 (0x3)");
-            try ctx.expectItemExists("struct/_field_3: 4 (0x4)");
+            try ctx.expectItemExists("test/_field_0: 1 (0x1)");
+            try ctx.expectItemExists("test/field_1: 2 (0x2)");
+            try ctx.expectItemExists("test/field_2: 3 (0x3)");
+            try ctx.expectItemExists("test/_field_3: 4 (0x4)");
 
             ctx.setRef("Window");
-            ctx.itemClick("struct", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
             ctx.setRef("//$FOCUSED");
             ctx.itemClick("Cast to Array", imgui.ImGuiMouseButton_Left, 0);
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("struct/[16]u8");
-            try ctx.expectItemExists("struct/[8]u16");
-            try ctx.expectItemExists("struct/[4]u32");
-            try ctx.expectItemExists("struct/[16]i8");
-            try ctx.expectItemExists("struct/[8]i16");
-            try ctx.expectItemExists("struct/[4]i32");
-            try ctx.expectItemExists("struct/[4]f32");
-            ctx.itemClick("struct/[8]u16", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("struct/[8]u16/0: 1 (0x1)");
-            try ctx.expectItemExists("struct/[8]u16/1: 0 (0x0)");
-            try ctx.expectItemExists("struct/[8]u16/2: 2 (0x2)");
-            try ctx.expectItemExists("struct/[8]u16/3: 0 (0x0)");
-            try ctx.expectItemExists("struct/[8]u16/4: 3 (0x3)");
-            try ctx.expectItemExists("struct/[8]u16/5: 0 (0x0)");
-            try ctx.expectItemExists("struct/[8]u16/6: 4 (0x4)");
-            try ctx.expectItemExists("struct/[8]u16/7: 0 (0x0)");
+            try ctx.expectItemExists("test/[16]u8");
+            try ctx.expectItemExists("test/[8]u16");
+            try ctx.expectItemExists("test/[4]u32");
+            try ctx.expectItemExists("test/[16]i8");
+            try ctx.expectItemExists("test/[8]i16");
+            try ctx.expectItemExists("test/[4]i32");
+            try ctx.expectItemExists("test/[4]f32");
+            ctx.itemClick("test/[8]u16", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/[8]u16/0: 1 (0x1)");
+            try ctx.expectItemExists("test/[8]u16/1: 0 (0x0)");
+            try ctx.expectItemExists("test/[8]u16/2: 2 (0x2)");
+            try ctx.expectItemExists("test/[8]u16/3: 0 (0x0)");
+            try ctx.expectItemExists("test/[8]u16/4: 3 (0x3)");
+            try ctx.expectItemExists("test/[8]u16/5: 0 (0x0)");
+            try ctx.expectItemExists("test/[8]u16/6: 4 (0x4)");
+            try ctx.expectItemExists("test/[8]u16/7: 0 (0x0)");
         }
     };
     const context = try ui.getTestingContext();
@@ -1296,7 +1296,7 @@ test "should draw packed struct correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("packed", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1304,29 +1304,29 @@ test "should draw packed struct correctly" {
             const field_address = @intFromPtr(&value.field_2);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("packed");
-            ctx.itemClick("packed", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: packed");
-            try ctx.expectItemExists("path: packed");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: " ++ @typeName(Struct));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ struct_address, struct_address });
             try ctx.expectItemExists("size: 1 (0x1) bytes");
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("packed", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("packed/backing integer: 213 (0xD5)");
-            try ctx.expectItemNotExists("packed/_field_0");
-            try ctx.expectItemExists("packed/field_1: true");
-            try ctx.expectItemExists("packed/field_2: 2 (0x2)");
-            try ctx.expectItemNotExists("packed/_field_3");
-            ctx.itemClick("packed/field_1", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/backing integer: 213 (0xD5)");
+            try ctx.expectItemNotExists("test/_field_0");
+            try ctx.expectItemExists("test/field_1: true");
+            try ctx.expectItemExists("test/field_2: 2 (0x2)");
+            try ctx.expectItemNotExists("test/_field_3");
+            ctx.itemClick("test/field_1", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: field_1");
-            try ctx.expectItemExists("path: packed.field_1");
+            try ctx.expectItemExists("path: test.field_1");
             try ctx.expectItemExists("type: bool");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ field_address, field_address });
             try ctx.expectItemExists("offset: 2 (0x2) bits");
@@ -1335,17 +1335,17 @@ test "should draw packed struct correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("packed", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
             ctx.setRef("//$FOCUSED");
             ctx.itemClick("Show Hidden Fields", imgui.ImGuiMouseButton_Left, 0);
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("packed/backing integer: 213 (0xD5)");
-            try ctx.expectItemExists("packed/_field_0: 1 (0x1)");
-            try ctx.expectItemExists("packed/field_1: true");
-            try ctx.expectItemExists("packed/field_2: 2 (0x2)");
-            try ctx.expectItemExists("packed/_field_3: 3 (0x3)");
+            try ctx.expectItemExists("test/backing integer: 213 (0xD5)");
+            try ctx.expectItemExists("test/_field_0: 1 (0x1)");
+            try ctx.expectItemExists("test/field_1: true");
+            try ctx.expectItemExists("test/field_2: 2 (0x2)");
+            try ctx.expectItemExists("test/_field_3: 3 (0x3)");
         }
     };
     const context = try ui.getTestingContext();
@@ -1364,33 +1364,33 @@ test "should draw union correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("union", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
             const address = @intFromPtr(&value);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("union");
-            ctx.itemClick("union", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: union");
-            try ctx.expectItemExists("path: union");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: " ++ @typeName(Int8));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
             try ctx.expectItemExists("size: 1 (0x1) bytes");
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("union", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("union/unsigned: 255 (0xFF)");
-            try ctx.expectItemExists("union/signed: -1 (0x-1)");
-            ctx.itemClick("union/signed", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/unsigned: 255 (0xFF)");
+            try ctx.expectItemExists("test/signed: -1 (0x-1)");
+            ctx.itemClick("test/signed", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: signed");
-            try ctx.expectItemExists("path: union.signed");
+            try ctx.expectItemExists("path: test.signed");
             try ctx.expectItemExists("type: i8");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
             try ctx.expectItemExists("size: 1 (0x1) bytes");
@@ -1415,7 +1415,7 @@ test "should draw tagged union correctly" {
             if (!is_open) {
                 return;
             }
-            drawData("tagged", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1423,26 +1423,26 @@ test "should draw tagged union correctly" {
             const value_address = tag_address + 1;
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("tagged");
-            ctx.itemClick("tagged", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: tagged");
-            try ctx.expectItemExists("path: tagged");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: " ++ @typeName(Int8));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ tag_address, tag_address });
             try ctx.expectItemExists("size: 2 (0x2) bytes");
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("tagged", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("tagged/tag: unsigned");
-            try ctx.expectItemExists("tagged/value: 255 (0xFF)");
-            ctx.itemClick("tagged/tag", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/tag: unsigned");
+            try ctx.expectItemExists("test/value: 255 (0xFF)");
+            ctx.itemClick("test/tag", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: tag");
-            try ctx.expectItemExists("path: tagged.tag");
+            try ctx.expectItemExists("path: test.tag");
             try ctx.expectItemExists("type: " ++ @typeName(@typeInfo(Int8).@"union".tag_type.?));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ tag_address, tag_address });
             try ctx.expectItemExists("offset: 0 (0x0) bytes");
@@ -1451,11 +1451,11 @@ test "should draw tagged union correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("tagged/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: tagged.value");
+            try ctx.expectItemExists("path: test.value");
             try ctx.expectItemExists("type: u8");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ value_address, value_address });
             try ctx.expectItemExists("offset: 1 (0x1) bytes");
@@ -1467,13 +1467,13 @@ test "should draw tagged union correctly" {
             ctx.yield(1);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("tagged/tag: signed");
-            try ctx.expectItemExists("tagged/value: -1 (0x-1)");
-            ctx.itemClick("tagged/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test/tag: signed");
+            try ctx.expectItemExists("test/value: -1 (0x-1)");
+            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: tagged.value");
+            try ctx.expectItemExists("path: test.value");
             try ctx.expectItemExists("type: i8");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ value_address, value_address });
             try ctx.expectItemExists("offset: 1 (0x1) bytes");
@@ -1493,7 +1493,7 @@ test "should draw pointer correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("pointer", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1502,26 +1502,26 @@ test "should draw pointer correctly" {
             const pointer_size = @sizeOf(usize);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("pointer");
-            ctx.itemClick("pointer", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: pointer");
-            try ctx.expectItemExists("path: pointer");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: *const i32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ pointer_address, pointer_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ pointer_size, pointer_size });
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("pointer", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExistsFmt("pointer/address: {} (0x{X})", .{ value_address, value_address });
-            try ctx.expectItemExists("pointer/value: 123 (0x7B)");
-            ctx.itemClick("pointer/address", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExistsFmt("test/address: {} (0x{X})", .{ value_address, value_address });
+            try ctx.expectItemExists("test/value: 123 (0x7B)");
+            ctx.itemClick("test/address", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: address");
-            try ctx.expectItemExists("path: pointer.address");
+            try ctx.expectItemExists("path: test.address");
             try ctx.expectItemExists("type: usize");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ pointer_address, pointer_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ pointer_size, pointer_size });
@@ -1529,11 +1529,11 @@ test "should draw pointer correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("pointer/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: pointer.value");
+            try ctx.expectItemExists("path: test.value");
             try ctx.expectItemExists("type: i32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ value_address, value_address });
             try ctx.expectItemExists("size: 4 (0x4) bytes");
@@ -1553,7 +1553,7 @@ test "should draw slice correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("slice", &slice);
+            drawData("test", &slice);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1564,29 +1564,29 @@ test "should draw slice correctly" {
             const pointer_size = @sizeOf(usize);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("slice");
-            ctx.itemClick("slice", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: slice");
-            try ctx.expectItemExists("path: slice");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: []u32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ slice_address, slice_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ 2 * pointer_size, 2 * pointer_size });
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("slice", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExistsFmt("slice/address: {} (0x{X})", .{ array_address, array_address });
-            try ctx.expectItemExists("slice/len: 3 (0x3)");
-            try ctx.expectItemExists("slice/0: 1 (0x1)");
-            try ctx.expectItemExists("slice/1: 2 (0x2)");
-            try ctx.expectItemExists("slice/2: 3 (0x3)");
-            ctx.itemClick("slice/address", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExistsFmt("test/address: {} (0x{X})", .{ array_address, array_address });
+            try ctx.expectItemExists("test/len: 3 (0x3)");
+            try ctx.expectItemExists("test/0: 1 (0x1)");
+            try ctx.expectItemExists("test/1: 2 (0x2)");
+            try ctx.expectItemExists("test/2: 3 (0x3)");
+            ctx.itemClick("test/address", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: address");
-            try ctx.expectItemExists("path: slice.address");
+            try ctx.expectItemExists("path: test.address");
             try ctx.expectItemExists("type: usize");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ slice_address, slice_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ pointer_size, pointer_size });
@@ -1594,22 +1594,22 @@ test "should draw slice correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("slice/len", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/len", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: len");
-            try ctx.expectItemExists("path: slice.len");
+            try ctx.expectItemExists("path: test.len");
             try ctx.expectItemExists("type: usize");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ len_address, len_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ pointer_size, pointer_size });
             try ctx.expectItemExists("value: 3 (0x3)");
 
             ctx.setRef("Window");
-            ctx.itemClick("slice/2", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/2", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: 2");
-            try ctx.expectItemExists("path: slice.2");
+            try ctx.expectItemExists("path: test.2");
             try ctx.expectItemExists("type: u32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ element_address, element_address });
             try ctx.expectItemExists("offset: 8 (0x8) bytes");
@@ -1625,9 +1625,7 @@ test "should draw slice correctly" {
 
 test "should draw converted value correctly" {
     const Test = struct {
-        var converted: memory.ConvertedValue(i32, i64, rawToValue, null) = .{
-            .raw = 123,
-        };
+        var converted: memory.ConvertedValue(i32, i64, rawToValue, null) = .{ .raw = 123 };
 
         fn rawToValue(raw: i32) i64 {
             return raw * 2;
@@ -1637,33 +1635,33 @@ test "should draw converted value correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("converted", &converted);
+            drawData("test", &converted);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
             const address = @intFromPtr(&converted);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("converted");
-            ctx.itemClick("converted", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: converted");
-            try ctx.expectItemExists("path: converted");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
             try ctx.expectItemExists("size: 4 (0x4) bytes");
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("converted", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("converted/raw: 123 (0x7B)");
-            try ctx.expectItemExists("converted/value: 246 (0xF6)");
-            ctx.itemClick("converted/raw", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/raw: 123 (0x7B)");
+            try ctx.expectItemExists("test/value: 246 (0xF6)");
+            ctx.itemClick("test/raw", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: raw");
-            try ctx.expectItemExists("path: converted.raw");
+            try ctx.expectItemExists("path: test.raw");
             try ctx.expectItemExists("type: i32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
             try ctx.expectItemExists("size: 4 (0x4) bytes");
@@ -1671,11 +1669,11 @@ test "should draw converted value correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("converted/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: converted.value");
+            try ctx.expectItemExists("path: test.value");
             try ctx.expectItemExists("type: i64");
             try ctx.expectItemExists("address");
             try ctx.expectItemExists("size: 8 (0x8) bytes");
@@ -1695,7 +1693,7 @@ test "should draw custom pointer correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("custom_pointer", &pointer);
+            drawData("test", &pointer);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1707,26 +1705,26 @@ test "should draw custom pointer correctly" {
             ctx.yield(1);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("custom_pointer");
-            ctx.itemClick("custom_pointer", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: custom_pointer");
-            try ctx.expectItemExists("path: custom_pointer");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: " ++ @typeName(memory.Pointer(i32)));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ pointer_address, pointer_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ pointer_size, pointer_size });
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("custom_pointer", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExistsFmt("custom_pointer/address: {} (0x{X})", .{ value_address, value_address });
-            try ctx.expectItemExists("custom_pointer/value: 123 (0x7B)");
-            ctx.itemClick("custom_pointer/address", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExistsFmt("test/address: {} (0x{X})", .{ value_address, value_address });
+            try ctx.expectItemExists("test/value: 123 (0x7B)");
+            ctx.itemClick("test/address", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: address");
-            try ctx.expectItemExists("path: custom_pointer.address");
+            try ctx.expectItemExists("path: test.address");
             try ctx.expectItemExists("type: usize");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ pointer_address, pointer_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ pointer_size, pointer_size });
@@ -1734,11 +1732,11 @@ test "should draw custom pointer correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("custom_pointer/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: custom_pointer.value");
+            try ctx.expectItemExists("path: test.value");
             try ctx.expectItemExists("type: i32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ value_address, value_address });
             try ctx.expectItemExists("size: 4 (0x4) bytes");
@@ -1749,8 +1747,8 @@ test "should draw custom pointer correctly" {
             ctx.yield(1);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("custom_pointer/address: 0 (0x0)");
-            try ctx.expectItemExists("custom_pointer/value: not readable");
+            try ctx.expectItemExists("test/address: 0 (0x0)");
+            try ctx.expectItemExists("test/value: not readable");
         }
     };
     const context = try ui.getTestingContext();
@@ -1766,7 +1764,7 @@ test "should draw pointer trail correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("trail", &trail);
+            drawData("test", &trail);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1778,26 +1776,26 @@ test "should draw pointer trail correctly" {
             ctx.yield(1);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("trail");
-            ctx.itemClick("trail", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: trail");
-            try ctx.expectItemExists("path: trail");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type: " ++ @typeName(memory.PointerTrail(i32)));
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ trail_address, trail_address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ trail_size, trail_size });
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("trail", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("trail/offsets");
-            try ctx.expectItemExists("trail/value: 123 (0x7B)");
-            ctx.itemClick("trail/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/offsets");
+            try ctx.expectItemExists("test/value: 123 (0x7B)");
+            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
             try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: trail.value");
+            try ctx.expectItemExists("path: test.value");
             try ctx.expectItemExists("type: i32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ value_address, value_address });
             try ctx.expectItemExists("size: 4 (0x4) bytes");
@@ -1805,19 +1803,19 @@ test "should draw pointer trail correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("trail/offsets", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("trail/offsets/address");
-            try ctx.expectItemExists("trail/offsets/len: 1 (0x1)");
-            try ctx.expectItemExistsFmt("trail/offsets/0: {} (0x{X})", .{ value_address, value_address });
+            ctx.itemClick("test/offsets", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/offsets/address");
+            try ctx.expectItemExists("test/offsets/len: 1 (0x1)");
+            try ctx.expectItemExistsFmt("test/offsets/0: {} (0x{X})", .{ value_address, value_address });
 
             trail = .fromArray(.{null});
             ctx.yield(1);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("trail/offsets/address");
-            try ctx.expectItemExists("trail/offsets/len: 1 (0x1)");
-            try ctx.expectItemExists("trail/offsets/0: null");
-            try ctx.expectItemExists("trail/value: not readable");
+            try ctx.expectItemExists("test/offsets/address");
+            try ctx.expectItemExists("test/offsets/len: 1 (0x1)");
+            try ctx.expectItemExists("test/offsets/0: null");
+            try ctx.expectItemExists("test/value: not readable");
         }
     };
     const context = try ui.getTestingContext();
@@ -1838,7 +1836,7 @@ test "should draw self sortable array correctly" {
             const is_open = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
             if (!is_open) return;
-            drawData("sortable", &value);
+            drawData("test", &value);
         }
 
         fn testFunction(ctx: ui.TestContext) !void {
@@ -1849,35 +1847,35 @@ test "should draw self sortable array correctly" {
             const size = @sizeOf(@TypeOf(value));
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("sortable");
-            ctx.itemClick("sortable", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: sortable");
-            try ctx.expectItemExists("path: sortable");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
             try ctx.expectItemExists("type");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
             try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ size, size });
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("sortable", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("sortable/raw");
-            try ctx.expectItemExists("sortable/sorted");
-            ctx.itemClick("sortable/raw", imgui.ImGuiMouseButton_Left, 0);
-            ctx.itemClick("sortable/sorted", imgui.ImGuiMouseButton_Left, 0);
-            ctx.itemClick("sortable/sorted/0", imgui.ImGuiMouseButton_Left, 0);
-            ctx.itemClick("sortable/sorted/1", imgui.ImGuiMouseButton_Left, 0);
-            ctx.itemClick("sortable/sorted/2", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("sortable/raw/0: 2 (0x2)");
-            try ctx.expectItemExists("sortable/raw/1: 1 (0x1)");
-            try ctx.expectItemExists("sortable/raw/2: 3 (0x3)");
-            try ctx.expectItemExistsFmt("sortable/sorted/0/address: {} (0x{X})", .{ address_of_1, address_of_1 });
-            try ctx.expectItemExists("sortable/sorted/0/value: 1 (0x1)");
-            try ctx.expectItemExistsFmt("sortable/sorted/1/address: {} (0x{X})", .{ address_of_2, address_of_2 });
-            try ctx.expectItemExists("sortable/sorted/1/value: 2 (0x2)");
-            try ctx.expectItemExistsFmt("sortable/sorted/2/address: {} (0x{X})", .{ address_of_3, address_of_3 });
-            try ctx.expectItemExists("sortable/sorted/2/value: 3 (0x3)");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/raw");
+            try ctx.expectItemExists("test/sorted");
+            ctx.itemClick("test/raw", imgui.ImGuiMouseButton_Left, 0);
+            ctx.itemClick("test/sorted", imgui.ImGuiMouseButton_Left, 0);
+            ctx.itemClick("test/sorted/0", imgui.ImGuiMouseButton_Left, 0);
+            ctx.itemClick("test/sorted/1", imgui.ImGuiMouseButton_Left, 0);
+            ctx.itemClick("test/sorted/2", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/raw/0: 2 (0x2)");
+            try ctx.expectItemExists("test/raw/1: 1 (0x1)");
+            try ctx.expectItemExists("test/raw/2: 3 (0x3)");
+            try ctx.expectItemExistsFmt("test/sorted/0/address: {} (0x{X})", .{ address_of_1, address_of_1 });
+            try ctx.expectItemExists("test/sorted/0/value: 1 (0x1)");
+            try ctx.expectItemExistsFmt("test/sorted/1/address: {} (0x{X})", .{ address_of_2, address_of_2 });
+            try ctx.expectItemExists("test/sorted/1/value: 2 (0x2)");
+            try ctx.expectItemExistsFmt("test/sorted/2/address: {} (0x{X})", .{ address_of_3, address_of_3 });
+            try ctx.expectItemExists("test/sorted/2/value: 3 (0x3)");
         }
     };
     const context = try ui.getTestingContext();
