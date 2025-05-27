@@ -35,7 +35,7 @@ pub fn PointerTrail(comptime Type: type) type {
         }
 
         pub fn toConstPointer(self: *const Self) ?*const Type {
-            const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
+            const address = self.findMemoryAddress() orelse return null;
             if (!os.isMemoryReadable(address, @sizeOf(Type))) {
                 return null;
             }
@@ -43,7 +43,7 @@ pub fn PointerTrail(comptime Type: type) type {
         }
 
         pub fn toMutablePointer(self: *const Self) ?*Type {
-            const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
+            const address = self.findMemoryAddress() orelse return null;
             if (!os.isMemoryWriteable(address, @sizeOf(Type))) {
                 return null;
             }
@@ -51,14 +51,6 @@ pub fn PointerTrail(comptime Type: type) type {
         }
 
         pub fn findMemoryAddress(self: *const Self) ?usize {
-            const address = self.findMemoryAddressWithoutLastCheck() orelse return null;
-            if (!os.isMemoryReadable(address, @sizeOf(Type))) {
-                return null;
-            }
-            return address;
-        }
-
-        fn findMemoryAddressWithoutLastCheck(self: *const Self) ?usize {
             const offsets = self.getOffsets();
             if (offsets.len == 0) {
                 return null;
@@ -175,7 +167,7 @@ test "toMutablePointer should return null when the pointer trail is invalid or i
     try testCase(3, .{ str_address_address, null, value_1_offset });
 }
 
-test "findMemoryAddress should return a value when the pointer trail is valid" {
+test "findMemoryAddress should return a value when the pointer trail is valid or almost valid" {
     const testCase = struct {
         fn call(comptime size: comptime_int, offsets: [size]?usize, expected_address: usize) !void {
             const trail = PointerTrail(i32).fromArray(offsets);
@@ -190,9 +182,10 @@ test "findMemoryAddress should return a value when the pointer trail is valid" {
     try testCase(1, .{str_address + value_2_offset}, @intFromPtr(&str.value_2));
     try testCase(2, .{ str_address_address, value_1_offset }, @intFromPtr(&str.value_1));
     try testCase(2, .{ str_address_address, value_2_offset }, @intFromPtr(&str.value_2));
+    try testCase(1, .{std.math.maxInt(usize)}, std.math.maxInt(usize));
 }
 
-test "findMemoryAddress should return null when the pointer trail is invalid or incomplete" {
+test "findMemoryAddress should return null when the pointer trail incomplete or is not almost valid" {
     const testCase = struct {
         fn call(comptime size: comptime_int, offsets: [size]?usize) !void {
             const trail = PointerTrail(i32).fromArray(offsets);
@@ -204,7 +197,6 @@ test "findMemoryAddress should return null when the pointer trail is invalid or 
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
     try testCase(0, .{});
-    try testCase(1, .{std.math.maxInt(usize)});
     try testCase(2, .{ 0, value_2_offset });
     try testCase(2, .{ str_address_address, std.math.maxInt(usize) });
     try testCase(1, .{null});
