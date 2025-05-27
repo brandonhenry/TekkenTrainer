@@ -513,7 +513,7 @@ fn drawProxy(ctx: *const Context, pointer: anytype) void {
     useDefaultMenu(ctx);
     if (!node_open) return;
 
-    const offsets_pointer = &pointer.getOffsets();
+    const offsets_pointer = &pointer.trail.getOffsets();
     const offsets_ctx = Context{
         .label = "offsets",
         .type_name = @typeName(@TypeOf(offsets_pointer.*)),

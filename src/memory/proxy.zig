@@ -1,41 +1,27 @@
 const std = @import("std");
 const os = @import("../os/root.zig");
+const memory = @import("root.zig");
 
 pub const proxy_tag = opaque {};
 
 pub fn Proxy(comptime Type: type) type {
     return struct {
-        buffer: [max_len]?usize,
-        len: usize,
+        trail: memory.PointerTrail,
 
         const Self = @This();
         const max_len = 32;
         pub const tag = proxy_tag;
 
         pub fn fromArray(array: anytype) Self {
-            if (@typeInfo(@TypeOf(array)) != .array) {
-                const coerced: [array.len]?usize = array;
-                return fromArray(coerced);
-            }
-            if (array.len > max_len) {
-                @compileError(std.fmt.comptimePrint(
-                    "The provided array with length {} is larger then maximum pointer trail length: {}",
-                    .{ array.len, max_len },
-                ));
-            }
-            var buffer: [max_len]?usize = undefined;
-            for (array, 0..) |element, i| {
-                buffer[i] = element;
-            }
-            return .{ .buffer = buffer, .len = array.len };
+            return .{ .trail = .fromArray(array) };
         }
 
-        pub fn getOffsets(self: *const Self) []const ?usize {
-            return self.buffer[0..self.len];
+        pub fn findAddress(self: *const Self) ?usize {
+            return self.trail.resolve();
         }
 
         pub fn toConstPointer(self: *const Self) ?*const Type {
-            const address = self.findMemoryAddress() orelse return null;
+            const address = self.findAddress() orelse return null;
             if (!os.isMemoryReadable(address, @sizeOf(Type))) {
                 return null;
             }
@@ -43,164 +29,105 @@ pub fn Proxy(comptime Type: type) type {
         }
 
         pub fn toMutablePointer(self: *const Self) ?*Type {
-            const address = self.findMemoryAddress() orelse return null;
+            const address = self.findAddress() orelse return null;
             if (!os.isMemoryWriteable(address, @sizeOf(Type))) {
                 return null;
             }
             return @ptrFromInt(address);
-        }
-
-        pub fn findMemoryAddress(self: *const Self) ?usize {
-            const offsets = self.getOffsets();
-            if (offsets.len == 0) {
-                return null;
-            }
-            var current_address: usize = 0;
-            for (offsets, 0..) |optional_offset, i| {
-                const offset = optional_offset orelse return null;
-                const result = @addWithOverflow(current_address, offset);
-                const offset_address = result[0];
-                const overflow = result[1];
-                if (overflow == 1) {
-                    return null;
-                }
-                current_address = offset_address;
-                if (i == offsets.len - 1) {
-                    break;
-                }
-                if (!os.isMemoryReadable(current_address, @sizeOf(usize))) {
-                    return null;
-                }
-                const pointer: *const usize = @ptrFromInt(current_address);
-                current_address = pointer.*;
-                if (current_address == 0) {
-                    return null;
-                }
-            }
-            return current_address;
         }
     };
 }
 
 const testing = std.testing;
 
-const Struct = packed struct {
-    value_1: i32 = 1,
-    value_2: i32 = 2,
-};
-const value_1_offset = 0;
-const value_2_offset = @sizeOf(i32);
-
-test "toConstPointer should return a pointer when the pointer trail is valid" {
-    const testCase = struct {
-        fn call(comptime size: comptime_int, offsets: [size]?usize, expected_pointer: *const i32) !void {
-            const trail = Proxy(i32).fromArray(offsets);
-            const actual_pointer = trail.toConstPointer();
-            try testing.expectEqual(expected_pointer, actual_pointer);
-        }
-    }.call;
-    const str = Struct{};
-    const str_address = @intFromPtr(&str);
-    const str_address_address = @intFromPtr(&str_address);
-    try testCase(1, .{str_address + value_1_offset}, &str.value_1);
-    try testCase(1, .{str_address + value_2_offset}, &str.value_2);
-    try testCase(2, .{ str_address_address, value_1_offset }, &str.value_1);
-    try testCase(2, .{ str_address_address, value_2_offset }, &str.value_2);
+test "findAddress should return a value when trail is resolvable" {
+    const Struct = struct {};
+    const proxy = Proxy(Struct).fromArray(.{12345});
+    try testing.expectEqual(12345, proxy.findAddress());
 }
 
-test "toConstPointer should return null when the pointer trail is invalid or incomplete" {
-    const testCase = struct {
-        fn call(comptime size: comptime_int, offsets: [size]?usize) !void {
-            const trail = Proxy(i32).fromArray(offsets);
-            const actual_pointer = trail.toConstPointer();
-            try testing.expectEqual(null, actual_pointer);
-        }
-    }.call;
-    const str = Struct{};
-    const str_address = @intFromPtr(&str);
-    const str_address_address = @intFromPtr(&str_address);
-    try testCase(0, .{});
-    try testCase(1, .{std.math.maxInt(usize)});
-    try testCase(2, .{ 0, value_2_offset });
-    try testCase(2, .{ str_address_address, std.math.maxInt(usize) });
-    try testCase(1, .{null});
-    try testCase(2, .{ str_address_address, null });
-    try testCase(3, .{ str_address_address, value_1_offset, null });
-    try testCase(3, .{ str_address_address, null, value_1_offset });
+test "findAddress should return null when trail is not resolvable" {
+    const Struct = struct {};
+    const proxy = Proxy(Struct).fromArray(.{ 0, 100 });
+    try testing.expectEqual(null, proxy.findAddress());
 }
 
-test "toMutablePointer should return a pointer when the pointer trail is valid" {
-    const testCase = struct {
-        fn call(comptime size: comptime_int, offsets: [size]?usize, expected_pointer: *i32) !void {
-            const trail = Proxy(i32).fromArray(offsets);
-            const actual_pointer = trail.toMutablePointer();
-            try testing.expectEqual(expected_pointer, actual_pointer);
-        }
-    }.call;
-    var str = Struct{};
+test "toConstPointer should return a pointer when trail is resolvable and memory is readable" {
+    const Struct = packed struct { field_1: i32, field_2: i32 };
+    const field_1_offset = @offsetOf(Struct, "field_1");
+    const field_2_offset = @offsetOf(Struct, "field_2");
+
+    const str = Struct{ .field_1 = 1, .field_2 = 2 };
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(1, .{str_address + value_1_offset}, &str.value_1);
-    try testCase(1, .{str_address + value_2_offset}, &str.value_2);
-    try testCase(2, .{ str_address_address, value_1_offset }, &str.value_1);
-    try testCase(2, .{ str_address_address, value_2_offset }, &str.value_2);
+    const str_address_address_address = @intFromPtr(&str_address_address);
+
+    const proxy = Proxy(i32).fromArray;
+    try testing.expectEqual(&str.field_1, proxy(.{str_address + field_1_offset}).toConstPointer());
+    try testing.expectEqual(&str.field_2, proxy(.{str_address + field_2_offset}).toConstPointer());
+    try testing.expectEqual(&str.field_1, proxy(.{ str_address_address, field_1_offset }).toConstPointer());
+    try testing.expectEqual(&str.field_2, proxy(.{ str_address_address, field_2_offset }).toConstPointer());
+    try testing.expectEqual(&str.field_1, proxy(.{ str_address_address_address, 0, field_1_offset }).toConstPointer());
+    try testing.expectEqual(&str.field_2, proxy(.{ str_address_address_address, 0, field_2_offset }).toConstPointer());
 }
 
-test "toMutablePointer should return null when the pointer trail is invalid or incomplete" {
-    const testCase = struct {
-        fn call(comptime size: comptime_int, offsets: [size]?usize) !void {
-            const trail = Proxy(i32).fromArray(offsets);
-            const actual_pointer = trail.toMutablePointer();
-            try testing.expectEqual(null, actual_pointer);
-        }
-    }.call;
-    var str = Struct{};
+test "toConstPointer should return null when trail is not resolvable or memory is not readable" {
+    const Struct = packed struct { field_1: i32, field_2: i32 };
+    const field_1_offset = @offsetOf(Struct, "field_1");
+    const field_2_offset = @offsetOf(Struct, "field_2");
+
+    const str = Struct{ .field_1 = 1, .field_2 = 2 };
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(0, .{});
-    try testCase(1, .{std.math.maxInt(usize)});
-    try testCase(2, .{ 0, value_2_offset });
-    try testCase(2, .{ str_address_address, std.math.maxInt(usize) });
-    try testCase(1, .{null});
-    try testCase(2, .{ str_address_address, null });
-    try testCase(3, .{ str_address_address, value_1_offset, null });
-    try testCase(3, .{ str_address_address, null, value_1_offset });
+
+    const proxy = Proxy(i32).fromArray;
+    try testing.expectEqual(null, proxy(.{}).toConstPointer());
+    try testing.expectEqual(null, proxy(.{0}).toConstPointer());
+    try testing.expectEqual(null, proxy(.{std.math.maxInt(usize)}).toConstPointer());
+    try testing.expectEqual(null, proxy(.{ 0, field_2_offset }).toConstPointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, std.math.maxInt(usize) }).toConstPointer());
+    try testing.expectEqual(null, proxy(.{null}).toConstPointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, null }).toConstPointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, field_1_offset, null }).toConstPointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, null, field_1_offset }).toConstPointer());
 }
 
-test "findMemoryAddress should return a value when the pointer trail is valid or almost valid" {
-    const testCase = struct {
-        fn call(comptime size: comptime_int, offsets: [size]?usize, expected_address: usize) !void {
-            const trail = Proxy(i32).fromArray(offsets);
-            const actual_address = trail.findMemoryAddress();
-            try testing.expectEqual(expected_address, actual_address);
-        }
-    }.call;
-    const str = Struct{};
+test "toMutablePointer should return a pointer when trail is resolvable and memory is writable" {
+    const Struct = packed struct { field_1: i32, field_2: i32 };
+    const field_1_offset = @offsetOf(Struct, "field_1");
+    const field_2_offset = @offsetOf(Struct, "field_2");
+
+    var str = Struct{ .field_1 = 1, .field_2 = 2 };
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(1, .{str_address + value_1_offset}, @intFromPtr(&str.value_1));
-    try testCase(1, .{str_address + value_2_offset}, @intFromPtr(&str.value_2));
-    try testCase(2, .{ str_address_address, value_1_offset }, @intFromPtr(&str.value_1));
-    try testCase(2, .{ str_address_address, value_2_offset }, @intFromPtr(&str.value_2));
-    try testCase(1, .{std.math.maxInt(usize)}, std.math.maxInt(usize));
+    const str_address_address_address = @intFromPtr(&str_address_address);
+
+    const proxy = Proxy(i32).fromArray;
+    try testing.expectEqual(&str.field_1, proxy(.{str_address + field_1_offset}).toMutablePointer());
+    try testing.expectEqual(&str.field_2, proxy(.{str_address + field_2_offset}).toMutablePointer());
+    try testing.expectEqual(&str.field_1, proxy(.{ str_address_address, field_1_offset }).toMutablePointer());
+    try testing.expectEqual(&str.field_2, proxy(.{ str_address_address, field_2_offset }).toMutablePointer());
+    try testing.expectEqual(&str.field_1, proxy(.{ str_address_address_address, 0, field_1_offset }).toMutablePointer());
+    try testing.expectEqual(&str.field_2, proxy(.{ str_address_address_address, 0, field_2_offset }).toMutablePointer());
 }
 
-test "findMemoryAddress should return null when the pointer trail incomplete or is not almost valid" {
-    const testCase = struct {
-        fn call(comptime size: comptime_int, offsets: [size]?usize) !void {
-            const trail = Proxy(i32).fromArray(offsets);
-            const actual_address = trail.findMemoryAddress();
-            try testing.expectEqual(null, actual_address);
-        }
-    }.call;
-    const str = Struct{};
+test "toMutablePointer should return null when trail is not resolvable or memory is not writable" {
+    const Struct = packed struct { field_1: i32, field_2: i32 };
+    const field_1_offset = @offsetOf(Struct, "field_1");
+    const field_2_offset = @offsetOf(Struct, "field_2");
+
+    var str = Struct{ .field_1 = 1, .field_2 = 2 };
     const str_address = @intFromPtr(&str);
     const str_address_address = @intFromPtr(&str_address);
-    try testCase(0, .{});
-    try testCase(2, .{ 0, value_2_offset });
-    try testCase(2, .{ str_address_address, std.math.maxInt(usize) });
-    try testCase(1, .{null});
-    try testCase(2, .{ str_address_address, null });
-    try testCase(3, .{ str_address_address, value_1_offset, null });
-    try testCase(3, .{ str_address_address, null, value_1_offset });
+
+    const proxy = Proxy(i32).fromArray;
+    try testing.expectEqual(null, proxy(.{}).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{0}).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{std.math.maxInt(usize)}).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{ 0, field_2_offset }).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, std.math.maxInt(usize) }).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{null}).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, null }).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, field_1_offset, null }).toMutablePointer());
+    try testing.expectEqual(null, proxy(.{ str_address_address, null, field_1_offset }).toMutablePointer());
 }

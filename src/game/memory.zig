@@ -107,13 +107,13 @@ const testing = std.testing;
 
 test "proxy should construct a proxy from array" {
     const pointer = proxy("pointer", u8, .{ 1, 2, 3 });
-    try testing.expectEqualSlices(?usize, &.{ 1, 2, 3 }, pointer.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{ 1, 2, 3 }, pointer.trail.getOffsets());
 }
 
 test "proxy should map errors to null values" {
     misc.error_context.new("Test error.", .{});
     const pointer = proxy("pointer", u8, .{ 1, error.Test, 2, error.Test, 3, error.Test });
-    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null, 3, null }, pointer.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null, 3, null }, pointer.trail.getOffsets());
 }
 
 test "pattern should return correct value when pattern exisits" {

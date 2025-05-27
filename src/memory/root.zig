@@ -6,6 +6,7 @@ pub const FieldOffsets = @import("field_offsets.zig").FieldOffsets;
 pub const Pattern = @import("pattern.zig").Pattern;
 pub const pointer_tag = @import("pointer.zig").pointer_tag;
 pub const Pointer = @import("pointer.zig").Pointer;
+pub const PointerTrail = @import("pointer_trail.zig").PointerTrail;
 pub const proxy_tag = @import("proxy.zig").proxy_tag;
 pub const Proxy = @import("proxy.zig").Proxy;
 pub const Range = @import("range.zig").Range;
