@@ -16,6 +16,7 @@ pub fn StructProxy(comptime Struct: type) type {
 
         const Self = @This();
         pub const tag = struct_proxy_tag;
+        pub const Child = Struct;
 
         pub fn findBaseAddress(self: *const Self) ?usize {
             return self.base_trail.resolve();
@@ -63,6 +64,19 @@ pub fn StructProxy(comptime Struct: type) type {
             }
             return static_copy;
         }
+
+        pub fn findSizeFromMaxOffset(self: *const Self) usize {
+            var max: usize = 0;
+            inline for (struct_fields) |*field| {
+                if (@field(self.field_offsets, field.name)) |offset| {
+                    const result = @addWithOverflow(offset, @sizeOf(field.type));
+                    if (result[1] == 0 and result[0] > max) {
+                        max = result[0];
+                    }
+                }
+            }
+            return max;
+        }
     };
 }
 
@@ -90,11 +104,7 @@ test "findFieldAddress should return a value when findBaseAddress succeeds and f
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     const proxy = StructProxy(Struct){
         .base_trail = .fromArray(.{100}),
-        .field_offsets = .{
-            .field_1 = 10,
-            .field_2 = 20,
-            .field_3 = 30,
-        },
+        .field_offsets = .{ .field_1 = 10, .field_2 = 20, .field_3 = 30 },
     };
     try testing.expectEqual(110, proxy.findFieldAddress("field_1"));
     try testing.expectEqual(120, proxy.findFieldAddress("field_2"));
@@ -199,16 +209,8 @@ test "findMutableFieldPointer should return null when findFieldAddress fails or 
 }
 
 test "takeStaticCopy should return a value when findConstFieldPointer succeeds for every field of the struct" {
-    const Struct = struct {
-        field_1: u8,
-        field_2: u16,
-        field_3: u32,
-    };
-    const value = Struct{
-        .field_1 = 1,
-        .field_2 = 2,
-        .field_3 = 3,
-    };
+    const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
+    const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
     const proxy = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
         .field_offsets = .{
@@ -223,16 +225,8 @@ test "takeStaticCopy should return a value when findConstFieldPointer succeeds f
 }
 
 test "takeStaticCopy should return null when getFieldConst fails for at least one field of the struct" {
-    const Struct = struct {
-        field_1: u8,
-        field_2: u16,
-        field_3: u32,
-    };
-    const value = Struct{
-        .field_1 = 1,
-        .field_2 = 2,
-        .field_3 = 3,
-    };
+    const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
+    const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
     const proxy = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
         .field_offsets = .{
@@ -243,4 +237,14 @@ test "takeStaticCopy should return null when getFieldConst fails for at least on
     };
     const copy = proxy.takeStaticCopy();
     try testing.expectEqual(null, copy);
+}
+
+test "findSizeFromMaxOffset should return correct value" {
+    const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
+    const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
+    const proxy = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&value)}),
+        .field_offsets = .{ .field_1 = 10, .field_2 = 30, .field_3 = 20 },
+    };
+    try testing.expectEqual(32, proxy.findSizeFromMaxOffset());
 }

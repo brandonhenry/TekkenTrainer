@@ -11,6 +11,7 @@ pub fn Proxy(comptime Type: type) type {
         const Self = @This();
         const max_len = 32;
         pub const tag = proxy_tag;
+        pub const Child = Type;
 
         pub fn fromArray(array: anytype) Self {
             return .{ .trail = .fromArray(array) };

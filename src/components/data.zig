@@ -573,15 +573,12 @@ fn drawProxy(ctx: *const Context, pointer: anytype) void {
 }
 
 fn drawStructProxy(ctx: *const Context, pointer: anytype) void {
-    // TODO Make it not use takeStaticCopy. Make it use findConstFieldPointer instead.
-
-    const maybe_value_pointer = if (pointer.takeStaticCopy()) |v| &v else null;
-    if (maybe_value_pointer == null) pushErrorStyle();
-    defer if (maybe_value_pointer == null) popErrorStyle();
-
+    const is_valid = pointer.takeStaticCopy() != null;
+    if (!is_valid) pushErrorStyle();
     const node_open = beginNode(ctx.label);
     defer if (node_open) endNode();
     useDefaultMenu(ctx);
+    if (!is_valid) popErrorStyle();
     if (!node_open) return;
 
     const base_trail_pointer = &pointer.base_trail;
@@ -606,19 +603,44 @@ fn drawStructProxy(ctx: *const Context, pointer: anytype) void {
     };
     drawAny(&field_offsets_ctx, field_offsets_pointer);
 
-    const value_pointer = maybe_value_pointer orelse {
-        drawTreeText("value", "not readable");
-        return;
-    };
     const value_ctx = Context{
         .label = "value",
-        .type_name = @typeName(@TypeOf(value_pointer.*)),
-        .address = @intFromPtr(value_pointer),
+        .type_name = @typeName(@TypeOf(pointer.*).Child),
+        .address = pointer.findBaseAddress() orelse 0,
         .bit_offset = null,
-        .bit_size = @bitSizeOf(@TypeOf(value_pointer.*)),
+        .bit_size = pointer.findSizeFromMaxOffset() * std.mem.byte_size_in_bits,
         .parent = ctx,
     };
-    drawAny(&value_ctx, value_pointer);
+    drawStructProxyFields(&value_ctx, pointer);
+}
+
+fn drawStructProxyFields(ctx: *const Context, pointer: anytype) void {
+    const is_valid = pointer.takeStaticCopy() != null;
+    if (!is_valid) pushErrorStyle();
+    const node_open = beginNode(ctx.label);
+    defer if (node_open) endNode();
+    useDefaultMenu(ctx);
+    if (!is_valid) popErrorStyle();
+    if (!node_open) return;
+
+    const fields = @typeInfo(@TypeOf(pointer.*).Child).@"struct".fields;
+    inline for (fields) |*field| {
+        if (pointer.findConstFieldPointer(field.name)) |field_pointer| {
+            const field_ctx = Context{
+                .label = field.name,
+                .type_name = @typeName(field.type),
+                .address = @intFromPtr(field_pointer),
+                .bit_offset = (@field(pointer.field_offsets, field.name) orelse 0) * std.mem.byte_size_in_bits,
+                .bit_size = @sizeOf(field.type) * std.mem.byte_size_in_bits,
+                .parent = ctx,
+            };
+            drawAny(&field_ctx, field_pointer);
+        } else {
+            pushErrorStyle();
+            defer popErrorStyle();
+            drawTreeText(field.name, "not readable");
+        }
+    }
 }
 
 fn drawSelfSortableArray(ctx: *const Context, pointer: anytype) void {
