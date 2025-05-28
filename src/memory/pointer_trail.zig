@@ -51,7 +51,7 @@ pub const PointerTrail = struct {
             if (!os.isMemoryReadable(current_address, @sizeOf(usize))) {
                 return null;
             }
-            const pointer: *const usize = @ptrFromInt(current_address);
+            const pointer: *align(1) const usize = @ptrFromInt(current_address);
             current_address = pointer.*;
             if (current_address == 0) {
                 return null;

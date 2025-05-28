@@ -36,9 +36,12 @@ pub fn StructProxy(comptime Struct: type) type {
             self: *const Self,
             comptime field_name: []const u8,
         ) ?*const @FieldType(Struct, field_name) {
+            const Field = @FieldType(Struct, field_name);
             const address = self.findFieldAddress(field_name) orelse return null;
-            const size = @sizeOf(@FieldType(Struct, field_name));
-            if (!os.isMemoryReadable(address, size)) {
+            if (address % @alignOf(Field) != 0) {
+                return null;
+            }
+            if (!os.isMemoryReadable(address, @sizeOf(Field))) {
                 return null;
             }
             return @ptrFromInt(address);
@@ -48,9 +51,12 @@ pub fn StructProxy(comptime Struct: type) type {
             self: *const Self,
             comptime field_name: []const u8,
         ) ?*@FieldType(Struct, field_name) {
+            const Field = @FieldType(Struct, field_name);
             const address = self.findFieldAddress(field_name) orelse return null;
-            const size = @sizeOf(@FieldType(Struct, field_name));
-            if (!os.isMemoryWriteable(address, size)) {
+            if (address % @alignOf(Field) != 0) {
+                return null;
+            }
+            if (!os.isMemoryWriteable(address, @sizeOf(Field))) {
                 return null;
             }
             return @ptrFromInt(address);
@@ -130,7 +136,7 @@ test "findFieldAddress should return null when findBaseAddress fails or field of
     try testing.expectEqual(null, proxy_3.findFieldAddress("field"));
 }
 
-test "findConstFieldPointer should return a pointer when findFieldAddress succeeds and memory is readable" {
+test "findConstFieldPointer should return a pointer when findFieldAddress succeeds, address is aligned and memory is readable" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
     const proxy = StructProxy(Struct){
@@ -146,27 +152,34 @@ test "findConstFieldPointer should return a pointer when findFieldAddress succee
     try testing.expectEqual(&value.field_3, proxy.findConstFieldPointer("field_3"));
 }
 
-test "findConstFieldPointer should return null when findFieldAddress fails or memory is not readable" {
-    const Struct = struct { field: u8 };
-    const value = Struct{ .field = 1 };
+test "findConstFieldPointer should return null when findFieldAddress fails, address is misaligned or memory is not readable" {
+    const Struct = extern struct { field_1: u64, field_2: u64 };
+    const offset_1 = @offsetOf(Struct, "field_1");
+    const offset_2 = @offsetOf(Struct, "field_2");
+    const value = Struct{ .field_1 = 1, .field_2 = 2 };
     const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{ 0, 100 }),
-        .field_offsets = .{ .field = 0 },
+        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
     };
     const proxy_2 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{ .field = std.math.maxInt(usize) },
+        .field_offsets = .{ .field_1 = std.math.maxInt(usize), .field_2 = offset_2 },
     };
     const proxy_3 = StructProxy(Struct){
         .base_trail = .fromArray(.{0}),
-        .field_offsets = .{ .field = 0 },
+        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
     };
-    try testing.expectEqual(null, proxy_1.findConstFieldPointer("field"));
-    try testing.expectEqual(null, proxy_2.findConstFieldPointer("field"));
-    try testing.expectEqual(null, proxy_3.findConstFieldPointer("field"));
+    const proxy_4 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&value)}),
+        .field_offsets = .{ .field_1 = offset_1 + 1, .field_2 = offset_2 },
+    };
+    try testing.expectEqual(null, proxy_1.findConstFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_2.findConstFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_3.findConstFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_4.findConstFieldPointer("field_1"));
 }
 
-test "findMutableFieldPointer should return a pointer when findFieldAddress succeeds and memory is writeable" {
+test "findMutableFieldPointer should return a pointer when findFieldAddress succeeds, address is aligned and memory is writable" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     var value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
     const proxy = StructProxy(Struct){
@@ -182,30 +195,37 @@ test "findMutableFieldPointer should return a pointer when findFieldAddress succ
     try testing.expectEqual(&value.field_3, proxy.findMutableFieldPointer("field_3"));
 }
 
-test "findMutableFieldPointer should return null when findFieldAddress fails or memory is not writeable" {
-    const Struct = struct { field: u8 };
-    const const_value = Struct{ .field = 1 };
-    var var_value = Struct{ .field = 1 };
+test "findMutableFieldPointer should return null when findFieldAddress fails, address is misaligned or memory is not writeable" {
+    const Struct = extern struct { field_1: u64, field_2: u64 };
+    const offset_1 = @offsetOf(Struct, "field_1");
+    const offset_2 = @offsetOf(Struct, "field_2");
+    const const_value = Struct{ .field_1 = 1, .field_2 = 2 };
+    var var_value = Struct{ .field_1 = 1, .field_2 = 2 };
     const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{ 0, 100 }),
-        .field_offsets = .{ .field = @offsetOf(Struct, "field") },
+        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
     };
     const proxy_2 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&var_value)}),
-        .field_offsets = .{ .field = std.math.maxInt(usize) },
+        .field_offsets = .{ .field_1 = std.math.maxInt(usize), .field_2 = offset_2 },
     };
     const proxy_3 = StructProxy(Struct){
         .base_trail = .fromArray(.{0}),
-        .field_offsets = .{ .field = @offsetOf(Struct, "field") },
+        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
     };
     const proxy_4 = StructProxy(Struct){
-        .base_trail = .fromArray(.{@intFromPtr(&const_value)}),
-        .field_offsets = .{ .field = @offsetOf(Struct, "field") },
+        .base_trail = .fromArray(.{@intFromPtr(&var_value)}),
+        .field_offsets = .{ .field_1 = offset_1 + 1, .field_2 = offset_2 },
     };
-    try testing.expectEqual(null, proxy_1.findMutableFieldPointer("field"));
-    try testing.expectEqual(null, proxy_2.findMutableFieldPointer("field"));
-    try testing.expectEqual(null, proxy_3.findMutableFieldPointer("field"));
-    try testing.expectEqual(null, proxy_4.findMutableFieldPointer("field"));
+    const proxy_5 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&const_value)}),
+        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
+    };
+    try testing.expectEqual(null, proxy_1.findMutableFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_2.findMutableFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_3.findMutableFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_4.findMutableFieldPointer("field_1"));
+    try testing.expectEqual(null, proxy_5.findMutableFieldPointer("field_1"));
 }
 
 test "takeStaticCopy should return a value when findConstFieldPointer succeeds for every field of the struct" {
