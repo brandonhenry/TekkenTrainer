@@ -89,6 +89,35 @@ pub fn setConsoleCloseHandler(onConsoleClose: *const fn () void) !void {
     }
 }
 
+pub fn getExecutableTimestamp() !u32 {
+    const handle = w32.GetModuleHandleW(null) orelse {
+        misc.error_context.new("{}", .{os.Error.getLast()});
+        misc.error_context.append("GetModuleHandleW returned null.", .{});
+        return error.OsError;
+    };
+    const dos_header: *align(1) const w32.IMAGE_DOS_HEADER = @ptrCast(handle);
+    if (!os.isMemoryReadable(@intFromPtr(dos_header), @sizeOf(w32.IMAGE_DOS_HEADER))) {
+        misc.error_context.new("Dos header memory not readable.", .{});
+        return error.NotReadable;
+    }
+    if (dos_header.e_magic != w32.IMAGE_DOS_SIGNATURE) {
+        misc.error_context.new("Incorrect magic number inside DOS header: {}", .{dos_header.e_magic});
+        return error.IncorrectMagicNumber;
+    }
+    const base_address: usize = @intFromPtr(handle);
+    const offset: usize = @intCast(dos_header.e_lfanew);
+    const nt_headers: *align(1) const w32.IMAGE_NT_HEADERS64 = @ptrFromInt(base_address + offset);
+    if (!os.isMemoryReadable(@intFromPtr(nt_headers), @sizeOf(w32.IMAGE_NT_HEADERS64))) {
+        misc.error_context.new("NT headers memory not readable.", .{});
+        return error.NotReadable;
+    }
+    if (nt_headers.Signature != w32.IMAGE_NT_SIGNATURE) {
+        misc.error_context.new("Incorrect signature inside NT headers: {}", .{nt_headers.Signature});
+        return error.IncorrectSignature;
+    }
+    return nt_headers.FileHeader.TimeDateStamp;
+}
+
 const testing = std.testing;
 
 test "pathToFileName should return correct value" {
@@ -120,4 +149,12 @@ test "getFullPath should produce correct full path" {
     const size = try getFullPath(&buffer, "./test_1/test_2/test_3.txt");
     const full_path = buffer[0..size];
     try testing.expectStringEndsWith(full_path, "\\test_1\\test_2\\test_3.txt");
+}
+
+test "getExecutableTimestamp should return a value grater then 1 day ago and less or equal then now" {
+    const timestamp = try getExecutableTimestamp();
+    const now: u32 = @intCast(@divTrunc(std.time.milliTimestamp(), std.time.ms_per_s));
+    const day_ago = now - std.time.s_per_day;
+    try testing.expect(timestamp > day_ago);
+    try testing.expect(timestamp <= now);
 }
