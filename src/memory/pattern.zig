@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const misc = @import("../misc/root.zig");
 const memory = @import("root.zig");
 
@@ -9,69 +10,77 @@ pub const Pattern = struct {
     const Self = @This();
     const max_len = 64;
 
-    pub inline fn fromComptime(comptime pattern: []const u8) Self {
-        comptime {
-            var buffer: [max_len]?u8 = undefined;
-            var len: usize = 0;
-            var previous_char: ?u8 = null;
-            for (pattern) |char| {
-                if (std.ascii.isWhitespace(char)) {
-                    continue;
-                } else if (char == '?') {
-                    if (previous_char == '?') {
-                        if (len >= max_len) {
-                            @compileError(std.fmt.comptimePrint(
-                                "Memory pattern \"{s}\" is longer then then maximum length: {}",
-                                .{ pattern, max_len },
-                            ));
-                        }
-                        buffer[len] = null;
-                        len += 1;
-                        previous_char = null;
-                    } else if (previous_char) |p_char| {
-                        @compileError(std.fmt.comptimePrint(
-                            "Memory pattern \"{s}\" contains a mix of question mark and hex digit: {c}?",
-                            .{ pattern, p_char },
-                        ));
-                    } else {
-                        previous_char = char;
+    pub fn fromString(pattern: []const u8) !Self {
+        var buffer: [max_len]?u8 = undefined;
+        var len: usize = 0;
+        var previous_char: ?u8 = null;
+        for (pattern) |char| {
+            if (std.ascii.isWhitespace(char)) {
+                continue;
+            } else if (char == '?') {
+                if (previous_char == '?') {
+                    if (len >= max_len) {
+                        const fmt = "Memory pattern \"{s}\" is longer then then maximum length: {}";
+                        const args = .{ pattern, max_len };
+                        if (@inComptime()) @compileError(std.fmt.comptimePrint(fmt, args));
+                        misc.error_context.new(fmt, args);
+                        return error.NoSpaceLeft;
                     }
-                } else if (std.ascii.isHex(char)) {
-                    if (previous_char == '?') {
-                        @compileError(std.fmt.comptimePrint(
-                            "Memory pattern \"{s}\" contains a mix of question mark and hex digit: ?{c}",
-                            .{ pattern, char },
-                        ));
-                    } else if (previous_char) |p_char| {
-                        if (len >= max_len) {
-                            @compileError(std.fmt.comptimePrint(
-                                "Memory pattern \"{s}\" is longer then then maximum length: {}",
-                                .{ pattern, max_len },
-                            ));
-                        }
-                        const p_digit = if (std.ascii.isDigit(p_char)) p_char - '0' else std.ascii.toUpper(p_char) - 'A' + 10;
-                        const digit = if (std.ascii.isDigit(char)) char - '0' else std.ascii.toUpper(char) - 'A' + 10;
-                        buffer[len] = 16 * p_digit + digit;
-                        len += 1;
-                        previous_char = null;
-                    } else {
-                        previous_char = char;
-                    }
+                    buffer[len] = null;
+                    len += 1;
+                    previous_char = null;
+                } else if (previous_char) |p_char| {
+                    const error_fmt = "Memory pattern \"{s}\" contains a mix of question mark and hex digit: {c}?";
+                    const error_args = .{ pattern, p_char };
+                    if (@inComptime()) @compileError(std.fmt.comptimePrint(error_fmt, error_args));
+                    misc.error_context.new(error_fmt, error_args);
+                    return error.MixedByte;
                 } else {
-                    @compileError(std.fmt.comptimePrint(
-                        "Memory pattern \"{s}\" contains a invalid character: {c}",
-                        .{ pattern, char },
-                    ));
+                    previous_char = char;
                 }
+            } else if (std.ascii.isHex(char)) {
+                if (previous_char == '?') {
+                    const fmt = "Memory pattern \"{s}\" contains a mix of question mark and hex digit: ?{c}";
+                    const args = .{ pattern, char };
+                    if (@inComptime()) @compileError(std.fmt.comptimePrint(fmt, args));
+                    misc.error_context.new(fmt, args);
+                    return error.MixedByte;
+                } else if (previous_char) |p_char| {
+                    if (len >= max_len) {
+                        const fmt = "Memory pattern \"{s}\" is longer then then maximum length: {}";
+                        const args = .{ pattern, max_len };
+                        if (@inComptime()) @compileError(std.fmt.comptimePrint(fmt, args));
+                        misc.error_context.new(fmt, args);
+                        return error.NoSpaceLeft;
+                    }
+                    const p_digit = if (std.ascii.isDigit(p_char)) p_char - '0' else std.ascii.toUpper(p_char) - 'A' + 10;
+                    const digit = if (std.ascii.isDigit(char)) char - '0' else std.ascii.toUpper(char) - 'A' + 10;
+                    buffer[len] = 16 * p_digit + digit;
+                    len += 1;
+                    previous_char = null;
+                } else {
+                    previous_char = char;
+                }
+            } else {
+                const fmt = "Memory pattern \"{s}\" contains a invalid character: {c}";
+                const args = .{ pattern, char };
+                if (@inComptime()) @compileError(std.fmt.comptimePrint(fmt, args));
+                misc.error_context.new(fmt, args);
+                return error.InvalidCharacter;
             }
-            if (previous_char) |p_char| {
-                @compileError(std.fmt.comptimePrint(
-                    "Memory pattern \"{s}\" ends with a incomplete byte: {c}",
-                    .{ pattern, p_char },
-                ));
-            }
-            return .{ .buffer = buffer, .len = len };
         }
+        if (previous_char) |p_char| {
+            const fmt = "Memory pattern \"{s}\" ends with a incomplete byte: {c}";
+            const args = .{ pattern, p_char };
+            if (@inComptime()) @compileError(std.fmt.comptimePrint(fmt, args));
+            misc.error_context.new(fmt, args);
+            return error.IncompleteByte;
+        }
+        return .{ .buffer = buffer, .len = len };
+    }
+
+    pub inline fn fromComptime(comptime pattern: []const u8) Self {
+        comptime return fromString(pattern) catch unreachable;
     }
 
     pub fn getBytes(self: *const Self) []const ?u8 {
@@ -140,10 +149,28 @@ pub const Pattern = struct {
 
 const testing = std.testing;
 
-test "fromComptime should construct a correct memory pattern" {
-    const pattern = Pattern.fromComptime("00 ?? 12 AB Cd eF 3a b4 5C D6");
+test "fromString should return a correct memory pattern when pattern valid" {
+    const pattern = try Pattern.fromString("00 ?? 12 AB Cd eF 3a b4 5C D6");
     const expected = &[_]?u8{ 0x00, null, 0x12, 0xAB, 0xCD, 0xEF, 0x3A, 0xB4, 0x5C, 0xD6 };
     try testing.expectEqualSlices(?u8, expected, pattern.getBytes());
+}
+
+test "fromString should error when pattern invalid" {
+    try testing.expectError(error.InvalidCharacter, Pattern.fromString("00 Z1 22"));
+    try testing.expectError(error.InvalidCharacter, Pattern.fromString("00 1Z 22"));
+    try testing.expectError(error.MixedByte, Pattern.fromString("00 ?1 22"));
+    try testing.expectError(error.MixedByte, Pattern.fromString("00 1? 22"));
+    try testing.expectError(error.IncompleteByte, Pattern.fromString("00 11 2"));
+    try testing.expectError(error.IncompleteByte, Pattern.fromString("00 11 ?"));
+    try testing.expectError(error.NoSpaceLeft, Pattern.fromString(
+        "00 11 22 33 44 55 66 77 88 99" ++
+            "00 11 22 33 44 55 66 77 88 99" ++
+            "00 11 22 33 44 55 66 77 88 99" ++
+            "00 11 22 33 44 55 66 77 88 99" ++
+            "00 11 22 33 44 55 66 77 88 99" ++
+            "00 11 22 33 44 55 66 77 88 99" ++
+            "00 11 22 33 44 55 66 77 88 99",
+    ));
 }
 
 test "should format correctly" {

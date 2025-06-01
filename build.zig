@@ -229,8 +229,8 @@ pub fn build(b: *std.Build) void {
 
     // Stop Wine from spamming debug messages in the console when running tests.
     test_command.setEnvironmentVariable("WINEDEBUG", "-all");
-    test_command.setEnvironmentVariable("DXVK_LOG_LEVEL", "error");
-    test_command.setEnvironmentVariable("VKD3D_DEBUG", "err");
+    test_command.setEnvironmentVariable("DXVK_LOG_LEVEL", "none");
+    test_command.setEnvironmentVariable("VKD3D_DEBUG", "none");
     // Stop vkd3d from caching shaders in a file when running tests.
     test_command.setEnvironmentVariable("VKD3D_SHADER_CACHE_PATH", "0");
 

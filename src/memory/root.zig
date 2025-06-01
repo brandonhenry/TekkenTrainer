@@ -5,6 +5,7 @@ pub const dereferenceMisaligned = @import("misc.zig").dereferenceMisaligned;
 pub const resolveRelativeOffset = @import("misc.zig").resolveRelativeOffset;
 pub const ConvertedValue = @import("converted_value.zig").ConvertedValue;
 pub const Pattern = @import("pattern.zig").Pattern;
+pub const PatternCache = @import("pattern_cache.zig").PatternCache;
 pub const pointer_tag = @import("pointer.zig").pointer_tag;
 pub const Pointer = @import("pointer.zig").Pointer;
 pub const PointerTrail = @import("pointer_trail.zig").PointerTrail;
