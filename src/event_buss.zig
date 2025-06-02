@@ -12,7 +12,7 @@ pub const EventBuss = struct {
     timer: misc.Timer(.{}),
     dx12_context: ?dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?ui.Context,
-    game_memory: ?game.Memory,
+    game_memory: misc.Task(game.Memory),
 
     const Self = @This();
     const buffer_count = 3;
@@ -62,20 +62,22 @@ pub const EventBuss = struct {
             }
         } else null;
 
-        std.log.debug("Initializing game memory...", .{});
-        var game_memory: ?game.Memory = null;
-        if (std.Thread.spawn(.{}, struct {
-            fn call(out: *?game.Memory, alloc: std.mem.Allocator, dir: *const misc.BaseDir) void {
-                out.* = game.Memory.init(alloc, dir);
+        const game_memory = misc.Task(game.Memory).spawn(allocator, struct {
+            fn call(alloc: std.mem.Allocator, dir: *const misc.BaseDir) game.Memory {
+                std.log.debug("Initializing game memory...", .{});
+                const memory = game.Memory.init(alloc, dir);
+                std.log.info("Game memory initialized.", .{});
+                return memory;
             }
-        }.call, .{ &game_memory, allocator, base_dir })) |thread| {
-            thread.join();
+        }.call, .{ allocator, base_dir }) catch |err| block: {
+            std.log.debug("Initializing game memory...", .{});
+            misc.error_context.append("Failed to spawn game memory search task. Search in main thread...", .{});
+            misc.error_context.logWarning(err);
+            // TODO Make this initialization not use file IO cause that causes a crash when running in this thread.
+            const memory = game.Memory.init(allocator, base_dir);
             std.log.info("Game memory initialized.", .{});
-        } else |err| {
-            misc.error_context.new("Failed to spawn game memory thread.", .{});
-            misc.error_context.append("Failed to initialize game memory.", .{});
-            misc.error_context.logError(err);
-        }
+            break :block misc.Task(game.Memory).createCompleted(memory);
+        };
 
         return .{
             .timer = .{},
@@ -98,6 +100,10 @@ pub const EventBuss = struct {
         _ = window;
         _ = device;
         _ = command_queue;
+
+        std.log.debug("De-initializing game memory...", .{});
+        _ = self.game_memory.join();
+        std.log.info("Game memory de-initialized.", .{});
 
         std.log.debug("De-initializing UI context...", .{});
         if (self.ui_context) |*context| {
@@ -135,7 +141,8 @@ pub const EventBuss = struct {
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;
-        const game_memory = if (self.game_memory) |*memory| memory else return;
+        // TODO Instead of not drawing anything, draw a loading indicator/message.
+        const game_memory = self.game_memory.peek() orelse return;
 
         ui_context.newFrame();
         imgui.igGetIO().*.MouseDrawCursor = true;
