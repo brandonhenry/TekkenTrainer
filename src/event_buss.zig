@@ -140,26 +140,15 @@ pub const EventBuss = struct {
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;
-        // TODO Instead of not drawing anything, draw a loading indicator/message.
-        const game_memory = self.game_memory.peek() orelse return;
 
         ui_context.newFrame();
         imgui.igGetIO().*.MouseDrawCursor = true;
         ui.toasts.draw();
-        components.drawLogsWindow(dll.buffer_logger, null);
-        components.drawGameMemoryWindow(game_memory, null);
-        hello_world: {
-            const is_open = imgui.igBegin("Hello World", null, 0);
-            defer imgui.igEnd();
-            if (!is_open) break :hello_world;
-            if (imgui.igButton("Send Toast", .{})) {
-                ui.toasts.send(.info, null, "Toast sent. Delta time is: {}", .{delta_time});
-            }
-            if (imgui.igButton("Log Error", .{})) {
-                misc.error_context.new("User clicked the log error button.", .{});
-                misc.error_context.append("This is a test error.", .{});
-                misc.error_context.logError(error.Test);
-            }
+        if (self.game_memory.peek()) |game_memory| {
+            components.drawLogsWindow(dll.buffer_logger, null);
+            components.drawGameMemoryWindow(game_memory, null);
+        } else {
+            components.drawLoadingWindow("Searching for memory addresses and offsets...");
         }
         ui_context.endFrame();
 

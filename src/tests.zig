@@ -62,8 +62,9 @@ test {
     _ = @import("ui/toasts.zig");
 
     _ = @import("components/data.zig");
-    _ = @import("components/logs_window.zig");
     _ = @import("components/game_memory_window.zig");
+    _ = @import("components/loading_window.zig");
+    _ = @import("components/logs_window.zig");
 
     _ = struct {
         test "should have no memory leaks after de-initializing UI testing context" {
