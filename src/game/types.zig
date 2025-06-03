@@ -139,19 +139,64 @@ pub const CancelFlags = packed struct(u32) {
     }
 };
 
-pub const Input = memory.Bitfield(u16, &.{
-    .{ .name = "up", .position = 0 },
-    .{ .name = "down", .position = 1 },
-    .{ .name = "left", .position = 2 },
-    .{ .name = "right", .position = 3 },
-    .{ .name = "special_style", .position = 8 },
-    .{ .name = "heat", .position = 9 },
-    .{ .name = "rage", .position = 11 },
-    .{ .name = "button_3", .position = 12 },
-    .{ .name = "button_4", .position = 13 },
-    .{ .name = "button_1", .position = 14 },
-    .{ .name = "button_2", .position = 15 },
-});
+pub const Input = packed struct(u32) {
+    up: bool = false,
+    down: bool = false,
+    left: bool = false,
+    right: bool = false,
+    _4: bool = false,
+    _5: bool = false,
+    _6: bool = false,
+    _7: bool = false,
+    special_style: bool = false,
+    heat: bool = false,
+    _10: bool = false,
+    rage: bool = false,
+    button_3: bool = false,
+    button_4: bool = false,
+    button_1: bool = false,
+    button_2: bool = false,
+    _16: bool = false,
+    _17: bool = false,
+    _18: bool = false,
+    _19: bool = false,
+    _20: bool = false,
+    _21: bool = false,
+    _22: bool = false,
+    _23: bool = false,
+    _24: bool = false,
+    _25: bool = false,
+    _26: bool = false,
+    _27: bool = false,
+    _28: bool = false,
+    _29: bool = false,
+    _30: bool = false,
+    _31: bool = false,
+
+    const Self = @This();
+
+    fn fromInt(int: u32) Self {
+        return @bitCast(int);
+    }
+
+    fn toInt(self: Self) u32 {
+        return @bitCast(self);
+    }
+
+    comptime {
+        std.debug.assert((Self{ .up = true }).toInt() == 1);
+        std.debug.assert((Self{ .down = true }).toInt() == 2);
+        std.debug.assert((Self{ .left = true }).toInt() == 4);
+        std.debug.assert((Self{ .right = true }).toInt() == 8);
+        std.debug.assert((Self{ .special_style = true }).toInt() == 256);
+        std.debug.assert((Self{ .heat = true }).toInt() == 512);
+        std.debug.assert((Self{ .rage = true }).toInt() == 2048);
+        std.debug.assert((Self{ .button_3 = true }).toInt() == 4096);
+        std.debug.assert((Self{ .button_4 = true }).toInt() == 8192);
+        std.debug.assert((Self{ .button_1 = true }).toInt() == 16384);
+        std.debug.assert((Self{ .button_2 = true }).toInt() == 32768);
+    }
+};
 
 pub const Player = struct {
     player_id: i32, // 0x0004
