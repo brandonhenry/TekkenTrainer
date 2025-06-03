@@ -12,7 +12,7 @@ pub const Memory = struct {
     const Self = @This();
     const pattern_cache_file_name = "pattern_cache.json";
 
-    pub fn init(allocator: std.mem.Allocator, base_dir: *const misc.BaseDir) Self {
+    pub fn init(allocator: std.mem.Allocator, base_dir: ?*const misc.BaseDir) Self {
         var cache = initPatternCache(allocator, base_dir) catch |err| block: {
             misc.error_context.append("Failed to initialize pattern cache.", .{});
             misc.error_context.logError(err);
@@ -107,7 +107,7 @@ pub const Memory = struct {
         };
     }
 
-    fn initPatternCache(allocator: std.mem.Allocator, base_dir: *const misc.BaseDir) !memory.PatternCache {
+    fn initPatternCache(allocator: std.mem.Allocator, base_dir: ?*const misc.BaseDir) !memory.PatternCache {
         const main_module = os.Module.getMain() catch |err| {
             misc.error_context.append("Failed to get main module.", .{});
             return err;
@@ -117,18 +117,22 @@ pub const Memory = struct {
             return err;
         };
         var cache = memory.PatternCache.init(allocator, range);
-        loadPatternCache(&cache, base_dir) catch |err| {
-            misc.error_context.append("Failed to load memory pattern cache. Using empty cache.", .{});
-            misc.error_context.logWarning(err);
-        };
+        if (base_dir) |dir| {
+            loadPatternCache(&cache, dir) catch |err| {
+                misc.error_context.append("Failed to load memory pattern cache. Using empty cache.", .{});
+                misc.error_context.logWarning(err);
+            };
+        }
         return cache;
     }
 
-    fn deinitPatternCache(cache: *memory.PatternCache, base_dir: *const misc.BaseDir) void {
-        savePatternCache(cache, base_dir) catch |err| {
-            misc.error_context.append("Failed to save memory pattern cache.", .{});
-            misc.error_context.logWarning(err);
-        };
+    fn deinitPatternCache(cache: *memory.PatternCache, base_dir: ?*const misc.BaseDir) void {
+        if (base_dir) |dir| {
+            savePatternCache(cache, dir) catch |err| {
+                misc.error_context.append("Failed to save memory pattern cache.", .{});
+                misc.error_context.logWarning(err);
+            };
+        }
         cache.deinit();
     }
 

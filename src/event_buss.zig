@@ -73,8 +73,7 @@ pub const EventBuss = struct {
             std.log.debug("Initializing game memory...", .{});
             misc.error_context.append("Failed to spawn game memory search task. Search in main thread...", .{});
             misc.error_context.logWarning(err);
-            // TODO Make this initialization not use file IO cause that causes a crash when running in this thread.
-            const memory = game.Memory.init(allocator, base_dir);
+            const memory = game.Memory.init(allocator, null);
             std.log.info("Game memory initialized.", .{});
             break :block misc.Task(game.Memory).createCompleted(memory);
         };
