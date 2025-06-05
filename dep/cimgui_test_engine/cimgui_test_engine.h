@@ -369,7 +369,7 @@ typedef ImPool<ImGuiTestItemInfo> ImPool_ImGuiTestItemInfo;
 
 CIMGUI_API void teItemAdd(ImGuiContext* ui_ctx, ImGuiID id, const ImRect* bb, const ImGuiLastItemData* item_data);
 CIMGUI_API void teItemInfo(ImGuiContext* ui_ctx, ImGuiID id, const char* label, ImGuiItemStatusFlags flags);
-CIMGUI_API void teLog(ImGuiContext* ui_ctx, const char* fmt, ...);
+CIMGUI_API void teLog(ImGuiContext* ui_ctx, const char* message);
 CIMGUI_API const char* teFindItemDebugLabel(ImGuiContext* ui_ctx, ImGuiID id);
 CIMGUI_API bool
 teCheck(const char* file, const char* func, int line, ImGuiTestCheckFlags flags, bool result, const char* expr);
@@ -385,7 +385,7 @@ CIMGUI_API bool teCheckStrOp(
     const char* rhs_value,
     bool* out_result
 );
-CIMGUI_API bool teError(const char* file, const char* func, int line, ImGuiTestCheckFlags flags, const char* fmt, ...);
+CIMGUI_API bool teError(const char* file, const char* func, int line, ImGuiTestCheckFlags flags, const char* message);
 CIMGUI_API void teAssertLog(const char* expr, const char* file, const char* function, int line);
 CIMGUI_API ImGuiTextBuffer* teGetTempStringBuilder();
 CIMGUI_API ImGuiTestEngine* teCreateContext();
@@ -713,7 +713,7 @@ CIMGUI_API void ImGuiTestContext_ViewportPlatform_SetWindowFocus(ImGuiTestContex
 CIMGUI_API void ImGuiTestContext_ViewportPlatform_CloseWindow(ImGuiTestContext* self, ImGuiViewport* viewport);
 #endif  // IMGUI_HAS_VIEWPORT
 #ifdef IMGUI_HAS_DOCK
-CIMGUI_API void ImGuiTestContext_DockClear(ImGuiTestContext* self, const char* window_name, ...);
+CIMGUI_API void ImGuiTestContext_DockClear(ImGuiTestContext* self, const char* window_name);
 CIMGUI_API void ImGuiTestContext_DockInto(
     ImGuiTestContext* self,
     ImGuiTestRef src_id,

@@ -165,25 +165,34 @@ pub const TestingContext = struct {
         }
 
         if (GuiFunction.returned_error) |err| {
+            printTestFailedLog(config, the_test);
             return err;
         }
         if (TestFunction.returned_error) |err| {
+            printTestFailedLog(config, the_test);
             return err;
         }
         const status = the_test.*.Output.Status;
-        if (status == imgui.ImGuiTestStatus_Success) {
+        switch (status) {
+            imgui.ImGuiTestStatus_Success => {},
+            imgui.ImGuiTestStatus_Error => {
+                printTestFailedLog(config, the_test);
+                return error.UiTestFailed;
+            },
+            else => if (!config.disable_printing) {
+                std.debug.print(
+                    "Expecting the UI test to end with status Success (1) or Error (4) but instead got status: {}",
+                    .{status},
+                );
+                return error.UnexpectedTestStatus;
+            },
+        }
+    }
+
+    fn printTestFailedLog(comptime config: Config, the_test: *imgui.ImGuiTest) void {
+        if (config.disable_printing) {
             return;
         }
-        if (config.disable_printing) {
-            return error.UiTestFailed;
-        }
-        if (status != imgui.ImGuiTestStatus_Error) {
-            std.debug.print(
-                "Expecting the UI test to end with status Success (1) or Error (4) but instead got status: {}",
-                .{status},
-            );
-        }
-
         const buffer = imgui.ImGuiTextBuffer_ImGuiTextBuffer();
         defer imgui.ImGuiTextBuffer_destroy(buffer);
         const count = imgui.ImGuiTestLog_ExtractLinesForVerboseLevels(
@@ -198,7 +207,6 @@ pub const TestingContext = struct {
         } else {
             std.debug.print("UI test failed but no logs recorded.", .{});
         }
-        return error.UiTestFailed;
     }
 };
 

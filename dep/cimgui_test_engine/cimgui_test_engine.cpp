@@ -13,11 +13,8 @@ CIMGUI_API void teItemInfo(ImGuiContext* ui_ctx, ImGuiID id, const char* label, 
     return ImGuiTestEngineHook_ItemInfo(ui_ctx, id, label, flags);
 }
 
-CIMGUI_API void teLog(ImGuiContext* ui_ctx, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    ImGuiTestEngineHook_Log(ui_ctx, fmt, args);
-    va_end(args);
+CIMGUI_API void teLog(ImGuiContext* ui_ctx, const char* message) {
+    return ImGuiTestEngineHook_Log(ui_ctx, "%s", message);
 }
 
 CIMGUI_API const char* teFindItemDebugLabel(ImGuiContext* ui_ctx, ImGuiID id) {
@@ -44,12 +41,8 @@ CIMGUI_API bool teCheckStrOp(
     return ImGuiTestEngine_CheckStrOp(file, func, line, flags, op, lhs_var, lhs_value, rhs_var, rhs_value, out_result);
 }
 
-CIMGUI_API bool teError(const char* file, const char* func, int line, ImGuiTestCheckFlags flags, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    auto return_value = ImGuiTestEngine_Error(file, func, line, line, fmt, args);
-    va_end(args);
-    return return_value;
+CIMGUI_API bool teError(const char* file, const char* func, int line, ImGuiTestCheckFlags flags, const char* message) {
+    return ImGuiTestEngine_Error(file, func, line, flags, "%s", message);
 }
 
 CIMGUI_API void teAssertLog(const char* expr, const char* file, const char* function, int line) {
@@ -302,7 +295,7 @@ CIMGUI_API void ImGuiTestContext_LogEx(
 ) {
     va_list args;
     va_start(args, fmt);
-    self->LogEx(level, flags, fmt, args);
+    self->LogExV(level, flags, fmt, args);
     va_end(args);
 };
 
@@ -333,28 +326,28 @@ ImGuiTestContext_LogToDebugger(ImGuiTestContext* self, ImGuiTestVerboseLevel lev
 CIMGUI_API void ImGuiTestContext_LogDebug(ImGuiTestContext* self, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    self->LogDebug(fmt, args);
+    self->LogExV(ImGuiTestVerboseLevel_Debug, ImGuiTestLogFlags_None, fmt, args);
     va_end(args);
 };
 
 CIMGUI_API void ImGuiTestContext_LogInfo(ImGuiTestContext* self, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    self->LogInfo(fmt, args);
+    self->LogExV(ImGuiTestVerboseLevel_Info, ImGuiTestLogFlags_None, fmt, args);
     va_end(args);
 };
 
 CIMGUI_API void ImGuiTestContext_LogWarning(ImGuiTestContext* self, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    self->LogWarning(fmt, args);
+    self->LogExV(ImGuiTestVerboseLevel_Warning, ImGuiTestLogFlags_None, fmt, args);
     va_end(args);
 };
 
 CIMGUI_API void ImGuiTestContext_LogError(ImGuiTestContext* self, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    self->LogError(fmt, args);
+    self->LogExV(ImGuiTestVerboseLevel_Error, ImGuiTestLogFlags_None, fmt, args);
     va_end(args);
 };
 
@@ -913,10 +906,10 @@ CIMGUI_API void ImGuiTestContext_ViewportPlatform_CloseWindow(ImGuiTestContext* 
 
 #ifdef IMGUI_HAS_DOCK
 
-CIMGUI_API void ImGuiTestContext_DockClear(ImGuiTestContext* self, const char* window_name, ...) {
+CIMGUI_API void ImGuiTestContext_DockClear(ImGuiTestContext* self, const char* window_name) {
     va_list args;
     va_start(args, fmt);
-    self->DockClear(window_name, args);
+    self->DockClear("%s", window_name);
     va_end(args);
 }
 CIMGUI_API void ImGuiTestContext_DockInto(

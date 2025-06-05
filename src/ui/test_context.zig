@@ -55,17 +55,7 @@ pub const TestContext = struct {
         fmt: [:0]const u8,
         args: anytype,
     ) void {
-        return imgui.ImGuiTestContext_LogEx(self.raw, level, flags, fmt, args);
-    }
-
-    pub fn logExV(
-        self: Self,
-        level: imgui.ImGuiTestVerboseLevel,
-        flags: imgui.ImGuiTestLogFlags,
-        fmt: [:0]const u8,
-        args: anytype,
-    ) void {
-        return imgui.ImGuiTestContext_LogExV(self.raw, level, flags, fmt, args);
+        return @call(.auto, imgui.ImGuiTestContext_LogEx, .{ self.raw, level, flags, fmt } ++ args);
     }
 
     pub fn logToTTY(
@@ -82,19 +72,19 @@ pub const TestContext = struct {
     }
 
     pub fn logDebug(self: Self, fmt: [:0]const u8, args: anytype) void {
-        return imgui.ImGuiTestContext_LogDebug(self.raw, fmt, args);
+        return @call(.auto, imgui.ImGuiTestContext_LogDebug, .{ self.raw, fmt } ++ args);
     }
 
     pub fn logInfo(self: Self, fmt: [:0]const u8, args: anytype) void {
-        return imgui.ImGuiTestContext_LogInfo(self.raw, fmt, args);
+        return @call(.auto, imgui.ImGuiTestContext_LogInfo, .{ self.raw, fmt } ++ args);
     }
 
     pub fn logWarning(self: Self, fmt: [:0]const u8, args: anytype) void {
-        return imgui.ImGuiTestContext_LogWarning(self.raw, fmt, args);
+        return @call(.auto, imgui.ImGuiTestContext_LogWarning, .{ self.raw, fmt } ++ args);
     }
 
     pub fn logError(self: Self, fmt: [:0]const u8, args: anytype) void {
-        return imgui.ImGuiTestContext_LogError(self.raw, fmt, args);
+        return @call(.auto, imgui.ImGuiTestContext_LogError, .{ self.raw, fmt } ++ args);
     }
 
     pub fn logBasicUiState(self: Self) void {
@@ -691,13 +681,14 @@ pub const TestContext = struct {
     // Custom functions:
 
     pub fn expectItemExists(self: Self, ref: anytype) !void {
-        const exists = self.itemExists(ref);
-        if (exists) return;
+        if (self.itemExists(ref)) {
+            return;
+        }
         const ref_object = anyToRef(ref);
         if (ref_object.Path != null) {
-            std.log.err("Failed to find item with ID: \"{s}\"", .{ref_object.Path});
+            self.logError("Failed to find item with ID: \"%s\"", .{ref_object.Path});
         } else {
-            std.log.err("Failed to find item with ID: {}", .{ref_object.ID});
+            self.logError("Failed to find item with ID: %d", .{ref_object.ID});
         }
         return error.ExpectedItemNotFound;
     }
@@ -709,20 +700,31 @@ pub const TestContext = struct {
     }
 
     pub fn expectItemNotExists(self: Self, ref: anytype) !void {
-        const exists = self.itemExists(ref);
-        if (!exists) return;
+        if (!self.itemExists(ref)) {
+            return;
+        }
         const ref_object = anyToRef(ref);
         if (ref_object.Path != null) {
-            std.log.err("Item was expected not to exist but was still found: \"{s}\"", .{ref_object.Path});
+            self.logError("Item was expected not to exist but was still found: \"%s\"", .{ref_object.Path});
         } else {
-            std.log.err("Item was expected not to exist but was still found: {}", .{ref_object.ID});
+            self.logError("Item was expected not to exist but was still found: %d", .{ref_object.Path});
         }
         return error.UnexpectedItemFound;
     }
 
-    pub fn expectClipboardText(_: Self, expected: []const u8) !void {
+    pub fn expectItemNotExistsFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
+        const ref = try std.fmt.allocPrintZ(std.testing.allocator, fmt, args);
+        defer std.testing.allocator.free(ref);
+        return self.expectItemNotExists(ref);
+    }
+
+    pub fn expectClipboardText(self: Self, expected: [:0]const u8) !void {
         const actual = std.mem.sliceTo(imgui.igGetClipboardText(), 0);
-        try std.testing.expectEqualSlices(u8, expected, actual);
+        if (std.mem.eql(u8, expected, actual)) {
+            return;
+        }
+        self.logError("Incorrect clipboard text.\n\texpected: %s\n\t  actual: %s", .{ expected.ptr, actual.ptr });
+        return error.IncorrectClipboardText;
     }
 
     pub fn expectClipboardTextFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
