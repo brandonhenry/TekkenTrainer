@@ -215,7 +215,7 @@ test "should pass a successful test" {
         }.call,
         struct {
             fn call(ctx: ui.TestContext) !void {
-                try testing.expect(ctx.itemExists("Window"));
+                try ctx.expectItemExists("Window");
             }
         }.call,
     );

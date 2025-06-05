@@ -132,7 +132,11 @@ pub fn Toasts(comptime config: ToastsConfig) type {
         fn drawToast(toast: *const Toast, index: usize, current_y: *f32) void {
             var window_name_buffer: [32]u8 = undefined;
             const window_name = std.fmt.bufPrintZ(&window_name_buffer, "toast-{}", .{index}) catch unreachable;
-            const window_flags = imgui.ImGuiWindowFlags_AlwaysAutoResize | imgui.ImGuiWindowFlags_NoDecoration | imgui.ImGuiWindowFlags_NoInputs | imgui.ImGuiWindowFlags_NoSavedSettings;
+            const window_flags = imgui.ImGuiWindowFlags_AlwaysAutoResize |
+                imgui.ImGuiWindowFlags_NoDecoration |
+                imgui.ImGuiWindowFlags_NoInputs |
+                imgui.ImGuiWindowFlags_NoSavedSettings |
+                imgui.ImGuiWindowFlags_NoFocusOnAppearing;
 
             var text_size: imgui.ImVec2 = undefined;
             imgui.igCalcTextSize(&text_size, toast.message, null, false, -1.0);
@@ -232,56 +236,56 @@ test "should render correct messages at correct time" {
                 toasts.update(0.5); //t = 0.5
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 1"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-2/Message: 3"));
-                try testing.expect(ctx.itemExists("//toast-3/Message: 4"));
-                try testing.expect(ctx.itemExists("//toast-4/Message: 5"));
-                try testing.expect(!ctx.itemExists("//toast-5"));
+                try ctx.expectItemExists("//toast-0/Message: 1");
+                try ctx.expectItemExists("//toast-1/Message: 2");
+                try ctx.expectItemExists("//toast-2/Message: 3");
+                try ctx.expectItemExists("//toast-3/Message: 4");
+                try ctx.expectItemExists("//toast-4/Message: 5");
+                try ctx.expectItemNotExists("//toast-5");
 
                 toasts.update(1.0); // t = 1.5
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 3"));
-                try testing.expect(ctx.itemExists("//toast-2/Message: 4"));
-                try testing.expect(ctx.itemExists("//toast-3/Message: 5"));
-                try testing.expect(!ctx.itemExists("//toast-4"));
+                try ctx.expectItemExists("//toast-0/Message: 2");
+                try ctx.expectItemExists("//toast-1/Message: 3");
+                try ctx.expectItemExists("//toast-2/Message: 4");
+                try ctx.expectItemExists("//toast-3/Message: 5");
+                try ctx.expectItemNotExists("//toast-4");
 
                 toasts.update(1.0); // t = 2.5
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 4"));
-                try testing.expect(ctx.itemExists("//toast-2/Message: 5"));
-                try testing.expect(!ctx.itemExists("//toast-3"));
+                try ctx.expectItemExists("//toast-0/Message: 2");
+                try ctx.expectItemExists("//toast-1/Message: 4");
+                try ctx.expectItemExists("//toast-2/Message: 5");
+                try ctx.expectItemNotExists("//toast-3");
 
                 toasts.update(1.0); // t = 3.5
                 toasts.send(.default, 0.5, "Message: {}", .{6}); // lasts until t = 4.0
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 4"));
-                try testing.expect(ctx.itemExists("//toast-2/Message: 6"));
-                try testing.expect(!ctx.itemExists("//toast-3"));
+                try ctx.expectItemExists("//toast-0/Message: 2");
+                try ctx.expectItemExists("//toast-1/Message: 4");
+                try ctx.expectItemExists("//toast-2/Message: 6");
+                try ctx.expectItemNotExists("//toast-3");
 
                 toasts.update(1.0); // t = 4.5
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 4"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 2");
+                try ctx.expectItemExists("//toast-1/Message: 4");
+                try ctx.expectItemNotExists("//toast-2");
 
                 toasts.update(1.0); // t = 5.5
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 4"));
-                try testing.expect(!ctx.itemExists("//toast-1"));
+                try ctx.expectItemExists("//toast-0/Message: 4");
+                try ctx.expectItemNotExists("//toast-1");
 
                 toasts.update(1.0); // t = 6.5
                 ctx.yield(1);
 
-                try testing.expect(!ctx.itemExists("//toast-0"));
+                try ctx.expectItemNotExists("//toast-0");
             }
         }.call,
     );
@@ -310,23 +314,23 @@ test "should discard earliest toasts when exceeding max toasts" {
                 toasts.send(.default, null, "Message: 2", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 1"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 2"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 1");
+                try ctx.expectItemExists("//toast-1/Message: 2");
+                try ctx.expectItemNotExists("//toast-2");
 
                 toasts.send(.default, null, "Message: 3", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 3"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 2");
+                try ctx.expectItemExists("//toast-1/Message: 3");
+                try ctx.expectItemNotExists("//toast-2");
 
                 toasts.send(.default, null, "Message: 4", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 3"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 4"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 3");
+                try ctx.expectItemExists("//toast-1/Message: 4");
+                try ctx.expectItemNotExists("//toast-2");
             }
         }.call,
     );
@@ -355,22 +359,22 @@ test "should discard earliest entries when exceeding buffer size" {
                 toasts.send(.default, null, "Message: 2", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 1"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 2"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 1");
+                try ctx.expectItemExists("//toast-1/Message: 2");
+                try ctx.expectItemNotExists("//toast-2");
 
                 toasts.send(.default, null, "Message: 3", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 2"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 3"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 2");
+                try ctx.expectItemExists("//toast-1/Message: 3");
+                try ctx.expectItemNotExists("//toast-2");
 
                 toasts.send(.default, null, "Message: 123", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 123"));
-                try testing.expect(!ctx.itemExists("//toast-1"));
+                try ctx.expectItemExists("//toast-0/Message: 123");
+                try ctx.expectItemNotExists("//toast-1");
             }
         }.call,
     );
@@ -398,13 +402,13 @@ test "should discard all toasts when message is larger then the buffer" {
                 toasts.send(.default, null, "Message: 1", .{});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 1"));
-                try testing.expect(!ctx.itemExists("//toast-1"));
+                try ctx.expectItemExists("//toast-0/Message: 1");
+                try ctx.expectItemNotExists("//toast-1");
 
                 toasts.send(.default, null, "Message: 123", .{});
                 ctx.yield(1);
 
-                try testing.expect(!ctx.itemExists("//toast-0"));
+                try ctx.expectItemNotExists("//toast-0");
             }
         }.call,
     );
@@ -435,9 +439,9 @@ test "should send toasts only for warning and error logs" {
                 toasts.logFn(.err, std.log.default_log_scope, "Message: {}", .{4});
                 ctx.yield(1);
 
-                try testing.expect(ctx.itemExists("//toast-0/Message: 3"));
-                try testing.expect(ctx.itemExists("//toast-1/Message: 4"));
-                try testing.expect(!ctx.itemExists("//toast-2"));
+                try ctx.expectItemExists("//toast-0/Message: 3");
+                try ctx.expectItemExists("//toast-1/Message: 4");
+                try ctx.expectItemNotExists("//toast-2");
             }
         }.call,
     );
