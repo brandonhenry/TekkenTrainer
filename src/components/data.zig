@@ -684,12 +684,6 @@ fn drawTreeText(label: [:0]const u8, text: [:0]const u8) void {
     imgui.igIndent(0.0);
     defer imgui.igUnindent(0.0);
     drawText(label, text);
-    var min: imgui.ImVec2 = undefined;
-    var max: imgui.ImVec2 = undefined;
-    imgui.igGetItemRectMin(&min);
-    imgui.igGetItemRectMax(&max);
-    const rect = imgui.ImRect{ .Min = min, .Max = max };
-    _ = imgui.igItemAdd(rect, imgui.igGetID_Str(label), null, imgui.ImGuiItemFlags_NoNav);
 }
 
 fn beginNode(label: [:0]const u8) bool {
@@ -785,14 +779,22 @@ fn drawMenuText(label: [:0]const u8, text: [:0]const u8) void {
 
 fn drawText(label: [:0]const u8, text: [:0]const u8) void {
     imgui.igText("%s: %s", label.ptr, text.ptr);
+
+    var min: imgui.ImVec2 = undefined;
+    var max: imgui.ImVec2 = undefined;
+    imgui.igGetItemRectMin(&min);
+    imgui.igGetItemRectMax(&max);
+    const rect = imgui.ImRect{ .Min = min, .Max = max };
+    _ = imgui.igItemAdd(rect, imgui.igGetID_Str(label), null, imgui.ImGuiItemFlags_NoNav);
+
+    if (imgui.igIsItemClicked(imgui.ImGuiMouseButton_Left)) {
+        imgui.igSetClipboardText(text);
+        ui.toasts.send(.info, null, "Copied to clipboard: {s}", .{text});
+    }
+
     if (builtin.is_test) {
         var buffer: [string_buffer_size]u8 = undefined;
         const full_text = std.fmt.bufPrintZ(&buffer, "{s}: {s}", .{ label, text }) catch error_string;
-        var min: imgui.ImVec2 = undefined;
-        var max: imgui.ImVec2 = undefined;
-        imgui.igGetItemRectMin(&min);
-        imgui.igGetItemRectMax(&max);
-        const rect = imgui.ImRect{ .Min = min, .Max = max };
         imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(label), &rect, null);
         imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(full_text), &rect, null);
     }
@@ -2135,6 +2137,81 @@ test "should draw self sortable array correctly" {
             try ctx.expectItemExists("test/sorted/1/value: 2 (0x2)");
             try ctx.expectItemExistsFmt("test/sorted/2/address: {} (0x{X})", .{ address_of_3, address_of_3 });
             try ctx.expectItemExists("test/sorted/2/value: 3 (0x3)");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should copy correct text to clipboard when left clicking text" {
+    const Test = struct {
+        var value: u8 = 97;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            if (imgui.igBegin("Window", null, 0)) {
+                drawData("test", &value);
+            }
+            imgui.igEnd();
+            ui.toasts.draw();
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            const address = @intFromPtr(&value);
+
+            ctx.setRef("Window");
+
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("97 (0x61) 'a'");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: 97 (0x61) 'a'");
+            ui.toasts.update(100);
+
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.setRef("//$FOCUSED");
+
+            ctx.itemClick("label", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("test");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: test");
+            ui.toasts.update(100);
+
+            ctx.itemClick("path", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("test");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: test");
+            ui.toasts.update(100);
+
+            ctx.itemClick("type", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("u8");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: u8");
+            ui.toasts.update(100);
+
+            ctx.itemClick("address", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardTextFmt("{} (0x{X})", .{ address, address });
+            try ctx.expectItemExistsFmt("//toast-0/Copied to clipboard: {} (0x{X})", .{ address, address });
+            ui.toasts.update(100);
+
+            ctx.itemClick("size", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("1 (0x1) bytes");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: 1 (0x1) bytes");
+            ui.toasts.update(100);
+
+            ctx.itemClick("value", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("97 (0x61) 'a'");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: 97 (0x61) 'a'");
+            ui.toasts.update(100);
+
+            ctx.itemClick("u8", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("97 (0x61)");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: 97 (0x61)");
+            ui.toasts.update(100);
+
+            ctx.itemClick("i8", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("97 (0x61)");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: 97 (0x61)");
+            ui.toasts.update(100);
+
+            ctx.itemClick("character", imgui.ImGuiMouseButton_Left, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            try ctx.expectClipboardText("a");
+            try ctx.expectItemExists("//toast-0/Copied to clipboard: a");
+            ui.toasts.update(100);
         }
     };
     const context = try ui.getTestingContext();

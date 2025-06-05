@@ -150,6 +150,7 @@ pub const TestingContext = struct {
         the_test.*.TestFunc = TestFunction.call;
 
         imgui.teClearUiState();
+        imgui.igSetClipboardText("");
         imgui.teQueueTest(self.engine, the_test, config.run_flags);
         while (!imgui.teIsTestQueueEmpty(self.engine)) {
             misc.error_context.clear();
@@ -278,4 +279,29 @@ test "should fail the test when test function returns error" {
         }.call,
     );
     try testing.expectError(error.TestError, test_result);
+}
+
+test "should have a working clipboard" {
+    const context = try getTestingContext();
+    try context.runTest(
+        .{},
+        struct {
+            fn call(_: ui.TestContext) !void {
+                const is_open = imgui.igBegin("Window", null, 0);
+                defer imgui.igEnd();
+                if (!is_open) return;
+                if (imgui.igButton("Button", .{})) {
+                    imgui.igSetClipboardText("clipboard text");
+                }
+            }
+        }.call,
+        struct {
+            fn call(ctx: ui.TestContext) !void {
+                try ctx.expectClipboardText("");
+                ctx.setRef("Window");
+                ctx.itemClick("Button", imgui.ImGuiMouseButton_Left, 0);
+                try ctx.expectClipboardText("clipboard text");
+            }
+        }.call,
+    );
 }

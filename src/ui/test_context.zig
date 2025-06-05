@@ -720,6 +720,17 @@ pub const TestContext = struct {
         return error.UnexpectedItemFound;
     }
 
+    pub fn expectClipboardText(_: Self, expected: []const u8) !void {
+        const actual = std.mem.sliceTo(imgui.igGetClipboardText(), 0);
+        try std.testing.expectEqualSlices(u8, expected, actual);
+    }
+
+    pub fn expectClipboardTextFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
+        const expected = try std.fmt.allocPrintZ(std.testing.allocator, fmt, args);
+        defer std.testing.allocator.free(expected);
+        return self.expectClipboardText(expected);
+    }
+
     pub fn getScrollX(self: Self, window_ref: anytype) f32 {
         return imgui.ImGuiTestContext_GetScrollX(self.raw, anyToRef(window_ref));
     }
