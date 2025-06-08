@@ -4,59 +4,58 @@ const imgui = @import("imgui");
 const log = @import("../log/root.zig");
 const ui = @import("../ui/root.zig");
 
-pub fn drawLogsWindow(comptime buffer_logger: type, open: ?*bool) void {
-    const is_open = imgui.igBegin("Logs", open, imgui.ImGuiWindowFlags_HorizontalScrollbar);
-    defer imgui.igEnd();
-    if (!is_open) {
-        return;
+pub const LogsWindow = struct {
+    is_scroll_at_bottom: bool = true,
+    scroll_y: f32 = 0.0,
+
+    const Self = @This();
+
+    pub fn draw(self: *Self, open: ?*bool, comptime buffer_logger: type) void {
+        const render_content = imgui.igBegin("Logs", open, imgui.ImGuiWindowFlags_HorizontalScrollbar);
+        defer imgui.igEnd();
+        if (!render_content) {
+            return;
+        }
+
+        {
+            const entries = buffer_logger.lockAndGetEntries();
+            defer buffer_logger.unlock();
+            for (0..entries.len) |index| {
+                const entry = entries.get(index) catch unreachable;
+                drawColoredText(getLogColor(entry.level), entry.full_message);
+            }
+        }
+
+        const was_scroll_at_bottom = self.is_scroll_at_bottom;
+        const did_scroll_y_change = imgui.igGetScrollY() != self.scroll_y;
+        if (was_scroll_at_bottom and !did_scroll_y_change) {
+            imgui.igSetScrollHereY(1.0);
+        }
+        self.is_scroll_at_bottom = imgui.igGetScrollY() >= imgui.igGetScrollMaxY() - 1.0;
+        self.scroll_y = imgui.igGetScrollY();
     }
 
-    {
-        const entries = buffer_logger.lockAndGetEntries();
-        defer buffer_logger.unlock();
-        for (0..entries.len) |index| {
-            const entry = entries.get(index) catch unreachable;
-            drawColoredText(getLogColor(entry.level), entry.full_message);
+    fn getLogColor(log_level: std.log.Level) imgui.ImVec4 {
+        return switch (log_level) {
+            .err => .{ .x = 1, .y = 0.5, .z = 0.5, .w = 1 },
+            .warn => .{ .x = 1, .y = 1, .z = 0, .w = 1 },
+            .info => .{ .x = 0, .y = 1, .z = 1, .w = 1 },
+            .debug => .{ .x = 0.7, .y = 0.7, .z = 0.7, .w = 1 },
+        };
+    }
+
+    fn drawColoredText(color: imgui.ImVec4, text: [:0]const u8) void {
+        imgui.igTextColored(color, "%s", text.ptr);
+        if (builtin.is_test) {
+            var min: imgui.ImVec2 = undefined;
+            var max: imgui.ImVec2 = undefined;
+            imgui.igGetItemRectMin(&min);
+            imgui.igGetItemRectMax(&max);
+            const rect = imgui.ImRect{ .Min = min, .Max = max };
+            imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(text), &rect, null);
         }
     }
-
-    const storage = imgui.igGetStateStorage();
-    const is_scroll_at_bottom_id = imgui.igGetID_Str("is_scroll_at_bottom");
-    const scroll_y_id = imgui.igGetID_Str("scroll_y");
-
-    const was_scroll_at_bottom = imgui.ImGuiStorage_GetBool(storage, is_scroll_at_bottom_id, true);
-    const previous_scroll_y = imgui.ImGuiStorage_GetFloat(storage, scroll_y_id, imgui.igGetScrollY());
-    const scroll_y_changed = imgui.igGetScrollY() != previous_scroll_y;
-
-    if (was_scroll_at_bottom and !scroll_y_changed) {
-        imgui.igSetScrollHereY(1.0);
-    }
-
-    const is_scroll_at_bottom = imgui.igGetScrollY() >= imgui.igGetScrollMaxY() - 1.0;
-    imgui.ImGuiStorage_SetBool(storage, is_scroll_at_bottom_id, is_scroll_at_bottom);
-    imgui.ImGuiStorage_SetFloat(storage, scroll_y_id, imgui.igGetScrollY());
-}
-
-fn getLogColor(log_level: std.log.Level) imgui.ImVec4 {
-    return switch (log_level) {
-        .err => .{ .x = 1, .y = 0.5, .z = 0.5, .w = 1 },
-        .warn => .{ .x = 1, .y = 1, .z = 0, .w = 1 },
-        .info => .{ .x = 0, .y = 1, .z = 1, .w = 1 },
-        .debug => .{ .x = 0.7, .y = 0.7, .z = 0.7, .w = 1 },
-    };
-}
-
-fn drawColoredText(color: imgui.ImVec4, text: [:0]const u8) void {
-    imgui.igTextColored(color, "%s", text.ptr);
-    if (builtin.is_test) {
-        var min: imgui.ImVec2 = undefined;
-        var max: imgui.ImVec2 = undefined;
-        imgui.igGetItemRectMin(&min);
-        imgui.igGetItemRectMax(&max);
-        const rect = imgui.ImRect{ .Min = min, .Max = max };
-        imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(text), &rect, null);
-    }
-}
+};
 
 const testing = std.testing;
 
@@ -79,24 +78,23 @@ test "should render every log message" {
     logger.logFn(.warn, std.log.default_log_scope, "Message: 3", .{});
     logger.logFn(.err, std.log.default_log_scope, "Message: 4", .{});
 
+    const Test = struct {
+        var window = LogsWindow{};
+
+        fn guiFunction(_: ui.TestContext) !void {
+            window.draw(null, logger);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef("Logs");
+            try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [debug] Message: 1");
+            try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [info] Message: 2");
+            try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [warning] Message: 3");
+            try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [error] Message: 4");
+        }
+    };
     const context = try ui.getTestingContext();
-    try context.runTest(
-        .{},
-        struct {
-            fn call(_: ui.TestContext) !void {
-                drawLogsWindow(logger, null);
-            }
-        }.call,
-        struct {
-            fn call(ctx: ui.TestContext) !void {
-                ctx.setRef("Logs");
-                try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [debug] Message: 1");
-                try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [info] Message: 2");
-                try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [warning] Message: 3");
-                try ctx.expectItemExists("2020-01-02T03:04:05.123456789 [error] Message: 4");
-            }
-        }.call,
-    );
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
 }
 
 test "should scroll to the bottom by default and still be able to scroll up" {
@@ -117,21 +115,20 @@ test "should scroll to the bottom by default and still be able to scroll up" {
         logger.logFn(.info, std.log.default_log_scope, "Message: {}", .{i});
     }
 
+    const Test = struct {
+        var window = LogsWindow{};
+
+        fn guiFunction(_: ui.TestContext) !void {
+            window.draw(null, logger);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            try testing.expectEqual(ctx.getScrollMaxY("Logs"), ctx.getScrollY("Logs"));
+            ctx.scrollToTop("Logs");
+            ctx.yield(1);
+            try testing.expectEqual(0, ctx.getScrollY("Logs"));
+        }
+    };
     const context = try ui.getTestingContext();
-    try context.runTest(
-        .{},
-        struct {
-            fn call(_: ui.TestContext) !void {
-                drawLogsWindow(logger, null);
-            }
-        }.call,
-        struct {
-            fn call(ctx: ui.TestContext) !void {
-                try testing.expectEqual(ctx.getScrollMaxY("Logs"), ctx.getScrollY("Logs"));
-                ctx.scrollToTop("Logs");
-                ctx.yield(1);
-                try testing.expectEqual(0, ctx.getScrollY("Logs"));
-            }
-        }.call,
-    );
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
 }

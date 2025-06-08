@@ -1,7 +1,7 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
 const imgui = @import("imgui");
-const dll = @import("dll.zig");
+
 const misc = @import("misc/root.zig");
 const dx12 = @import("dx12/root.zig");
 const ui = @import("ui/root.zig");
@@ -13,6 +13,8 @@ pub const EventBuss = struct {
     dx12_context: ?dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?ui.Context,
     game_memory: misc.Task(game.Memory),
+    main_window: components.MainWindow,
+    is_main_window_open: bool,
 
     const Self = @This();
     const buffer_count = 3;
@@ -67,6 +69,7 @@ pub const EventBuss = struct {
                 std.log.debug("Initializing game memory...", .{});
                 const memory = game.Memory.init(alloc, dir);
                 std.log.info("Game memory initialized.", .{});
+                ui.toasts.send(.success, null, "Irony initialized. Press F2 to open the Irony window.", .{});
                 return memory;
             }
         }.call, .{ allocator, base_dir }) catch |err| block: {
@@ -75,6 +78,7 @@ pub const EventBuss = struct {
             misc.error_context.logWarning(err);
             const memory = game.Memory.init(allocator, null);
             std.log.info("Game memory initialized.", .{});
+            ui.toasts.send(.success, null, "Irony initialized. Press F2 to open the Irony window.", .{});
             break :block misc.Task(game.Memory).createCompleted(memory);
         };
 
@@ -83,6 +87,8 @@ pub const EventBuss = struct {
             .dx12_context = dx12_context,
             .ui_context = ui_context,
             .game_memory = game_memory,
+            .main_window = .{},
+            .is_main_window_open = false,
         };
     }
 
@@ -145,8 +151,12 @@ pub const EventBuss = struct {
         imgui.igGetIO().*.MouseDrawCursor = true;
         ui.toasts.draw();
         if (self.game_memory.peek()) |game_memory| {
-            components.drawLogsWindow(dll.buffer_logger, null);
-            components.drawGameMemoryWindow(game_memory, null);
+            if (imgui.igIsKeyPressed_Bool(imgui.ImGuiKey_F2, false)) {
+                self.is_main_window_open = !self.is_main_window_open;
+            }
+            if (self.is_main_window_open) {
+                self.main_window.draw(&self.is_main_window_open, game_memory);
+            }
         } else {
             components.drawLoadingWindow("Searching for memory addresses and offsets...");
         }
