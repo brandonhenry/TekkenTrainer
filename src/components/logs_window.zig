@@ -9,9 +9,10 @@ pub const LogsWindow = struct {
     scroll_y: f32 = 0.0,
 
     const Self = @This();
+    pub const name = "Logs";
 
     pub fn draw(self: *Self, open: ?*bool, comptime buffer_logger: type) void {
-        const render_content = imgui.igBegin("Logs", open, imgui.ImGuiWindowFlags_HorizontalScrollbar);
+        const render_content = imgui.igBegin(name, open, imgui.ImGuiWindowFlags_HorizontalScrollbar);
         defer imgui.igEnd();
         if (!render_content) {
             return;
