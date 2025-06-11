@@ -65,6 +65,7 @@ test {
     _ = @import("components/game_memory_window.zig");
     _ = @import("components/loading_window.zig");
     _ = @import("components/main_window.zig");
+    _ = @import("components/quadrant-layout.zig");
     _ = @import("components/logs_window.zig");
 
     _ = struct {
