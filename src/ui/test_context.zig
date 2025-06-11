@@ -597,7 +597,7 @@ pub const TestContext = struct {
         return imgui.ImGuiTestContext_ItemDragAndDrop(self.raw, anyToRef(ref_src), anyToRef(ref_dst), button);
     }
 
-    pub fn ItemDragWithDelta(self: Self, ref_src: anytype, pos_delta: imgui.ImVec2) void {
+    pub fn itemDragWithDelta(self: Self, ref_src: anytype, pos_delta: imgui.ImVec2) void {
         return imgui.ImGuiTestContext_ItemDragWithDelta(self.raw, anyToRef(ref_src), pos_delta);
     }
 

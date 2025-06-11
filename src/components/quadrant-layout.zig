@@ -1,5 +1,6 @@
 const std = @import("std");
 const imgui = @import("imgui");
+const ui = @import("../ui/root.zig");
 
 pub const QuadrantLayout = struct {
     division: imgui.ImVec2 = .{ .x = 0.5, .y = 0.5 },
@@ -174,3 +175,252 @@ pub const QuadrantLayout = struct {
         imgui.igSetCursorScreenPos(.{ .x = cursor.x + content_size.x, .y = cursor.y + content_size.y });
     }
 };
+
+const testing = std.testing;
+
+test "should render correct content under correct id" {
+    const Test = struct {
+        var layout = QuadrantLayout{};
+
+        fn guiFunction(_: ui.TestContext) !void {
+            _ = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            layout.draw({}, &.{
+                .top_left = .{ .id = "top-left", .content = drawTopLeft },
+                .top_right = .{ .id = "top-right", .content = drawTopRight },
+                .bottom_left = .{ .id = "bottom-left", .content = drawBottomLeft },
+                .bottom_right = .{ .id = "bottom-right", .content = drawBottomRight },
+            });
+        }
+
+        fn drawTopLeft(_: void) void {
+            _ = imgui.igButton("Top Left", .{});
+        }
+
+        fn drawTopRight(_: void) void {
+            _ = imgui.igButton("Top Right", .{});
+        }
+
+        fn drawBottomLeft(_: void) void {
+            _ = imgui.igButton("Bottom Left", .{});
+        }
+
+        fn drawBottomRight(_: void) void {
+            _ = imgui.igButton("Bottom Right", .{});
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            ctx.setRef(ctx.windowInfo("//Window/top-left", 0).ID);
+            try ctx.expectItemExists("Top Left");
+            ctx.setRef(ctx.windowInfo("//Window/top-right", 0).ID);
+            try ctx.expectItemExists("Top Right");
+            ctx.setRef(ctx.windowInfo("//Window/bottom-left", 0).ID);
+            try ctx.expectItemExists("Bottom Left");
+            ctx.setRef(ctx.windowInfo("//Window/bottom-right", 0).ID);
+            try ctx.expectItemExists("Bottom Right");
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should pass the context to draw functions" {
+    const Test = struct {
+        var layout = QuadrantLayout{};
+        var top_left_context: ?i32 = null;
+        var top_right_context: ?i32 = null;
+        var bottom_left_context: ?i32 = null;
+        var bottom_right_context: ?i32 = null;
+
+        fn guiFunction(_: ui.TestContext) !void {
+            _ = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            const context: i32 = 123;
+            layout.draw(context, &.{
+                .top_left = .{ .id = "top-left", .content = drawTopLeft },
+                .top_right = .{ .id = "top-right", .content = drawTopRight },
+                .bottom_left = .{ .id = "bottom-left", .content = drawBottomLeft },
+                .bottom_right = .{ .id = "bottom-right", .content = drawBottomRight },
+            });
+        }
+
+        fn drawTopLeft(context: i32) void {
+            top_left_context = context;
+        }
+
+        fn drawTopRight(context: i32) void {
+            top_right_context = context;
+        }
+
+        fn drawBottomLeft(context: i32) void {
+            bottom_left_context = context;
+        }
+
+        fn drawBottomRight(context: i32) void {
+            bottom_right_context = context;
+        }
+
+        fn testFunction(_: ui.TestContext) !void {
+            try testing.expectEqual(123, top_left_context);
+            try testing.expectEqual(123, top_right_context);
+            try testing.expectEqual(123, bottom_left_context);
+            try testing.expectEqual(123, bottom_right_context);
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should resize child windows correctly when mouse dragging the handles" {
+    const Sizes = struct {
+        top_left: imgui.ImVec2 = .{},
+        top_right: imgui.ImVec2 = .{},
+        bottom_left: imgui.ImVec2 = .{},
+        bottom_right: imgui.ImVec2 = .{},
+
+        const Self = @This();
+
+        fn subtract(self: *const Self, other: *const Self) Self {
+            return .{
+                .top_left = .{
+                    .x = self.top_left.x - other.top_left.x,
+                    .y = self.top_left.y - other.top_left.y,
+                },
+                .top_right = .{
+                    .x = self.top_right.x - other.top_right.x,
+                    .y = self.top_right.y - other.top_right.y,
+                },
+                .bottom_left = .{
+                    .x = self.bottom_left.x - other.bottom_left.x,
+                    .y = self.bottom_left.y - other.bottom_left.y,
+                },
+                .bottom_right = .{
+                    .x = self.bottom_right.x - other.bottom_right.x,
+                    .y = self.bottom_right.y - other.bottom_right.y,
+                },
+            };
+        }
+    };
+
+    const Test = struct {
+        var layout = QuadrantLayout{
+            // Makes clicking on the center of axes handles not click the center handle.
+            .division = .{ .x = 0.25, .y = 0.75 },
+        };
+        var current = Sizes{};
+
+        fn guiFunction(_: ui.TestContext) !void {
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            _ = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            layout.draw({}, &.{
+                .top_left = .{ .id = "top-left", .content = drawTopLeft },
+                .top_right = .{ .id = "top-right", .content = drawTopRight },
+                .bottom_left = .{ .id = "bottom-left", .content = drawBottomLeft },
+                .bottom_right = .{ .id = "bottom-right", .content = drawBottomRight },
+            });
+        }
+
+        fn drawTopLeft(_: void) void {
+            imgui.igGetContentRegionAvail(&current.top_left);
+        }
+
+        fn drawTopRight(_: void) void {
+            imgui.igGetContentRegionAvail(&current.top_right);
+        }
+
+        fn drawBottomLeft(_: void) void {
+            imgui.igGetContentRegionAvail(&current.bottom_left);
+        }
+
+        fn drawBottomRight(_: void) void {
+            imgui.igGetContentRegionAvail(&current.bottom_right);
+        }
+
+        fn testFunction(ctx: ui.TestContext) !void {
+            var last = Sizes{};
+            var delta = Sizes{};
+            ctx.setRef("Window");
+
+            last = current;
+            ctx.itemDragWithDelta("x-handle", .{ .x = 10, .y = 20 });
+            delta = current.subtract(&last);
+
+            try testing.expectApproxEqAbs(10, delta.top_left.x, 1);
+            try testing.expectApproxEqAbs(0, delta.top_left.y, 1);
+            try testing.expectApproxEqAbs(-10, delta.top_right.x, 1);
+            try testing.expectApproxEqAbs(0, delta.top_right.y, 1);
+            try testing.expectApproxEqAbs(10, delta.bottom_left.x, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_left.y, 1);
+            try testing.expectApproxEqAbs(-10, delta.bottom_right.x, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_right.y, 1);
+
+            last = current;
+            ctx.itemDragWithDelta("x-handle", .{ .x = -10, .y = -20 });
+            delta = current.subtract(&last);
+
+            try testing.expectApproxEqAbs(-10, delta.top_left.x, 1);
+            try testing.expectApproxEqAbs(0, delta.top_left.y, 1);
+            try testing.expectApproxEqAbs(10, delta.top_right.x, 1);
+            try testing.expectApproxEqAbs(0, delta.top_right.y, 1);
+            try testing.expectApproxEqAbs(-10, delta.bottom_left.x, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_left.y, 1);
+            try testing.expectApproxEqAbs(10, delta.bottom_right.x, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_right.y, 1);
+
+            last = current;
+            ctx.itemDragWithDelta("y-handle", .{ .x = 10, .y = 20 });
+            delta = current.subtract(&last);
+
+            try testing.expectApproxEqAbs(0, delta.top_left.x, 1);
+            try testing.expectApproxEqAbs(20, delta.top_left.y, 1);
+            try testing.expectApproxEqAbs(0, delta.top_right.x, 1);
+            try testing.expectApproxEqAbs(20, delta.top_right.y, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_left.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.bottom_left.y, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_right.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.bottom_right.y, 1);
+
+            last = current;
+            ctx.itemDragWithDelta("y-handle", .{ .x = -10, .y = -20 });
+            delta = current.subtract(&last);
+
+            try testing.expectApproxEqAbs(0, delta.top_left.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.top_left.y, 1);
+            try testing.expectApproxEqAbs(0, delta.top_right.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.top_right.y, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_left.x, 1);
+            try testing.expectApproxEqAbs(20, delta.bottom_left.y, 1);
+            try testing.expectApproxEqAbs(0, delta.bottom_right.x, 1);
+            try testing.expectApproxEqAbs(20, delta.bottom_right.y, 1);
+
+            last = current;
+            ctx.itemDragWithDelta("center-handle", .{ .x = 10, .y = 20 });
+            delta = current.subtract(&last);
+
+            try testing.expectApproxEqAbs(10, delta.top_left.x, 1);
+            try testing.expectApproxEqAbs(20, delta.top_left.y, 1);
+            try testing.expectApproxEqAbs(-10, delta.top_right.x, 1);
+            try testing.expectApproxEqAbs(20, delta.top_right.y, 1);
+            try testing.expectApproxEqAbs(10, delta.bottom_left.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.bottom_left.y, 1);
+            try testing.expectApproxEqAbs(-10, delta.bottom_right.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.bottom_right.y, 1);
+
+            last = current;
+            ctx.itemDragWithDelta("center-handle", .{ .x = -10, .y = -20 });
+            delta = current.subtract(&last);
+
+            try testing.expectApproxEqAbs(-10, delta.top_left.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.top_left.y, 1);
+            try testing.expectApproxEqAbs(10, delta.top_right.x, 1);
+            try testing.expectApproxEqAbs(-20, delta.top_right.y, 1);
+            try testing.expectApproxEqAbs(-10, delta.bottom_left.x, 1);
+            try testing.expectApproxEqAbs(20, delta.bottom_left.y, 1);
+            try testing.expectApproxEqAbs(10, delta.bottom_right.x, 1);
+            try testing.expectApproxEqAbs(20, delta.bottom_right.y, 1);
+        }
+    };
+    const context = try ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
