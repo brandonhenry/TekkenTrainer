@@ -1,5 +1,6 @@
 const std = @import("std");
 const imgui = @import("imgui");
+const math = @import("root.zig");
 
 pub fn Matrix(comptime size: usize, comptime Element: type) type {
     if (@typeInfo(Element) != .int and @typeInfo(Element) != .float) {
@@ -250,6 +251,117 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
                 }
             }
             return result;
+        }
+
+        pub fn fromTranslation(translation: math.Vector(size - 1, Element)) Self {
+            var result = Self.identity();
+            inline for (0..size - 1) |i| {
+                result.array[size - 1][i] = translation.array[i];
+            }
+            return result;
+        }
+
+        pub fn translate(self: Self, translation: math.Vector(size - 1, Element)) Self {
+            const translation_matrix = Self.fromTranslation(translation);
+            return self.multiply(translation_matrix);
+        }
+
+        pub fn fromScale(scaling: math.Vector(size - 1, Element)) Self {
+            var result = Self.identity();
+            inline for (0..size - 1) |i| {
+                result.array[i][i] = scaling.array[i];
+            }
+            return result;
+        }
+
+        pub fn scale(self: Self, scaling: math.Vector(size - 1, Element)) Self {
+            const scale_matrix = Self.fromScale(scaling);
+            return self.multiply(scale_matrix);
+        }
+
+        pub fn fromXRotation(rotation: Element) Self {
+            if (size < 3) {
+                @compileError("This operation is only defined for 3x3 or larger matrices.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            var result = Self.identity();
+            result.array[1][1] = cos;
+            result.array[1][2] = sin;
+            result.array[2][1] = -sin;
+            result.array[2][2] = cos;
+            return result;
+        }
+
+        pub fn rotateX(self: Self, rotation: Element) Self {
+            const rotation_matrix = Self.fromXRotation(rotation);
+            return self.multiply(rotation_matrix);
+        }
+
+        pub fn fromYRotation(rotation: Element) Self {
+            if (size < 3) {
+                @compileError("This operation is only defined for 3x3 or larger matrices.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            var result = Self.identity();
+            result.array[0][0] = cos;
+            result.array[0][2] = sin;
+            result.array[2][0] = -sin;
+            result.array[2][2] = cos;
+            return result;
+        }
+
+        pub fn rotateY(self: Self, rotation: Element) Self {
+            const rotation_matrix = Self.fromYRotation(rotation);
+            return self.multiply(rotation_matrix);
+        }
+
+        pub fn fromZRotation(rotation: Element) Self {
+            if (size < 2) {
+                @compileError("This operation is only defined for 2x2 or larger matrices.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            var result = Self.identity();
+            result.array[0][0] = cos;
+            result.array[0][1] = sin;
+            result.array[1][0] = -sin;
+            result.array[1][1] = cos;
+            return result;
+        }
+
+        pub fn rotateZ(self: Self, rotation: Element) Self {
+            const rotation_matrix = Self.fromZRotation(rotation);
+            return self.multiply(rotation_matrix);
+        }
+
+        pub fn fromRotationAround(vector: math.Vector(3, Element), rotation: Element) Self {
+            if (size < 3) {
+                @compileError("This operation is only defined for 3x3 or larger matrices.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            const axis = vector.normalize();
+            const x = axis.array[0];
+            const y = axis.array[1];
+            const z = axis.array[2];
+            var result = Self.identity();
+            result.array[0][0] = cos + x * x * (1 - cos);
+            result.array[0][1] = y * x * (1 - cos) + z * sin;
+            result.array[0][2] = z * x * (1 - cos) - y * sin;
+            result.array[1][0] = x * y * (1 - cos) - z * sin;
+            result.array[1][1] = cos + y * y * (1 - cos);
+            result.array[2][1] = y * z * (1 - cos) - x * sin;
+            result.array[2][0] = x * z * (1 - cos) + y * sin;
+            result.array[1][2] = z * y * (1 - cos) + x * sin;
+            result.array[2][2] = cos + z * z * (1 - cos);
+            return result;
+        }
+
+        pub fn rotateAround(self: Self, vector: math.Vector(3, Element), rotation: Element) Self {
+            const rotation_matrix = Self.fromRotationAround(vector, rotation);
+            return self.multiply(rotation_matrix);
         }
     };
 }
@@ -570,4 +682,55 @@ test "scalarDivide should return correct value" {
         .{ 9, 10, 11, 12 },
         .{ 13, 14, 15, 16 },
     }, matrix.scalarDivide(5).array);
+}
+
+test "translate should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const translation = math.Vector(3, f32).fromArray(.{ 4, 5, 6 });
+    const matrix = Matrix(4, f32).identity().translate(translation);
+    try testing.expectEqual(.{ 5, 7, 9 }, vec.pointTransform(matrix).array);
+}
+
+test "scale should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const translation = math.Vector(3, f32).fromArray(.{ 4, 5, 6 });
+    const matrix = Matrix(4, f32).identity().scale(translation);
+    try testing.expectEqual(.{ 4, 10, 18 }, vec.pointTransform(matrix).array);
+}
+
+test "rotateX should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const matrix = Matrix(4, f32).identity().rotateX(0.5 * std.math.pi);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(1, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(-3, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(2, transformed.z(), 0.00001);
+}
+
+test "rotateY should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const matrix = Matrix(4, f32).identity().rotateY(0.5 * std.math.pi);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(-3, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(2, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(1, transformed.z(), 0.00001);
+}
+
+test "rotateZ should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const matrix = Matrix(4, f32).identity().rotateZ(0.5 * std.math.pi);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(-2, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(1, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(3, transformed.z(), 0.00001);
+}
+
+test "rotateAround should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const around = math.Vector(3, f32).fromArray(.{ 1, 1, 1 });
+    const matrix = Matrix(4, f32).identity().rotateAround(around, (2.0 / 3.0) * std.math.pi);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(3, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(1, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(2, transformed.z(), 0.00001);
 }

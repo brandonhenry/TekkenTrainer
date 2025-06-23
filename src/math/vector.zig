@@ -1,5 +1,6 @@
 const std = @import("std");
 const imgui = @import("imgui");
+const math = @import("root.zig");
 
 pub fn Vector(comptime size: usize, comptime Element: type) type {
     if (@typeInfo(Element) != .int and @typeInfo(Element) != .float) {
@@ -97,6 +98,24 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
                     @compileError(std.fmt.comptimePrint("Vector of size {} does not have a '{c}' component.", .{ size, character }));
                 }
                 array[query_index] = self.array[self_index];
+            }
+            return .{ .array = array };
+        }
+
+        pub fn extend(self: Self, value: Element) Vector(size + 1, Element) {
+            return .{ .array = self.array ++ [1]Element{value} };
+        }
+
+        pub fn shrink(self: Self, comptime new_size: usize) Vector(new_size, Element) {
+            if (new_size > size) {
+                @compileError(std.fmt.comptimePrint(
+                    "Can not shrink a vector from size {} to size {}.",
+                    .{ size, new_size },
+                ));
+            }
+            var array: [new_size]Element = undefined;
+            inline for (0..new_size) |index| {
+                array[index] = self.array[index];
             }
             return .{ .array = array };
         }
@@ -204,7 +223,17 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             return result;
         }
 
-        pub fn multiply(self: Self, other: Self) Self {
+        pub fn multiply(self: Self, matrix: math.Matrix(size, Element)) Self {
+            var result: Self = Self.zero();
+            inline for (0..size) |i| {
+                inline for (0..size) |j| {
+                    result.array[j] += self.array[i] * matrix.array[i][j];
+                }
+            }
+            return result;
+        }
+
+        pub fn multiplyElements(self: Self, other: Self) Self {
             var result: Self = undefined;
             inline for (self.array, other.array, 0..) |self_element, other_element, index| {
                 result.array[index] = self_element * other_element;
@@ -212,7 +241,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             return result;
         }
 
-        pub fn divide(self: Self, other: Self) Self {
+        pub fn divideElements(self: Self, other: Self) Self {
             var result: Self = undefined;
             inline for (self.array, other.array, 0..) |self_element, other_element, index| {
                 result.array[index] = self_element / other_element;
@@ -269,6 +298,63 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const other_len_squared = other.lengthSquared();
             return other.scale(dot_product).scaleDown(other_len_squared);
         }
+
+        pub fn rotateX(self: Self, rotation: Element) Self {
+            if (size < 3) {
+                @compileError("This operation is only defined for 3D or larger vectors.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            var result = self;
+            result.array[1] = (cos * self.array[1]) + (-sin * self.array[2]);
+            result.array[2] = (sin * self.array[1]) + (cos * self.array[2]);
+            return result;
+        }
+
+        pub fn rotateY(self: Self, rotation: Element) Self {
+            if (size < 3) {
+                @compileError("This operation is only defined for 3D or larger vectors.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            var result = self;
+            result.array[0] = (cos * self.array[0]) + (-sin * self.array[2]);
+            result.array[2] = (sin * self.array[0]) + (cos * self.array[2]);
+            return result;
+        }
+
+        pub fn rotateZ(self: Self, rotation: Element) Self {
+            if (size < 2) {
+                @compileError("This operation is only defined for 2D or larger vectors.");
+            }
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            var result = self;
+            result.array[0] = (cos * self.array[0]) + (-sin * self.array[1]);
+            result.array[1] = (sin * self.array[0]) + (cos * self.array[1]);
+            return result;
+        }
+
+        pub fn rotateAround(self: Self, other: Self, rotation: Element) Self {
+            const axis = other.normalize();
+            const cross_product = axis.cross(self);
+            const dot_product = axis.dot(self);
+            const cos = std.math.cos(rotation);
+            const sin = std.math.sin(rotation);
+            return self.scale(cos).add(cross_product.scale(sin)).add(axis.scale(dot_product * (1 - cos)));
+        }
+
+        pub fn pointTransform(self: Self, matrix: math.Matrix(size + 1, Element)) Self {
+            const homogeneous_input = self.extend(1);
+            const homogeneous_result = homogeneous_input.multiply(matrix);
+            return homogeneous_result.shrink(size).scaleDown(homogeneous_result.array[size]);
+        }
+
+        pub fn directionTransform(self: Self, matrix: math.Matrix(size + 1, Element)) Self {
+            const homogeneous_input = self.extend(0);
+            const homogeneous_result = homogeneous_input.multiply(matrix);
+            return homogeneous_result.shrink(size);
+        }
     };
 }
 
@@ -320,6 +406,16 @@ test "swizzle should return correct value" {
     try testing.expectEqual(.{ 1, 2, 3 }, vec.swizzle("xyz").array);
     try testing.expectEqual(.{ 1, 2, 3, 4 }, vec.swizzle("xyzw").array);
     try testing.expectEqual(.{ 1, 1, 2, 2, 3, 3, 4, 4 }, vec.swizzle("xxyyzzww").array);
+}
+
+test "extend should return correct value" {
+    const vec = Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    try testing.expectEqual(.{ 1, 2, 3, 4 }, vec.extend(4).array);
+}
+
+test "shrink should return correct value" {
+    const vec = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
+    try testing.expectEqual(.{ 1, 2, 3 }, vec.shrink(3).array);
 }
 
 test "fromImVec should return correct value" {
@@ -439,15 +535,26 @@ test "subtract should return correct value" {
 }
 
 test "multiply should return correct value" {
-    const vec_1 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
-    const vec_2 = Vector(4, f32).fromArray(.{ 5, 6, 7, 8 });
-    try testing.expectEqual(.{ 5, 12, 21, 32 }, vec_1.multiply(vec_2).array);
+    const vec = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
+    const matrix = math.Matrix(4, f32).fromArray(.{
+        .{ 5, 6, 7, 8 },
+        .{ 9, 10, 11, 12 },
+        .{ 13, 14, 15, 16 },
+        .{ 17, 18, 19, 20 },
+    });
+    try testing.expectEqual(.{ 130, 140, 150, 160 }, vec.multiply(matrix).array);
 }
 
-test "divide should return correct value" {
+test "multiplyElements should return correct value" {
+    const vec_1 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
+    const vec_2 = Vector(4, f32).fromArray(.{ 5, 6, 7, 8 });
+    try testing.expectEqual(.{ 5, 12, 21, 32 }, vec_1.multiplyElements(vec_2).array);
+}
+
+test "divideElements should return correct value" {
     const vec_1 = Vector(4, f32).fromArray(.{ 5, 12, 21, 32 });
     const vec_2 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
-    try testing.expectEqual(.{ 5, 6, 7, 8 }, vec_1.divide(vec_2).array);
+    try testing.expectEqual(.{ 5, 6, 7, 8 }, vec_1.divideElements(vec_2).array);
 }
 
 test "dot should return correct value" {
@@ -490,4 +597,73 @@ test "projectOnto should return correct value" {
     const vec_1 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
     const vec_2 = Vector(4, f32).fromArray(.{ 5, 6, 7, 8 });
     try testing.expectEqual(.{ 175.0 / 87.0, 70.0 / 29.0, 245.0 / 87.0, 280.0 / 87.0 }, vec_1.projectOnto(vec_2).array);
+}
+
+test "rotateX should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const rotated = vec.rotateX(0.5 * std.math.pi);
+    try testing.expectApproxEqAbs(1, rotated.x(), 0.00001);
+    try testing.expectApproxEqAbs(-3, rotated.y(), 0.00001);
+    try testing.expectApproxEqAbs(2, rotated.z(), 0.00001);
+}
+
+test "rotateY should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const rotated = vec.rotateY(0.5 * std.math.pi);
+    try testing.expectApproxEqAbs(-3, rotated.x(), 0.00001);
+    try testing.expectApproxEqAbs(2, rotated.y(), 0.00001);
+    try testing.expectApproxEqAbs(1, rotated.z(), 0.00001);
+}
+
+test "rotateZ should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const rotated = vec.rotateZ(0.5 * std.math.pi);
+    try testing.expectApproxEqAbs(-2, rotated.x(), 0.00001);
+    try testing.expectApproxEqAbs(1, rotated.y(), 0.00001);
+    try testing.expectApproxEqAbs(3, rotated.z(), 0.00001);
+}
+
+test "rotateAround should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const around = math.Vector(3, f32).fromArray(.{ 1, 1, 1 });
+    const rotated = vec.rotateAround(around, (2.0 / 3.0) * std.math.pi);
+    try testing.expectApproxEqAbs(3, rotated.x(), 0.00001);
+    try testing.expectApproxEqAbs(1, rotated.y(), 0.00001);
+    try testing.expectApproxEqAbs(2, rotated.z(), 0.00001);
+}
+
+test "pointTransform should return correct value" {
+    const vec = Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const matrix_1 = math.Matrix(4, f32).fromArray(.{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 1, 2, 3, 1 },
+    });
+    try testing.expectEqual(.{ 2, 4, 6 }, vec.pointTransform(matrix_1).array);
+    const matrix_2 = math.Matrix(4, f32).fromArray(.{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 2, 0, 0 },
+        .{ 0, 0, 3, 0 },
+        .{ 0, 0, 0, 1 },
+    });
+    try testing.expectEqual(.{ 1, 4, 9 }, vec.pointTransform(matrix_2).array);
+}
+
+test "directionTransform should return correct value" {
+    const vec = Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const matrix_1 = math.Matrix(4, f32).fromArray(.{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 1, 2, 3, 1 },
+    });
+    try testing.expectEqual(.{ 1, 2, 3 }, vec.directionTransform(matrix_1).array);
+    const matrix_2 = math.Matrix(4, f32).fromArray(.{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 2, 0, 0 },
+        .{ 0, 0, 3, 0 },
+        .{ 0, 0, 0, 1 },
+    });
+    try testing.expectEqual(.{ 1, 4, 9 }, vec.directionTransform(matrix_2).array);
 }
