@@ -28,6 +28,17 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             else => extern struct { r: Element, g: Element, b: Element, a: Element },
         };
 
+        pub const zero = Self.fill(0);
+        pub const ones = Self.fill(1);
+        pub const plus_x = Self.fromAxis(0);
+        pub const plus_y = Self.fromAxis(1);
+        pub const plus_z = Self.fromAxis(2);
+        pub const plus_w = Self.fromAxis(3);
+        pub const minus_x = plus_x.negate();
+        pub const minus_y = plus_y.negate();
+        pub const minus_z = plus_z.negate();
+        pub const minus_w = plus_w.negate();
+
         pub fn fromArray(array: Array) Self {
             return .{ .array = array };
         }
@@ -47,12 +58,15 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             return .{ .array = [1]Element{value} ** size };
         }
 
-        pub fn zero() Self {
-            return .{ .array = [1]Element{0} ** size };
-        }
-
-        pub fn ones() Self {
-            return .{ .array = [1]Element{1} ** size };
+        pub fn fromAxis(comptime axis_index: usize) Self {
+            if (axis_index >= size) {
+                @compileError(std.fmt.comptimePrint("Vector of size {} does not have a {} axis.", .{ size, axis_index }));
+            }
+            var array: Array = undefined;
+            inline for (0..size) |i| {
+                array[i] = if (i == axis_index) 1 else 0;
+            }
+            return .{ .array = array };
         }
 
         pub fn x(self: Self) Element {
@@ -252,7 +266,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn multiply(self: Self, matrix: math.Matrix(size, Element)) Self {
-            var result: Self = Self.zero();
+            var result = zero;
             inline for (0..size) |i| {
                 inline for (0..size) |j| {
                     result.array[j] += self.array[i] * matrix.array[i][j];
@@ -388,6 +402,16 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
 
 const testing = std.testing;
 
+test "zero should have correct value" {
+    const vec = Vector(4, f32).zero;
+    try testing.expectEqual(.{ 0, 0, 0, 0 }, vec.array);
+}
+
+test "ones should have correct value" {
+    const vec = Vector(4, f32).ones;
+    try testing.expectEqual(.{ 1, 1, 1, 1 }, vec.array);
+}
+
 test "fromArray should return correct value" {
     const vec = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
     try testing.expectEqual(.{ 1, 2, 3, 4 }, vec.array);
@@ -408,14 +432,9 @@ test "fill should return correct value" {
     try testing.expectEqual(.{ 123, 123, 123, 123 }, vec.array);
 }
 
-test "zero should return correct value" {
-    const vec = Vector(4, f32).zero();
-    try testing.expectEqual(.{ 0, 0, 0, 0 }, vec.array);
-}
-
-test "ones should return correct value" {
-    const vec = Vector(4, f32).ones();
-    try testing.expectEqual(.{ 1, 1, 1, 1 }, vec.array);
+test "fromAxis should return correct value" {
+    const vec = Vector(4, f32).fromAxis(2);
+    try testing.expectEqual(.{ 0, 0, 1, 0 }, vec.array);
 }
 
 test "x,y,z,w should return correct value" {
@@ -536,7 +555,7 @@ test "isNormalized should return correct value" {
 
 test "isZero should return correct value" {
     const vec_1 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
-    const vec_2 = Vector(4, f32).zero();
+    const vec_2 = Vector(4, f32).zero;
     const vec_3 = Vector(4, f32).fromArray(.{ 0.000001, -0.000001, 0, 0 });
     try testing.expectEqual(false, vec_1.isZero(0.00001));
     try testing.expectEqual(true, vec_2.isZero(0.00001));

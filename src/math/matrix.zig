@@ -50,6 +50,17 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             else => void,
         };
 
+        pub const identity = block: {
+            var array: Array = undefined;
+            for (0..size) |i| {
+                for (0..size) |j| {
+                    array[i][j] = if (i == j) 1 else 0;
+                }
+            }
+            break :block Self.fromArray(array);
+        };
+        pub const zero = Self.fill(0);
+
         pub fn fromArray(array: Array) Self {
             return .{ .array = array };
         }
@@ -63,24 +74,6 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
                 @compileError("This operation is not defined for vectors larger then 4D.");
             }
             return .{ .coords = coords };
-        }
-
-        pub fn identity() Self {
-            return comptime block: {
-                var array: Array = undefined;
-                for (0..size) |i| {
-                    for (0..size) |j| {
-                        array[i][j] = if (i == j) 1 else 0;
-                    }
-                }
-                break :block .{ .array = array };
-            };
-        }
-
-        pub fn zero() Self {
-            const row = [1]Element{0} ** size;
-            const array = [1]([size]Element){row} ** size;
-            return .{ .array = array };
         }
 
         pub fn fill(value: Element) Self {
@@ -272,7 +265,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn multiply(self: Self, other: Self) Self {
-            var result = Self.zero();
+            var result = zero;
             inline for (0..size) |i| {
                 inline for (0..size) |j| {
                     inline for (0..size) |k| {
@@ -304,7 +297,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn fromTranslation(translation: math.Vector(size - 1, Element)) Self {
-            var result = Self.identity();
+            var result = identity;
             inline for (0..size - 1) |i| {
                 result.array[size - 1][i] = translation.array[i];
             }
@@ -317,7 +310,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn fromScale(scaling: math.Vector(size - 1, Element)) Self {
-            var result = Self.identity();
+            var result = identity;
             inline for (0..size - 1) |i| {
                 result.array[i][i] = scaling.array[i];
             }
@@ -335,7 +328,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             }
             const cos = std.math.cos(rotation);
             const sin = std.math.sin(rotation);
-            var result = Self.identity();
+            var result = identity;
             result.array[1][1] = cos;
             result.array[1][2] = sin;
             result.array[2][1] = -sin;
@@ -354,7 +347,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             }
             const cos = std.math.cos(rotation);
             const sin = std.math.sin(rotation);
-            var result = Self.identity();
+            var result = identity;
             result.array[0][0] = cos;
             result.array[0][2] = sin;
             result.array[2][0] = -sin;
@@ -373,7 +366,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             }
             const cos = std.math.cos(rotation);
             const sin = std.math.sin(rotation);
-            var result = Self.identity();
+            var result = identity;
             result.array[0][0] = cos;
             result.array[0][1] = sin;
             result.array[1][0] = -sin;
@@ -396,7 +389,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             const x = axis.array[0];
             const y = axis.array[1];
             const z = axis.array[2];
-            var result = Self.identity();
+            var result = identity;
             result.array[0][0] = cos + x * x * (1 - cos);
             result.array[0][1] = y * x * (1 - cos) + z * sin;
             result.array[0][2] = z * x * (1 - cos) - y * sin;
@@ -413,10 +406,86 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             const rotation_matrix = Self.fromRotationAround(vector, rotation);
             return self.multiply(rotation_matrix);
         }
+
+        pub fn fromLookAt(
+            eye: math.Vector(3, Element),
+            target: math.Vector(3, Element),
+            up: math.Vector(3, Element),
+        ) Self {
+            if (size != 4) {
+                @compileError("This operation is only defined for 4x4 matrices.");
+            }
+
+            const fallback_forward = math.Vector(3, Element).plus_x;
+            const fallback_up = math.Vector(3, Element).plus_z;
+
+            var eye_minus_target = eye.subtract(target);
+            if (eye_minus_target.isZero(0)) {
+                std.log.warn("When creating a look at matrix, supplied eye vector was equal to the target vector. " ++
+                    "Using fallback look direction.", .{});
+                eye_minus_target = fallback_forward.negate();
+            }
+            const z = eye_minus_target.normalize();
+
+            const normalized_up = if (!up.isZero(0)) up.normalize() else block: {
+                std.log.warn("When creating a look at matrix, supplied up vector was zero. " ++
+                    "Using fallback up direction.", .{});
+                break :block fallback_up;
+            };
+            var up_cross_z = normalized_up.cross(z);
+            if (up_cross_z.isZero(0)) {
+                std.log.warn("When creating a look at matrix, supplied up vector was colinear with the look direction. " ++
+                    "Using fallback up direction.", .{});
+                up_cross_z = fallback_up.cross(z);
+                if (up_cross_z.isZero(0)) {
+                    up_cross_z = fallback_forward.cross(z);
+                }
+            }
+            const x = up_cross_z.normalize();
+
+            const y = z.cross(x);
+
+            return Self.fromArray(.{
+                .{ x.x(), y.x(), z.x(), 0 },
+                .{ x.y(), y.y(), z.y(), 0 },
+                .{ x.z(), y.z(), z.z(), 0 },
+                .{ -x.dot(eye), -y.dot(eye), -z.dot(eye), 1 },
+            });
+        }
+
+        pub fn lookAt(
+            self: Self,
+            eye: math.Vector(3, Element),
+            target: math.Vector(3, Element),
+            up: math.Vector(3, Element),
+        ) Self {
+            const look_at_matrix = Self.fromLookAt(eye, target, up);
+            return self.multiply(look_at_matrix);
+        }
     };
 }
 
 const testing = std.testing;
+
+test "identity should have correct value" {
+    const matrix = Matrix(4, f32).identity;
+    try testing.expectEqual([4][4]f32{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 0, 0, 0, 1 },
+    }, matrix.array);
+}
+
+test "zero should have correct value" {
+    const matrix = Matrix(4, f32).zero;
+    try testing.expectEqual([4][4]f32{
+        .{ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
+    }, matrix.array);
+}
 
 test "fromArray should return correct value" {
     const matrix = Matrix(4, f32).fromArray(.{
@@ -467,26 +536,6 @@ test "fromCoords should return correct value" {
         .{ 5, 6, 7, 8 },
         .{ 9, 10, 11, 12 },
         .{ 13, 14, 15, 16 },
-    }, matrix.array);
-}
-
-test "identity should return correct value" {
-    const matrix = Matrix(4, f32).identity();
-    try testing.expectEqual([4][4]f32{
-        .{ 1, 0, 0, 0 },
-        .{ 0, 1, 0, 0 },
-        .{ 0, 0, 1, 0 },
-        .{ 0, 0, 0, 1 },
-    }, matrix.array);
-}
-
-test "zero should return correct value" {
-    const matrix = Matrix(4, f32).zero();
-    try testing.expectEqual([4][4]f32{
-        .{ 0, 0, 0, 0 },
-        .{ 0, 0, 0, 0 },
-        .{ 0, 0, 0, 0 },
-        .{ 0, 0, 0, 0 },
     }, matrix.array);
 }
 
@@ -774,20 +823,20 @@ test "scalarDivide should return correct value" {
 test "translate should return correct value" {
     const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
     const translation = math.Vector(3, f32).fromArray(.{ 4, 5, 6 });
-    const matrix = Matrix(4, f32).identity().translate(translation);
+    const matrix = Matrix(4, f32).identity.translate(translation);
     try testing.expectEqual(.{ 5, 7, 9 }, vec.pointTransform(matrix).array);
 }
 
 test "scale should return correct value" {
     const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
     const translation = math.Vector(3, f32).fromArray(.{ 4, 5, 6 });
-    const matrix = Matrix(4, f32).identity().scale(translation);
+    const matrix = Matrix(4, f32).identity.scale(translation);
     try testing.expectEqual(.{ 4, 10, 18 }, vec.pointTransform(matrix).array);
 }
 
 test "rotateX should return correct value" {
     const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
-    const matrix = Matrix(4, f32).identity().rotateX(0.5 * std.math.pi);
+    const matrix = Matrix(4, f32).identity.rotateX(0.5 * std.math.pi);
     const transformed = vec.pointTransform(matrix);
     try testing.expectApproxEqAbs(1, transformed.x(), 0.00001);
     try testing.expectApproxEqAbs(-3, transformed.y(), 0.00001);
@@ -796,7 +845,7 @@ test "rotateX should return correct value" {
 
 test "rotateY should return correct value" {
     const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
-    const matrix = Matrix(4, f32).identity().rotateY(0.5 * std.math.pi);
+    const matrix = Matrix(4, f32).identity.rotateY(0.5 * std.math.pi);
     const transformed = vec.pointTransform(matrix);
     try testing.expectApproxEqAbs(-3, transformed.x(), 0.00001);
     try testing.expectApproxEqAbs(2, transformed.y(), 0.00001);
@@ -805,7 +854,7 @@ test "rotateY should return correct value" {
 
 test "rotateZ should return correct value" {
     const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
-    const matrix = Matrix(4, f32).identity().rotateZ(0.5 * std.math.pi);
+    const matrix = Matrix(4, f32).identity.rotateZ(0.5 * std.math.pi);
     const transformed = vec.pointTransform(matrix);
     try testing.expectApproxEqAbs(-2, transformed.x(), 0.00001);
     try testing.expectApproxEqAbs(1, transformed.y(), 0.00001);
@@ -815,9 +864,21 @@ test "rotateZ should return correct value" {
 test "rotateAround should return correct value" {
     const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
     const around = math.Vector(3, f32).fromArray(.{ 1, 1, 1 });
-    const matrix = Matrix(4, f32).identity().rotateAround(around, (2.0 / 3.0) * std.math.pi);
+    const matrix = Matrix(4, f32).identity.rotateAround(around, (2.0 / 3.0) * std.math.pi);
     const transformed = vec.pointTransform(matrix);
     try testing.expectApproxEqAbs(3, transformed.x(), 0.00001);
     try testing.expectApproxEqAbs(1, transformed.y(), 0.00001);
     try testing.expectApproxEqAbs(2, transformed.z(), 0.00001);
+}
+
+test "lookAt should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const eye = math.Vector(3, f32).fromArray(.{ 4, 0, 0 });
+    const target = math.Vector(3, f32).fromArray(.{ 4, 1, 0 });
+    const up = math.Vector(3, f32).fromArray(.{ 0, 0, 1 });
+    const matrix = Matrix(4, f32).identity.lookAt(eye, target, up);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(-3, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(3, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(-2, transformed.z(), 0.00001);
 }
