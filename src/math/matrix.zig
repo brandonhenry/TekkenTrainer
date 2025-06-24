@@ -385,7 +385,11 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             }
             const cos = std.math.cos(rotation);
             const sin = std.math.sin(rotation);
-            const axis = vector.normalize();
+            const axis = if (!vector.isZero(0)) vector.normalize() else block: {
+                std.log.warn("When creating a rotate around matrix, the supplied vector was zero. " ++
+                    "Using fallback rotation axis.", .{});
+                break :block math.Vector(3, Element).plus_x;
+            };
             const x = axis.array[0];
             const y = axis.array[1];
             const z = axis.array[2];
@@ -421,20 +425,20 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
 
             var eye_minus_target = eye.subtract(target);
             if (eye_minus_target.isZero(0)) {
-                std.log.warn("When creating a look at matrix, supplied eye vector was equal to the target vector. " ++
+                std.log.warn("When creating a look at matrix, the supplied eye vector was equal to the target vector. " ++
                     "Using fallback look direction.", .{});
                 eye_minus_target = fallback_forward.negate();
             }
             const z = eye_minus_target.normalize();
 
             const normalized_up = if (!up.isZero(0)) up.normalize() else block: {
-                std.log.warn("When creating a look at matrix, supplied up vector was zero. " ++
+                std.log.warn("When creating a look at matrix, the supplied up vector was zero. " ++
                     "Using fallback up direction.", .{});
                 break :block fallback_up;
             };
             var up_cross_z = normalized_up.cross(z);
             if (up_cross_z.isZero(0)) {
-                std.log.warn("When creating a look at matrix, supplied up vector was colinear with the look direction. " ++
+                std.log.warn("When creating a look at matrix, the supplied up vector was colinear with the look direction. " ++
                     "Using fallback up direction.", .{});
                 up_cross_z = fallback_up.cross(z);
                 if (up_cross_z.isZero(0)) {

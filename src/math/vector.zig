@@ -212,6 +212,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
 
         pub fn normalize(self: Self) Self {
             const len = self.length();
+            if (len == 0) {
+                std.log.warn("Attempting to normalize a zero vector. Skipping normalization.", .{});
+                return self;
+            }
             return self.scaleDown(len);
         }
 
@@ -328,6 +332,11 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const self_len = self.length();
             const other_len = other.length();
             if (self_len == 0 or other_len == 0) {
+                std.log.warn(
+                    "Attempting to find angle between vectors where one of the vectors is zero." ++
+                        "Returning fallback angle 0.",
+                    .{},
+                );
                 return 0;
             }
             const cos_angle = dot_product / (self_len * other_len);
@@ -338,6 +347,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         pub fn projectOnto(self: Self, other: Self) Self {
             const dot_product = self.dot(other);
             const other_len_squared = other.lengthSquared();
+            if (other_len_squared == 0) {
+                std.log.warn("Attempting to project a vector onto a zero vector. Skipping projection.", .{});
+                return self;
+            }
             return other.scale(dot_product).scaleDown(other_len_squared);
         }
 
@@ -389,7 +402,16 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         pub fn pointTransform(self: Self, matrix: math.Matrix(size + 1, Element)) Self {
             const homogeneous_input = self.extend(1);
             const homogeneous_result = homogeneous_input.multiply(matrix);
-            return homogeneous_result.shrink(size).scaleDown(homogeneous_result.array[size]);
+            var homogeneous_coordinate = homogeneous_result.array[size];
+            if (homogeneous_coordinate == 0) {
+                std.log.warn(
+                    "After point transformation, the resulting vector ended up with a zero homogeneous coordinate." ++
+                        "Using fallback homogeneous coordinate value of 1.",
+                    .{},
+                );
+                homogeneous_coordinate = 1;
+            }
+            return homogeneous_result.shrink(size).scaleDown(homogeneous_coordinate);
         }
 
         pub fn directionTransform(self: Self, matrix: math.Matrix(size + 1, Element)) Self {
