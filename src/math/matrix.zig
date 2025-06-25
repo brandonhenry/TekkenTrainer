@@ -305,8 +305,8 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn translate(self: Self, translation: math.Vector(size - 1, Element)) Self {
-            const translation_matrix = Self.fromTranslation(translation);
-            return self.multiply(translation_matrix);
+            const matrix = Self.fromTranslation(translation);
+            return self.multiply(matrix);
         }
 
         pub fn fromScale(scaling: math.Vector(size - 1, Element)) Self {
@@ -318,8 +318,8 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn scale(self: Self, scaling: math.Vector(size - 1, Element)) Self {
-            const scale_matrix = Self.fromScale(scaling);
-            return self.multiply(scale_matrix);
+            const matrix = Self.fromScale(scaling);
+            return self.multiply(matrix);
         }
 
         pub fn fromXRotation(rotation: Element) Self {
@@ -337,8 +337,8 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn rotateX(self: Self, rotation: Element) Self {
-            const rotation_matrix = Self.fromXRotation(rotation);
-            return self.multiply(rotation_matrix);
+            const matrix = Self.fromXRotation(rotation);
+            return self.multiply(matrix);
         }
 
         pub fn fromYRotation(rotation: Element) Self {
@@ -356,8 +356,8 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn rotateY(self: Self, rotation: Element) Self {
-            const rotation_matrix = Self.fromYRotation(rotation);
-            return self.multiply(rotation_matrix);
+            const matrix = Self.fromYRotation(rotation);
+            return self.multiply(matrix);
         }
 
         pub fn fromZRotation(rotation: Element) Self {
@@ -375,8 +375,8 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn rotateZ(self: Self, rotation: Element) Self {
-            const rotation_matrix = Self.fromZRotation(rotation);
-            return self.multiply(rotation_matrix);
+            const matrix = Self.fromZRotation(rotation);
+            return self.multiply(matrix);
         }
 
         pub fn fromRotationAround(vector: math.Vector(3, Element), rotation: Element) Self {
@@ -407,8 +407,8 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn rotateAround(self: Self, vector: math.Vector(3, Element), rotation: Element) Self {
-            const rotation_matrix = Self.fromRotationAround(vector, rotation);
-            return self.multiply(rotation_matrix);
+            const matrix = Self.fromRotationAround(vector, rotation);
+            return self.multiply(matrix);
         }
 
         pub fn fromLookAt(
@@ -423,31 +423,31 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             const fallback_forward = math.Vector(3, Element).plus_x;
             const fallback_up = math.Vector(3, Element).plus_z;
 
-            var eye_minus_target = eye.subtract(target);
-            if (eye_minus_target.isZero(0)) {
+            var direction = target.subtract(eye);
+            if (direction.isZero(0)) {
                 std.log.warn("When creating a look at matrix, the supplied eye vector was equal to the target vector. " ++
                     "Using fallback look direction.", .{});
-                eye_minus_target = fallback_forward.negate();
+                direction = fallback_forward;
             }
-            const z = eye_minus_target.normalize();
+            const z = direction.normalize();
 
             const normalized_up = if (!up.isZero(0)) up.normalize() else block: {
                 std.log.warn("When creating a look at matrix, the supplied up vector was zero. " ++
                     "Using fallback up direction.", .{});
                 break :block fallback_up;
             };
-            var up_cross_z = normalized_up.cross(z);
-            if (up_cross_z.isZero(0)) {
+            var z_cross_up = z.cross(normalized_up);
+            if (z_cross_up.isZero(0)) {
                 std.log.warn("When creating a look at matrix, the supplied up vector was colinear with the look direction. " ++
                     "Using fallback up direction.", .{});
-                up_cross_z = fallback_up.cross(z);
-                if (up_cross_z.isZero(0)) {
-                    up_cross_z = fallback_forward.cross(z);
+                z_cross_up = z.cross(fallback_up);
+                if (z_cross_up.isZero(0)) {
+                    z_cross_up = z.cross(fallback_up);
                 }
             }
-            const x = up_cross_z.normalize();
+            const x = z_cross_up.normalize();
 
-            const y = z.cross(x);
+            const y = x.cross(z);
 
             return Self.fromArray(.{
                 .{ x.x(), y.x(), z.x(), 0 },
@@ -463,8 +463,160 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             target: math.Vector(3, Element),
             up: math.Vector(3, Element),
         ) Self {
-            const look_at_matrix = Self.fromLookAt(eye, target, up);
-            return self.multiply(look_at_matrix);
+            const matrix = Self.fromLookAt(eye, target, up);
+            return self.multiply(matrix);
+        }
+
+        pub fn fromOrthographic(
+            left: Element,
+            right: Element,
+            bottom: Element,
+            top: Element,
+            near: Element,
+            far: Element,
+        ) Self {
+            if (size != 4) {
+                @compileError("This operation is only defined for 4x4 matrices.");
+            }
+            const fallback = Self.fromArray(.{
+                .{ 0.0, 0.0, 0.0, 0.0 },
+                .{ 0.0, 0.0, 0.0, 0.0 },
+                .{ 0.0, 0.0, 0.0, 10.0 },
+                .{ 0.0, 0.0, 0.0, 1.0 },
+            });
+            if (left == right) {
+                std.log.warn("When creating a orthographic matrix, the supplied left value was equal to right. " ++
+                    "Returning fallback value.", .{});
+                return fallback;
+            }
+            if (bottom == top) {
+                std.log.warn("When creating a orthographic matrix, the supplied bottom value was equal to top. " ++
+                    "Returning fallback value.", .{});
+                return fallback;
+            }
+            if (near == far) {
+                std.log.warn("When creating a orthographic matrix, the supplied near value was equal to far. " ++
+                    "Returning fallback value.", .{});
+                return fallback;
+            }
+            const width = right - left;
+            const height = top - bottom;
+            const depth = far - near;
+            return Self.fromArray(.{
+                .{ 2.0 / width, 0.0, 0.0, 0.0 },
+                .{ 0.0, 2.0 / height, 0.0, 0.0 },
+                .{ 0.0, 0.0, 1.0 / depth, 0.0 },
+                .{ -(right + left) / width, -(top + bottom) / height, -near / depth, 1.0 },
+            });
+        }
+
+        pub fn orthographic(
+            self: Self,
+            left: Element,
+            right: Element,
+            bottom: Element,
+            top: Element,
+            near: Element,
+            far: Element,
+        ) Self {
+            const matrix = Self.fromOrthographic(left, right, bottom, top, near, far);
+            return self.multiply(matrix);
+        }
+
+        pub fn fromFrustum(
+            left: Element,
+            right: Element,
+            bottom: Element,
+            top: Element,
+            near: Element,
+            far: Element,
+        ) Self {
+            if (size != 4) {
+                @compileError("This operation is only defined for 4x4 matrices.");
+            }
+            const fallback = Self.fromArray(.{
+                .{ 0.0, 0.0, 0.0, 0.0 },
+                .{ 0.0, 0.0, 0.0, 0.0 },
+                .{ 0.0, 0.0, 0.0, 10.0 },
+                .{ 0.0, 0.0, 0.0, 1.0 },
+            });
+            if (left == right) {
+                std.log.warn("When creating a frustum matrix, the supplied left value was equal to right. " ++
+                    "Returning fallback value.", .{});
+                return fallback;
+            }
+            if (bottom == top) {
+                std.log.warn("When creating a frustum matrix, the supplied bottom value was equal to top. " ++
+                    "Returning fallback value.", .{});
+                return fallback;
+            }
+            if (near == far) {
+                std.log.warn("When creating a frustum matrix, the supplied near value was equal to far. " ++
+                    "Returning fallback value.", .{});
+                return fallback;
+            }
+            const width = right - left;
+            const height = top - bottom;
+            const depth = far - near;
+
+            const a = (2.0 * near) / width;
+            const b = (2.0 * near) / height;
+            const c = (right + left) / width;
+            const d = (top + bottom) / height;
+            const e = far / depth;
+            const f = (-near * far) / depth;
+
+            return Self.fromArray(.{
+                .{ a, 0.0, 0.0, 0.0 },
+                .{ 0.0, b, 0.0, 0.0 },
+                .{ c, d, e, 1.0 },
+                .{ 0.0, 0.0, f, 0.0 },
+            });
+        }
+
+        pub fn frustum(
+            self: Self,
+            left: Element,
+            right: Element,
+            bottom: Element,
+            top: Element,
+            near: Element,
+            far: Element,
+        ) Self {
+            const matrix = Self.fromFrustum(left, right, bottom, top, near, far);
+            return self.multiply(matrix);
+        }
+
+        pub fn fromPerspective(
+            vertical_fov: Element,
+            aspect_ratio: Element,
+            near: Element,
+            far: Element,
+        ) Self {
+            const min_fov = 1 * std.math.rad_per_deg;
+            const max_fov = 179 * std.math.rad_per_deg;
+            const fov = if (vertical_fov >= min_fov and vertical_fov <= max_fov) vertical_fov else block: {
+                std.log.warn("When creating a perspective matrix, the supplied vertical fov {} was out of bounds. " ++
+                    "Clamping the fov back into bounds.", .{vertical_fov});
+                break :block std.math.clamp(vertical_fov, min_fov, max_fov);
+            };
+            const half_tan = std.math.tan(fov / 2);
+            const top = near * half_tan;
+            const bottom = -top;
+            const right = top * aspect_ratio;
+            const left = -right;
+            return Self.fromFrustum(left, right, bottom, top, near, far);
+        }
+
+        pub fn perspective(
+            self: Self,
+            vertical_fov: Element,
+            aspect_ratio: Element,
+            near: Element,
+            far: Element,
+        ) Self {
+            const matrix = Self.fromPerspective(vertical_fov, aspect_ratio, near, far);
+            return self.multiply(matrix);
         }
     };
 }
@@ -884,5 +1036,32 @@ test "lookAt should return correct value" {
     const transformed = vec.pointTransform(matrix);
     try testing.expectApproxEqAbs(-3, transformed.x(), 0.00001);
     try testing.expectApproxEqAbs(3, transformed.y(), 0.00001);
-    try testing.expectApproxEqAbs(-2, transformed.z(), 0.00001);
+    try testing.expectApproxEqAbs(2, transformed.z(), 0.00001);
+}
+
+test "orthographic should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 3 });
+    const matrix = Matrix(4, f32).identity.orthographic(-4, 4, -4, 4, -4, 4);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(0.25, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(0.5, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(0.875, transformed.z(), 0.00001);
+}
+
+test "frustum should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 4 });
+    const matrix = Matrix(4, f32).identity.frustum(-2, 2, -1, 1, 1, 5);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(0.125, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(0.5, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(15.0 / 16.0, transformed.z(), 0.00001);
+}
+
+test "perspective should return correct value" {
+    const vec = math.Vector(3, f32).fromArray(.{ 1, 2, 4 });
+    const matrix = Matrix(4, f32).identity.perspective(0.5 * std.math.pi, 2, 1, 5);
+    const transformed = vec.pointTransform(matrix);
+    try testing.expectApproxEqAbs(0.125, transformed.x(), 0.00001);
+    try testing.expectApproxEqAbs(0.5, transformed.y(), 0.00001);
+    try testing.expectApproxEqAbs(15.0 / 16.0, transformed.z(), 0.00001);
 }
