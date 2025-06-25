@@ -51,6 +51,9 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn fromColor(color: Color) Self {
+            if (size > 4) {
+                @compileError("This operation is not defined for vectors larger then 4D.");
+            }
             return .{ .color = color };
         }
 
