@@ -29,12 +29,7 @@ pub const MainWindow = struct {
         }
         self.drawMenuBar();
         if (imgui.igBeginChild_Str("views", .{ .x = 0, .y = -self.controls_height }, 0, 0)) {
-            self.quadrant_layout.draw(self, &.{
-                .top_left = .{ .id = "front", .content = drawFrontView },
-                .top_right = .{ .id = "side", .content = drawSideView },
-                .bottom_left = .{ .id = "top", .content = drawTopView },
-                .bottom_right = .{ .id = "details", .content = drawDetails },
-            });
+            self.drawQuadrants(game_memory);
         }
         imgui.igEndChild();
         if (imgui.igBeginChild_Str("controls", .{ .x = 0, .y = 0 }, 0, 0)) {
@@ -83,19 +78,37 @@ pub const MainWindow = struct {
         }
     }
 
-    fn drawFrontView(_: *Self) void {
-        imgui.igText("Front View");
+    const QuadrantContext = struct {
+        self: *Self,
+        player_1: *const components.View.Player,
+        player_2: *const components.View.Player,
+    };
+
+    fn drawQuadrants(self: *Self, game_memory: *const game.Memory) void {
+        const player_1 = game_memory.player_1.takePartialCopy(components.View.Player) orelse return;
+        const player_2 = game_memory.player_2.takePartialCopy(components.View.Player) orelse return;
+        const context = QuadrantContext{ .self = self, .player_1 = &player_1, .player_2 = &player_2 };
+        self.quadrant_layout.draw(context, &.{
+            .top_left = .{ .id = "front", .content = drawFrontView },
+            .top_right = .{ .id = "side", .content = drawSideView },
+            .bottom_left = .{ .id = "top", .content = drawTopView },
+            .bottom_right = .{ .id = "details", .content = drawDetails },
+        });
     }
 
-    fn drawSideView(_: *Self) void {
-        imgui.igText("Side View");
+    fn drawFrontView(context: QuadrantContext) void {
+        components.View.front.draw(context.player_1, context.player_2);
     }
 
-    fn drawTopView(_: *Self) void {
-        imgui.igText("Top View");
+    fn drawSideView(context: QuadrantContext) void {
+        components.View.side.draw(context.player_1, context.player_2);
     }
 
-    fn drawDetails(_: *Self) void {
+    fn drawTopView(context: QuadrantContext) void {
+        components.View.top.draw(context.player_1, context.player_2);
+    }
+
+    fn drawDetails(_: QuadrantContext) void {
         imgui.igText("Details");
     }
 
