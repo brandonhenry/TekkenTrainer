@@ -386,8 +386,11 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             const cos = std.math.cos(rotation);
             const sin = std.math.sin(rotation);
             const axis = if (!vector.isZero(0)) vector.normalize() else block: {
-                std.log.warn("When creating a rotate around matrix, the supplied vector was zero. " ++
-                    "Using fallback rotation axis.", .{});
+                std.log.warn(
+                    "When creating a rotate around matrix, the supplied vector {} was zero. " ++
+                        "Using fallback rotation axis.",
+                    .{vector},
+                );
                 break :block math.Vector(3, Element).plus_x;
             };
             const x = axis.array[0];
@@ -425,21 +428,29 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
 
             var direction = target.subtract(eye);
             if (direction.isZero(0)) {
-                std.log.warn("When creating a look at matrix, the supplied eye vector was equal to the target vector. " ++
-                    "Using fallback look direction.", .{});
+                std.log.warn(
+                    "When creating a look at matrix, the supplied eye vector {} was equal to the target vector {}. " ++
+                        "Using fallback look direction.",
+                    .{ eye, target },
+                );
                 direction = fallback_forward;
             }
             const z = direction.normalize();
 
             const normalized_up = if (!up.isZero(0)) up.normalize() else block: {
-                std.log.warn("When creating a look at matrix, the supplied up vector was zero. " ++
-                    "Using fallback up direction.", .{});
+                std.log.warn(
+                    "When creating a look at matrix, the supplied up vector {} was zero. Using fallback up direction.",
+                    .{up},
+                );
                 break :block fallback_up;
             };
             var z_cross_up = z.cross(normalized_up);
             if (z_cross_up.isZero(0)) {
-                std.log.warn("When creating a look at matrix, the supplied up vector was colinear with the look direction. " ++
-                    "Using fallback up direction.", .{});
+                std.log.warn(
+                    "When creating a look at matrix, the supplied up vector {} was colinear with the look direction {}. " ++
+                        "Using fallback up direction.",
+                    .{ up, direction },
+                );
                 z_cross_up = z.cross(fallback_up);
                 if (z_cross_up.isZero(0)) {
                     z_cross_up = z.cross(fallback_up);
@@ -485,18 +496,27 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
                 .{ 0.0, 0.0, 0.0, 1.0 },
             });
             if (left == right) {
-                std.log.warn("When creating a orthographic matrix, the supplied left value was equal to right. " ++
-                    "Returning fallback value.", .{});
+                std.log.warn(
+                    "When creating a orthographic matrix, the supplied left value {} was equal to right {}. " ++
+                        "Returning fallback value.",
+                    .{ left, right },
+                );
                 return fallback;
             }
             if (bottom == top) {
-                std.log.warn("When creating a orthographic matrix, the supplied bottom value was equal to top. " ++
-                    "Returning fallback value.", .{});
+                std.log.warn(
+                    "When creating a orthographic matrix, the supplied bottom value {} was equal to top {}. " ++
+                        "Returning fallback value.",
+                    .{ bottom, top },
+                );
                 return fallback;
             }
             if (near == far) {
-                std.log.warn("When creating a orthographic matrix, the supplied near value was equal to far. " ++
-                    "Returning fallback value.", .{});
+                std.log.warn(
+                    "When creating a orthographic matrix, the supplied near value {} was equal to far {}. " ++
+                        "Returning fallback value.",
+                    .{ near, far },
+                );
                 return fallback;
             }
             const width = right - left;
@@ -541,18 +561,27 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
                 .{ 0.0, 0.0, 0.0, 1.0 },
             });
             if (left == right) {
-                std.log.warn("When creating a frustum matrix, the supplied left value was equal to right. " ++
-                    "Returning fallback value.", .{});
+                std.log.warn(
+                    "When creating a frustum matrix, the supplied left value {} was equal to right {}. " ++
+                        "Returning fallback value.",
+                    .{ left, right },
+                );
                 return fallback;
             }
             if (bottom == top) {
-                std.log.warn("When creating a frustum matrix, the supplied bottom value was equal to top. " ++
-                    "Returning fallback value.", .{});
+                std.log.warn(
+                    "When creating a frustum matrix, the supplied bottom value {} was equal to top {}. " ++
+                        "Returning fallback value.",
+                    .{ bottom, top },
+                );
                 return fallback;
             }
             if (near == far) {
-                std.log.warn("When creating a frustum matrix, the supplied near value was equal to far. " ++
-                    "Returning fallback value.", .{});
+                std.log.warn(
+                    "When creating a frustum matrix, the supplied near value {} was equal to far {}. " ++
+                        "Returning fallback value.",
+                    .{ near, far },
+                );
                 return fallback;
             }
             const width = right - left;
@@ -596,8 +625,11 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             const min_fov = 1 * std.math.rad_per_deg;
             const max_fov = 179 * std.math.rad_per_deg;
             const fov = if (vertical_fov >= min_fov and vertical_fov <= max_fov) vertical_fov else block: {
-                std.log.warn("When creating a perspective matrix, the supplied vertical fov {} was out of bounds. " ++
-                    "Clamping the fov back into bounds.", .{vertical_fov});
+                std.log.warn(
+                    "When creating a perspective matrix, the supplied vertical fov {} was out of bounds. " ++
+                        "Clamping the fov back into bounds.",
+                    .{vertical_fov},
+                );
                 break :block std.math.clamp(vertical_fov, min_fov, max_fov);
             };
             const half_tan = std.math.tan(fov / 2);
@@ -617,6 +649,34 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         ) Self {
             const matrix = Self.fromPerspective(vertical_fov, aspect_ratio, near, far);
             return self.multiply(matrix);
+        }
+
+        pub fn format(
+            self: Self,
+            comptime fmt: []const u8,
+            options: std.fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            _ = options;
+            if (fmt.len != 0) {
+                @compileError(std.fmt.comptimePrint(
+                    "Invalid matrix format {{{s}}}. The only allowed format for matrix is {{}}.",
+                    .{fmt},
+                ));
+            }
+            inline for (0..size) |i| {
+                try writer.writeByte('|');
+                inline for (0..size) |j| {
+                    try writer.print("{}", .{self.array[i][j]});
+                    if (j < size - 1) {
+                        try writer.writeAll(", ");
+                    }
+                }
+                try writer.writeByte('|');
+                if (i < size - 1) {
+                    try writer.writeByte('\n');
+                }
+            }
         }
     };
 }
@@ -1064,4 +1124,22 @@ test "perspective should return correct value" {
     try testing.expectApproxEqAbs(0.125, transformed.x(), 0.00001);
     try testing.expectApproxEqAbs(0.5, transformed.y(), 0.00001);
     try testing.expectApproxEqAbs(15.0 / 16.0, transformed.z(), 0.00001);
+}
+
+test "should format correctly" {
+    const matrix = Matrix(4, f32).fromArray(.{
+        .{ 1, 2, 3, 4 },
+        .{ 5, 6, 7, 8 },
+        .{ 9, 10, 11, 12 },
+        .{ 13, 14, 15, 16 },
+    });
+    const string = try std.fmt.allocPrint(testing.allocator, "{}", .{matrix});
+    defer testing.allocator.free(string);
+    try testing.expectEqualStrings(
+        "|1e0, 2e0, 3e0, 4e0|\n" ++
+            "|5e0, 6e0, 7e0, 8e0|\n" ++
+            "|9e0, 1e1, 1.1e1, 1.2e1|\n" ++
+            "|1.3e1, 1.4e1, 1.5e1, 1.6e1|",
+        string,
+    );
 }

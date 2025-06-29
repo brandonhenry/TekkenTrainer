@@ -63,7 +63,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
 
         pub fn fromAxis(comptime axis_index: usize) Self {
             if (axis_index >= size) {
-                @compileError(std.fmt.comptimePrint("Vector of size {} does not have a {} axis.", .{ size, axis_index }));
+                @compileError(std.fmt.comptimePrint(
+                    "Vector of size {} does not have a {} axis.",
+                    .{ size, axis_index },
+                ));
             }
             var array: Array = undefined;
             inline for (0..size) |i| {
@@ -140,7 +143,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
                     else => @compileError(std.fmt.comptimePrint("Invalid swizzle character: '{c}'", .{character})),
                 };
                 if (self_index >= size) {
-                    @compileError(std.fmt.comptimePrint("Vector of size {} does not have a '{c}' component.", .{ size, character }));
+                    @compileError(std.fmt.comptimePrint(
+                        "Vector of size {} does not have a '{c}' component.",
+                        .{ size, character },
+                    ));
                 }
                 array[query_index] = self.array[self_index];
             }
@@ -216,7 +222,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         pub fn normalize(self: Self) Self {
             const len = self.length();
             if (len == 0) {
-                std.log.warn("Attempting to normalize a zero vector. Skipping normalization.", .{});
+                std.log.warn("Attempting to normalize a zero vector {}. Skipping normalization.", .{self});
                 return self;
             }
             return self.scaleDown(len);
@@ -325,7 +331,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         pub fn cross(self: Self, other: Self) switch (size) {
             2 => Element,
             3 => Self,
-            else => @compileError(std.fmt.comptimePrint("Cross product is not defined for vectors of size: {}", .{size})),
+            else => @compileError(std.fmt.comptimePrint(
+                "Cross product is not defined for vectors of size: {}",
+                .{size},
+            )),
         } {
             return switch (size) {
                 2 => (self.x() * other.y()) - (self.y() * other.x()),
@@ -334,7 +343,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
                     self.z() * other.x() - self.x() * other.z(),
                     self.x() * other.y() - self.y() * other.x(),
                 }),
-                else => @compileError(std.fmt.comptimePrint("Cross product is not defined for vectors of size: {}", .{size})),
+                else => @compileError(std.fmt.comptimePrint(
+                    "Cross product is not defined for vectors of size: {}",
+                    .{size},
+                )),
             };
         }
 
@@ -352,9 +364,9 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const other_len = other.length();
             if (self_len == 0 or other_len == 0) {
                 std.log.warn(
-                    "Attempting to find angle between vectors where one of the vectors is zero." ++
+                    "Attempting to find angle between vectors {} and {}. However, one of the vectors is zero." ++
                         "Returning fallback angle 0.",
-                    .{},
+                    .{ self, other },
                 );
                 return 0;
             }
@@ -367,7 +379,10 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const dot_product = self.dot(other);
             const other_len_squared = other.lengthSquared();
             if (other_len_squared == 0) {
-                std.log.warn("Attempting to project a vector onto a zero vector. Skipping projection.", .{});
+                std.log.warn(
+                    "Attempting to project a vector {} onto a zero vector {}. Skipping projection.",
+                    .{ self, other },
+                );
                 return self;
             }
             return other.scale(dot_product).scaleDown(other_len_squared);
@@ -424,9 +439,9 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             var homogeneous_coordinate = homogeneous_result.array[size];
             if (homogeneous_coordinate == 0) {
                 std.log.warn(
-                    "After point transformation, the resulting vector ended up with a zero homogeneous coordinate." ++
-                        "Using fallback homogeneous coordinate value of 1.",
-                    .{},
+                    "After point transformation of {}, the resulting vector {} has a zero homogeneous coordinate." ++
+                        "Using fallback homogeneous coordinate value of 1. The transformation matrix was:\n{}",
+                    .{ self, homogeneous_result, matrix },
                 );
                 homogeneous_coordinate = 1;
             }
@@ -437,6 +452,29 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const homogeneous_input = self.extend(0);
             const homogeneous_result = homogeneous_input.multiply(matrix);
             return homogeneous_result.shrink(size);
+        }
+
+        pub fn format(
+            self: Self,
+            comptime fmt: []const u8,
+            options: std.fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            _ = options;
+            if (fmt.len != 0) {
+                @compileError(std.fmt.comptimePrint(
+                    "Invalid vector format {{{s}}}. The only allowed format for vectors is {{}}.",
+                    .{fmt},
+                ));
+            }
+            try writer.writeByte('{');
+            inline for (self.array, 0..) |element, index| {
+                try writer.print("{}", .{element});
+                if (index < size - 1) {
+                    try writer.writeAll(", ");
+                }
+            }
+            try writer.writeByte('}');
         }
     };
 }
@@ -776,4 +814,11 @@ test "directionTransform should return correct value" {
         .{ 0, 0, 0, 1 },
     });
     try testing.expectEqual(.{ 1, 4, 9 }, vec.directionTransform(matrix_2).array);
+}
+
+test "should format correctly" {
+    const vec = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
+    const string = try std.fmt.allocPrint(testing.allocator, "{}", .{vec});
+    defer testing.allocator.free(string);
+    try testing.expectEqualStrings("{1e0, 2e0, 3e0, 4e0}", string);
 }
