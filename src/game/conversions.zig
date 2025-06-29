@@ -43,32 +43,80 @@ pub fn hitLinePointFromUnrealSpace(value: game.HitLinePoint) game.HitLinePoint {
 pub fn hurtCylinderToUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
     var converted = value;
     converted.position = pointToUnrealSpace(value.position);
-    converted.half_height = value.half_height * to_unreal_scale;
-    converted.squared_radius = value.squared_radius * to_unreal_scale * to_unreal_scale;
-    converted.radius = value.radius * to_unreal_scale;
+    converted.half_height = scaleToUnrealSpace(value.half_height);
+    converted.squared_radius = scaleToUnrealSpace(scaleToUnrealSpace(value.squared_radius));
+    converted.radius = scaleToUnrealSpace(value.radius);
     return converted;
 }
 
 pub fn hurtCylinderFromUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
     var converted = value;
     converted.position = pointFromUnrealSpace(value.position);
-    converted.half_height = value.half_height * from_unreal_scale;
-    converted.squared_radius = value.squared_radius * from_unreal_scale * from_unreal_scale;
-    converted.radius = value.radius * from_unreal_scale;
+    converted.half_height = scaleFromUnrealSpace(value.half_height);
+    converted.squared_radius = scaleFromUnrealSpace(scaleFromUnrealSpace(value.squared_radius));
+    converted.radius = scaleFromUnrealSpace(value.radius);
     return converted;
 }
 
 pub fn collisionSphereToUnrealSpace(value: game.CollisionSphere) game.CollisionSphere {
     var converted = value;
     converted.position = pointToUnrealSpace(value.position);
-    converted.radius = value.radius * to_unreal_scale;
+    converted.radius = scaleToUnrealSpace(value.radius);
     return converted;
 }
 
 pub fn collisionSphereFromUnrealSpace(value: game.CollisionSphere) game.CollisionSphere {
     var converted = value;
     converted.position = pointFromUnrealSpace(value.position);
-    converted.radius = value.radius * from_unreal_scale;
+    converted.radius = scaleFromUnrealSpace(value.radius);
+    return converted;
+}
+
+pub fn hitLinePointsToUnrealSpace(value: game.HitLinePoints) game.HitLinePoints {
+    var converted: game.HitLinePoints = undefined;
+    for (value, 0..) |element, index| {
+        converted[index] = hitLinePointToUnrealSpace(element);
+    }
+    return converted;
+}
+
+pub fn hitLinePointsFromUnrealSpace(value: game.HitLinePoints) game.HitLinePoints {
+    var converted: game.HitLinePoints = undefined;
+    for (value, 0..) |element, index| {
+        converted[index] = hitLinePointFromUnrealSpace(element);
+    }
+    return converted;
+}
+
+pub fn hurtCylindersToUnrealSpace(value: game.HurtCylinders) game.HurtCylinders {
+    var converted: game.HurtCylinders = undefined;
+    for (value.asConstArray(), 0..) |element, index| {
+        converted.asMutableArray()[index] = hurtCylinderToUnrealSpace(element);
+    }
+    return converted;
+}
+
+pub fn hurtCylindersFromUnrealSpace(value: game.HurtCylinders) game.HurtCylinders {
+    var converted: game.HurtCylinders = undefined;
+    for (value.asConstArray(), 0..) |element, index| {
+        converted.asMutableArray()[index] = hurtCylinderFromUnrealSpace(element);
+    }
+    return converted;
+}
+
+pub fn collisionSpheresToUnrealSpace(value: game.CollisionSpheres) game.CollisionSpheres {
+    var converted: game.CollisionSpheres = undefined;
+    for (value.asConstArray(), 0..) |element, index| {
+        converted.asMutableArray()[index] = collisionSphereToUnrealSpace(element);
+    }
+    return converted;
+}
+
+pub fn collisionSpheresFromUnrealSpace(value: game.CollisionSpheres) game.CollisionSpheres {
+    var converted: game.CollisionSpheres = undefined;
+    for (value.asConstArray(), 0..) |element, index| {
+        converted.asMutableArray()[index] = collisionSphereFromUnrealSpace(element);
+    }
     return converted;
 }
 
@@ -117,4 +165,64 @@ test "collisionSphereToUnrealSpace and collisionSphereFromUnrealSpace should can
     };
     try testing.expectEqual(value, collisionSphereToUnrealSpace(collisionSphereFromUnrealSpace(value)));
     try testing.expectEqual(value, collisionSphereFromUnrealSpace(collisionSphereToUnrealSpace(value)));
+}
+
+test "hitLinePointsToUnrealSpace and hitLinePointsFromUnrealSpace should cancel out" {
+    const value = game.HitLinePoints{
+        .{ .position = .{ 1, 2, 3 }, ._padding = undefined },
+        .{ .position = .{ 4, 5, 6 }, ._padding = undefined },
+        .{ .position = .{ 7, 8, 9 }, ._padding = undefined },
+    };
+    try testing.expectEqual(value, hitLinePointsToUnrealSpace(hitLinePointsFromUnrealSpace(value)));
+    try testing.expectEqual(value, hitLinePointsFromUnrealSpace(hitLinePointsToUnrealSpace(value)));
+}
+
+test "hurtCylindersToUnrealSpace and hurtCylindersFromUnrealSpace should cancel out" {
+    const cylinder = game.HurtCylinder{
+        .position = .{ 1, 2, 3 },
+        .multiplier = 4,
+        .half_height = 5,
+        .squared_radius = 6,
+        .radius = 7,
+        ._padding = undefined,
+    };
+    const value = game.HurtCylinders{
+        .left_ankle = cylinder,
+        .right_ankle = cylinder,
+        .left_hand = cylinder,
+        .right_hand = cylinder,
+        .left_knee = cylinder,
+        .right_knee = cylinder,
+        .left_elbow = cylinder,
+        .right_elbow = cylinder,
+        .head = cylinder,
+        .left_shoulder = cylinder,
+        .right_shoulder = cylinder,
+        .upper_torso = cylinder,
+        .left_pelvis = cylinder,
+        .right_pelvis = cylinder,
+    };
+    try testing.expectEqual(value, hurtCylindersToUnrealSpace(hurtCylindersFromUnrealSpace(value)));
+    try testing.expectEqual(value, hurtCylindersFromUnrealSpace(hurtCylindersToUnrealSpace(value)));
+}
+
+test "collisionSpheresToUnrealSpace and collisionSpheresFromUnrealSpace should cancel out" {
+    const sphere = game.CollisionSphere{
+        .position = .{ 1, 2, 3 },
+        .multiplier = 4,
+        .radius = 5,
+        ._padding = undefined,
+    };
+    const value = game.CollisionSpheres{
+        .neck = sphere,
+        .left_elbow = sphere,
+        .right_elbow = sphere,
+        .lower_torso = sphere,
+        .left_knee = sphere,
+        .right_knee = sphere,
+        .left_ankle = sphere,
+        .right_ankle = sphere,
+    };
+    try testing.expectEqual(value, collisionSpheresToUnrealSpace(collisionSpheresFromUnrealSpace(value)));
+    try testing.expectEqual(value, collisionSpheresFromUnrealSpace(collisionSpheresToUnrealSpace(value)));
 }

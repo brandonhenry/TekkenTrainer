@@ -671,7 +671,7 @@ const Context = struct {
     }
 };
 
-pub inline fn hasTag(comptime Type: type, comptime tag: type) bool {
+inline fn hasTag(comptime Type: type, comptime tag: type) bool {
     comptime {
         if (@typeInfo(Type) != .@"struct") return false;
         if (!@hasDecl(Type, "tag")) return false;

@@ -86,8 +86,8 @@ pub const MainWindow = struct {
     };
 
     fn drawQuadrants(self: *Self, game_memory: *const game.Memory) void {
-        const player_1 = if (game_memory.player_1.takePartialCopy(components.View.Player)) |p| &p else null;
-        const player_2 = if (game_memory.player_2.takePartialCopy(components.View.Player)) |p| &p else null;
+        const player_1 = if (game_memory.player_1.takeConvertedPartialCopy(components.View.Player)) |p| &p else null;
+        const player_2 = if (game_memory.player_2.takeConvertedPartialCopy(components.View.Player)) |p| &p else null;
         const context = QuadrantContext{ .self = self, .player_1 = player_1, .player_2 = player_2 };
         self.quadrant_layout.draw(context, &.{
             .top_left = .{ .id = "front", .content = drawFrontView },

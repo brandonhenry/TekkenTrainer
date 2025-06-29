@@ -87,6 +87,35 @@ pub fn StructProxy(comptime Struct: type) type {
             return copy;
         }
 
+        pub fn takeConvertedPartialCopy(self: *const Self, comptime Partial: type) ?Partial {
+            const partial_fields = switch (@typeInfo(Partial)) {
+                .@"struct" => |info| info.fields,
+                else => @compileError(std.fmt.comptimePrint(
+                    "Expected Partial to be a struct type but got: {}",
+                    .{@typeName(Partial)},
+                )),
+            };
+            var copy: Partial = undefined;
+            inline for (partial_fields) |*field| {
+                const value_pointer = self.findConstFieldPointer(field.name) orelse return null;
+                if (isConvertedValue(@FieldType(Struct, field.name))) {
+                    @field(copy, field.name) = value_pointer.getValue();
+                } else {
+                    @field(copy, field.name) = value_pointer.*;
+                }
+            }
+            return copy;
+        }
+
+        inline fn isConvertedValue(comptime Type: type) bool {
+            comptime {
+                if (@typeInfo(Type) != .@"struct") return false;
+                if (!@hasDecl(Type, "tag")) return false;
+                if (@TypeOf(Type.tag) != type) return false;
+                return Type.tag == memory.converted_value_tag;
+            }
+        }
+
         pub fn findSizeFromMaxOffset(self: *const Self) usize {
             var max: usize = 0;
             inline for (struct_fields) |*field| {
@@ -305,6 +334,49 @@ test "takePartialCopy should return null when getFieldConst fails for at least o
         },
     };
     const copy = proxy.takePartialCopy(Partial);
+    try testing.expectEqual(null, copy);
+}
+
+test "takeConvertedPartialCopy should return a value when findConstFieldPointer succeeds for every field of the partial struct" {
+    const Converted = memory.ConvertedValue(u8, u16, struct {
+        fn call(value: u8) u16 {
+            return 2 * value;
+        }
+    }.call, null);
+    const Struct = struct { field_1: Converted, field_2: u16, field_3: u32 };
+    const Partial = struct { field_1: u16, field_2: u16 };
+    const value = Struct{ .field_1 = .{ .raw = 1 }, .field_2 = 2, .field_3 = 3 };
+    const proxy = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&value)}),
+        .field_offsets = .{
+            .field_1 = @offsetOf(Struct, "field_1"),
+            .field_2 = @offsetOf(Struct, "field_2"),
+            .field_3 = std.math.maxInt(usize),
+        },
+    };
+    const copy = proxy.takeConvertedPartialCopy(Partial);
+    try testing.expect(copy != null);
+    try testing.expectEqual(Partial{ .field_1 = 2, .field_2 = 2 }, copy.?);
+}
+
+test "takeConvertedPartialCopy should return null when getFieldConst fails for at least one field of the partial struct" {
+    const Converted = memory.ConvertedValue(u8, u16, struct {
+        fn call(value: u8) u16 {
+            return 2 * value;
+        }
+    }.call, null);
+    const Struct = struct { field_1: Converted, field_2: u16, field_3: u32 };
+    const Partial = struct { field_1: u16, field_2: u16 };
+    const value = Struct{ .field_1 = .{ .raw = 1 }, .field_2 = 2, .field_3 = 3 };
+    const proxy = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&value)}),
+        .field_offsets = .{
+            .field_1 = @offsetOf(Struct, "field_1"),
+            .field_2 = std.math.maxInt(usize),
+            .field_3 = @offsetOf(Struct, "field_3"),
+        },
+    };
+    const copy = proxy.takeConvertedPartialCopy(Partial);
     try testing.expectEqual(null, copy);
 }
 
