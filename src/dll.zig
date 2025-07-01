@@ -6,6 +6,7 @@ const os = @import("os/root.zig");
 const dx12 = @import("dx12/root.zig");
 const hooking = @import("hooking/root.zig");
 const ui = @import("ui/root.zig");
+const game = @import("game/root.zig");
 const EventBuss = @import("event_buss.zig").EventBuss;
 
 pub const module_name = "irony.dll";
@@ -21,7 +22,15 @@ pub const std_options = std.Options{
         ui.toasts.logFn,
     }).logFn,
 };
+
 const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
+const MemorySearchTask = misc.Task(MemorySearchResult);
+const MemorySearchResult = struct {
+    game_memory: game.Memory,
+    tick_hook: ?TickHook,
+};
+const TickHook = hooking.Hook(game.TickFunction);
+
 const main_hooks = hooking.MainHooks(onHooksInit, onHooksDeinit, onHooksUpdate, beforeHooksResize, afterHooksResize);
 
 var module_handle_shared_value: ?os.SharedValue(w32.HINSTANCE) = null;
@@ -29,6 +38,7 @@ var base_dir = misc.BaseDir.working_dir;
 var main_allocator: ?MainAllocator = null;
 var window_procedure: ?os.WindowProcedure = null;
 var event_buss: ?EventBuss = null;
+var memory_search_task: ?MemorySearchTask = null;
 
 pub fn DllMain(
     module_handle: w32.HINSTANCE,
@@ -226,6 +236,52 @@ fn onHooksInit(
         misc.error_context.append("Failed to initialize window procedure.", .{});
         misc.error_context.logError(err);
     }
+
+    std.log.debug("Spawning memory search task...", .{});
+    if (MemorySearchTask.spawn(allocator, performMemorySearch, .{ allocator, &base_dir })) |task| {
+        std.log.info("Memory search task spawned.", .{});
+        memory_search_task = task;
+    } else |err| {
+        misc.error_context.append("Failed to spawn memory search task. Searching in main thread...", .{});
+        misc.error_context.logWarning(err);
+        const result = performMemorySearch(allocator, &base_dir);
+        memory_search_task = MemorySearchTask.createCompleted(result);
+    }
+}
+
+fn performMemorySearch(allocator: std.mem.Allocator, dir: *const misc.BaseDir) MemorySearchResult {
+    std.log.debug("Initializing game memory...", .{});
+    const game_memory = game.Memory.init(allocator, dir);
+    std.log.info("Game memory initialized.", .{});
+
+    std.log.debug("Creating tick hook...", .{});
+    var tick_hook = if (game_memory.tick_function) |tick_function| block: {
+        if (TickHook.create(tick_function, onTick)) |hook| {
+            std.log.info("Tick hook created.", .{});
+            break :block hook;
+        } else |err| {
+            misc.error_context.append("Failed to create tick hook.", .{});
+            misc.error_context.logError(err);
+            break :block null;
+        }
+    } else block: {
+        misc.error_context.new("Tick function not found.", .{});
+        misc.error_context.append("Failed to create tick hook.", .{});
+        misc.error_context.logError(error.NotFound);
+        break :block null;
+    };
+
+    if (tick_hook) |*hook| {
+        std.log.debug("Enabling tick hook...", .{});
+        if (hook.enable()) {
+            std.log.info("Tick hook enabled.", .{});
+        } else |err| {
+            misc.error_context.append("Failed to enable tick hook.", .{});
+            misc.error_context.logError(err);
+        }
+    }
+
+    return .{ .game_memory = game_memory, .tick_hook = tick_hook };
 }
 
 fn onHooksDeinit(
@@ -234,6 +290,29 @@ fn onHooksDeinit(
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
+    std.log.debug("Joining memory search task...", .{});
+    if (memory_search_task) |*task| {
+        const result = task.join();
+        std.log.info("Memory search task joined.", .{});
+
+        std.log.debug("Destroying tick hook...", .{});
+        if (result.tick_hook) |*hook| {
+            if (hook.destroy()) {
+                std.log.info("Tick hook destroyed.", .{});
+                result.tick_hook = null;
+            } else |err| {
+                misc.error_context.append("Failed to destroy tick hook.", .{});
+                misc.error_context.logError(err);
+            }
+        } else {
+            std.log.debug("Nothing to destroy.", .{});
+        }
+
+        memory_search_task = null;
+    } else {
+        std.log.debug("Nothing to join.", .{});
+    }
+
     std.log.debug("De-initializing window procedure...", .{});
     if (window_procedure) |*procedure| {
         if (procedure.deinit()) {
@@ -257,6 +336,16 @@ fn onHooksDeinit(
     }
 }
 
+fn onTick(delta_time_64: f64) callconv(.c) void {
+    const task = memory_search_task.?.join();
+    if (event_buss) |*buss| {
+        const delta_time: f32 = @floatCast(delta_time_64);
+        const game_memory = &task.game_memory;
+        buss.tick(delta_time, game_memory);
+    }
+    task.tick_hook.?.original(delta_time_64);
+}
+
 fn onHooksUpdate(
     window: w32.HWND,
     device: *const w32.ID3D12Device,
@@ -264,7 +353,9 @@ fn onHooksUpdate(
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
     if (event_buss) |*buss| {
-        buss.update(&base_dir, window, device, command_queue, swap_chain);
+        const task = memory_search_task.?.peek();
+        const game_memory = if (task) |t| &t.game_memory else null;
+        buss.draw(&base_dir, window, device, command_queue, swap_chain, game_memory);
     }
 }
 

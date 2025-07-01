@@ -5,6 +5,7 @@ const imgui = @import("imgui");
 const misc = @import("misc/root.zig");
 const dx12 = @import("dx12/root.zig");
 const ui = @import("ui/root.zig");
+const hooking = @import("hooking/root.zig");
 const components = @import("components/root.zig");
 const game = @import("game/root.zig");
 
@@ -12,7 +13,6 @@ pub const EventBuss = struct {
     timer: misc.Timer(.{}),
     dx12_context: ?dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?ui.Context,
-    game_memory: misc.Task(game.Memory),
     main_window: components.MainWindow,
 
     const Self = @This();
@@ -63,27 +63,10 @@ pub const EventBuss = struct {
             }
         } else null;
 
-        const game_memory = misc.Task(game.Memory).spawn(allocator, struct {
-            fn call(alloc: std.mem.Allocator, dir: *const misc.BaseDir) game.Memory {
-                std.log.debug("Initializing game memory...", .{});
-                const memory = game.Memory.init(alloc, dir);
-                std.log.info("Game memory initialized.", .{});
-                return memory;
-            }
-        }.call, .{ allocator, base_dir }) catch |err| block: {
-            std.log.debug("Initializing game memory...", .{});
-            misc.error_context.append("Failed to spawn game memory search task. Search in main thread...", .{});
-            misc.error_context.logWarning(err);
-            const memory = game.Memory.init(allocator, null);
-            std.log.info("Game memory initialized.", .{});
-            break :block misc.Task(game.Memory).createCompleted(memory);
-        };
-
         return .{
             .timer = .{},
             .dx12_context = dx12_context,
             .ui_context = ui_context,
-            .game_memory = game_memory,
             .main_window = .{},
         };
     }
@@ -101,10 +84,6 @@ pub const EventBuss = struct {
         _ = window;
         _ = device;
         _ = command_queue;
-
-        std.log.debug("De-initializing game memory...", .{});
-        _ = self.game_memory.join();
-        std.log.info("Game memory de-initialized.", .{});
 
         std.log.debug("De-initializing UI context...", .{});
         if (self.ui_context) |*context| {
@@ -125,13 +104,20 @@ pub const EventBuss = struct {
         }
     }
 
-    pub fn update(
+    pub fn tick(self: *Self, delta_time: f32, game_memory: *const game.Memory) void {
+        _ = self;
+        _ = delta_time;
+        _ = game_memory;
+    }
+
+    pub fn draw(
         self: *Self,
         base_dir: *const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,
         swap_chain: *const w32.IDXGISwapChain,
+        game_memory: ?*const game.Memory,
     ) void {
         _ = base_dir;
         _ = window;
@@ -146,8 +132,8 @@ pub const EventBuss = struct {
         ui_context.newFrame();
         imgui.igGetIO().*.MouseDrawCursor = true;
         ui.toasts.draw();
-        if (self.game_memory.peek()) |game_memory| {
-            self.main_window.draw(game_memory);
+        if (game_memory) |memory| {
+            self.main_window.draw(memory);
         } else {
             components.drawLoadingWindow("Searching for memory addresses and offsets...");
         }
