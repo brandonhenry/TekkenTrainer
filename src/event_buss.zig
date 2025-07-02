@@ -124,6 +124,7 @@ pub const EventBuss = struct {
 
         const delta_time = self.timer.measureDeltaTime();
         ui.toasts.update(delta_time);
+        self.main_window.update(delta_time);
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;

@@ -22,6 +22,10 @@ pub const MainWindow = struct {
         self.view.tick(player_1, player_2);
     }
 
+    pub fn update(self: *Self, delta_time: f32) void {
+        self.view.update(delta_time);
+    }
+
     pub fn draw(self: *Self, game_memory: *const game.Memory) void {
         self.handleFirstDraw();
         self.handleOpenKey();

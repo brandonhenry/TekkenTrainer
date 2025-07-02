@@ -1,12 +1,13 @@
 const std = @import("std");
 const imgui = @import("imgui");
+const misc = @import("../misc/root.zig");
 const math = @import("../math/root.zig");
 const game = @import("../game/root.zig");
 
 pub const View = struct {
     window_size: std.EnumArray(Direction, math.Vec2) = .initFill(math.Vec2.zero),
-    previous_frame: ?Frame = null,
     current_frame: ?Frame = null,
+    hit_lines: misc.CircularBuffer(32, HitLine) = .{},
 
     const Self = @This();
     pub const Direction = enum {
@@ -20,6 +21,10 @@ pub const View = struct {
         collision_spheres: game.CollisionSpheres,
     };
     const Frame = [2]Player;
+    const HitLine = struct {
+        points: [3]math.Vec3,
+        life_time: f32,
+    };
 
     const collision_spheres_color = imgui.ImVec4{ .x = 0.0, .y = 0.0, .z = 1.0, .w = 0.5 };
     const collision_spheres_thickness = 1.0;
@@ -29,9 +34,9 @@ pub const View = struct {
     const stick_figure_thickness = 2.0;
     const hit_line_color = imgui.ImVec4{ .x = 1.0, .y = 0.0, .z = 0.0, .w = 1.0 };
     const hit_line_thickness = 1.0;
+    const hit_line_duration = 1.0;
 
     pub fn tick(self: *Self, player_1: ?*const Player, player_2: ?*const Player) void {
-        self.previous_frame = self.current_frame;
         const p1 = player_1 orelse {
             self.current_frame = null;
             return;
@@ -40,7 +45,43 @@ pub const View = struct {
             self.current_frame = null;
             return;
         };
-        self.current_frame = .{ p1.*, p2.* };
+
+        const maybe_previous_frame = self.current_frame;
+        const current_frame = Frame{ p1.*, p2.* };
+        self.current_frame = current_frame;
+        const previous_frame = maybe_previous_frame orelse return;
+
+        for (previous_frame, current_frame) |previous_player, current_player| {
+            for (&previous_player.hit_lines, &current_player.hit_lines) |*previous_line, *current_line| {
+                if (current_line.ignore) {
+                    continue;
+                }
+                if (std.meta.eql(previous_line.points, current_line.points)) {
+                    continue;
+                }
+                _ = self.hit_lines.addToBack(.{
+                    .points = .{
+                        current_line.points[0].position,
+                        current_line.points[1].position,
+                        current_line.points[2].position,
+                    },
+                    .life_time = 0,
+                });
+            }
+        }
+    }
+
+    pub fn update(self: *Self, delta_time: f32) void {
+        for (0..self.hit_lines.len) |index| {
+            const line = self.hit_lines.getMut(index) catch unreachable;
+            line.life_time += delta_time;
+        }
+        while (self.hit_lines.getFirst() catch null) |line| {
+            if (line.life_time <= hit_line_duration) {
+                break;
+            }
+            _ = self.hit_lines.removeFirst() catch unreachable;
+        }
     }
 
     pub fn draw(self: *Self, direction: Direction) void {
@@ -255,27 +296,20 @@ pub const View = struct {
     }
 
     fn drawHitLines(self: *const Self, matrix: math.Mat4) void {
-        const previous_frame = if (self.previous_frame) |*f| f else return;
-        const current_frame = if (self.current_frame) |*f| f else return;
-
-        const color = imgui.igGetColorU32_Vec4(hit_line_color);
         const thickness = hit_line_thickness;
 
         const draw_list = imgui.igGetWindowDrawList();
-        for (previous_frame, current_frame) |previous_player, current_player| {
-            for (&previous_player.hit_lines, &current_player.hit_lines) |*previous_line, *current_line| {
-                if (current_line.ignore) {
-                    continue;
-                }
-                if (std.meta.eql(previous_line.points, current_line.points)) {
-                    continue;
-                }
-                const p1 = current_line.points[0].position.pointTransform(matrix).swizzle("xy");
-                const p2 = current_line.points[1].position.pointTransform(matrix).swizzle("xy");
-                const p3 = current_line.points[2].position.pointTransform(matrix).swizzle("xy");
-                imgui.ImDrawList_AddLine(draw_list, p1.toImVec(), p2.toImVec(), color, thickness);
-                imgui.ImDrawList_AddLine(draw_list, p2.toImVec(), p3.toImVec(), color, thickness);
-            }
+        for (0..self.hit_lines.len) |index| {
+            const line = self.hit_lines.get(index) catch unreachable;
+            const completion = line.life_time / hit_line_duration;
+            var color = hit_line_color;
+            color.w *= 1.0 - (completion * completion * completion * completion);
+            const u32_color = imgui.igGetColorU32_Vec4(color);
+            const p1 = line.points[0].pointTransform(matrix).swizzle("xy");
+            const p2 = line.points[1].pointTransform(matrix).swizzle("xy");
+            const p3 = line.points[2].pointTransform(matrix).swizzle("xy");
+            imgui.ImDrawList_AddLine(draw_list, p1.toImVec(), p2.toImVec(), u32_color, thickness);
+            imgui.ImDrawList_AddLine(draw_list, p2.toImVec(), p3.toImVec(), u32_color, thickness);
         }
     }
 };
