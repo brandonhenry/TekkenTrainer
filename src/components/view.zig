@@ -8,6 +8,7 @@ pub const View = struct {
     window_size: std.EnumArray(Direction, math.Vec2) = .initFill(math.Vec2.zero),
     current_frame: ?Frame = null,
     hit_lines: misc.CircularBuffer(32, HitLine) = .{},
+    hurt_cylinders: misc.CircularBuffer(32, HurtCylinder) = .{},
 
     const Self = @This();
     pub const Direction = enum {
@@ -25,6 +26,12 @@ pub const View = struct {
         points: [3]math.Vec3,
         life_time: f32,
     };
+    const HurtCylinder = struct {
+        lingering_cylinder: game.HurtCylinder,
+        player_index: usize,
+        cylinder_index: usize,
+        life_time: f32,
+    };
 
     const collision_spheres_color = imgui.ImVec4{ .x = 0.0, .y = 0.0, .z = 1.0, .w = 0.5 };
     const collision_spheres_thickness = 1.0;
@@ -34,7 +41,12 @@ pub const View = struct {
     const stick_figure_thickness = 2.0;
     const hit_line_color = imgui.ImVec4{ .x = 1.0, .y = 0.0, .z = 0.0, .w = 1.0 };
     const hit_line_thickness = 1.0;
+    const hit_hurt_cylinders_color = imgui.ImVec4{ .x = 1.0, .y = 1.0, .z = 0.0, .w = 0.5 };
+    const hit_hurt_cylinders_thickness = 1.0;
+    const lingering_hurt_cylinders_color = imgui.ImVec4{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 0.5 };
+    const lingering_hurt_cylinders_thickness = 1.0;
     const hit_line_duration = 1.0;
+    const hurt_cylinders_duration = 1.0;
 
     pub fn tick(self: *Self, player_1: ?*const Player, player_2: ?*const Player) void {
         const p1 = player_1 orelse {
@@ -46,12 +58,18 @@ pub const View = struct {
             return;
         };
 
-        const maybe_previous_frame = self.current_frame;
-        const current_frame = Frame{ p1.*, p2.* };
-        self.current_frame = current_frame;
-        const previous_frame = maybe_previous_frame orelse return;
+        const previous_frame = self.current_frame;
+        self.current_frame = Frame{ p1.*, p2.* };
 
-        for (previous_frame, current_frame) |previous_player, current_player| {
+        if (previous_frame) |*frame| {
+            self.detectHitLines(frame);
+            self.detectHits(frame);
+        }
+    }
+
+    fn detectHitLines(self: *Self, previous_frame: *const Frame) void {
+        const current_frame: *const Frame = if (self.current_frame) |*f| f else return;
+        for (previous_frame, current_frame) |*previous_player, *current_player| {
             for (&previous_player.hit_lines, &current_player.hit_lines) |*previous_line, *current_line| {
                 if (current_line.ignore) {
                     continue;
@@ -59,14 +77,66 @@ pub const View = struct {
                 if (std.meta.eql(previous_line.points, current_line.points)) {
                     continue;
                 }
-                _ = self.hit_lines.addToBack(.{
-                    .points = .{
+                const points = [3]math.Vec3{
+                    current_line.points[0].position,
+                    current_line.points[1].position,
+                    current_line.points[2].position,
+                };
+                _ = self.hit_lines.addToBack(.{ .points = points, .life_time = 0 });
+            }
+        }
+    }
+
+    fn detectHits(self: *Self, previous_frame: *const Frame) void {
+        const current_frame: *const Frame = if (self.current_frame) |*f| f else return;
+        for (0..current_frame.len) |player_index| {
+            const other_player_index = current_frame.len - 1 - player_index;
+            for (current_frame[player_index].hurt_cylinders.asConstArray(), 0..) |*cylinder, cylinder_index| {
+                var is_hit = false;
+                for (
+                    &current_frame[other_player_index].hit_lines,
+                    &previous_frame[other_player_index].hit_lines,
+                ) |*previous_line, *current_line| {
+                    if (current_line.ignore) {
+                        continue;
+                    }
+                    if (std.meta.eql(previous_line.points, current_line.points)) {
+                        continue;
+                    }
+                    const points = [3]math.Vec3{
                         current_line.points[0].position,
                         current_line.points[1].position,
                         current_line.points[2].position,
-                    },
-                    .life_time = 0,
-                });
+                    };
+                    if (math.checkCylinderLineSegmentIntersection(
+                        cylinder.position,
+                        cylinder.radius,
+                        cylinder.half_height,
+                        points[0],
+                        points[1],
+                    )) {
+                        is_hit = true;
+                        break;
+                    }
+                    if (math.checkCylinderLineSegmentIntersection(
+                        cylinder.position,
+                        cylinder.radius,
+                        cylinder.half_height,
+                        points[1],
+                        points[2],
+                    )) {
+                        is_hit = true;
+                        break;
+                    }
+                }
+                if (is_hit) {
+                    _ = self.hurt_cylinders.addToBack(.{
+                        .lingering_cylinder = cylinder.*,
+                        .player_index = player_index,
+                        .cylinder_index = cylinder_index,
+                        .life_time = 0,
+                    });
+                }
             }
         }
     }
@@ -76,11 +146,21 @@ pub const View = struct {
             const line = self.hit_lines.getMut(index) catch unreachable;
             line.life_time += delta_time;
         }
+        for (0..self.hurt_cylinders.len) |index| {
+            const cylinder = self.hurt_cylinders.getMut(index) catch unreachable;
+            cylinder.life_time += delta_time;
+        }
         while (self.hit_lines.getFirst() catch null) |line| {
             if (line.life_time <= hit_line_duration) {
                 break;
             }
             _ = self.hit_lines.removeFirst() catch unreachable;
+        }
+        while (self.hurt_cylinders.getFirst() catch null) |cylinder| {
+            if (cylinder.life_time <= hit_line_duration) {
+                break;
+            }
+            _ = self.hurt_cylinders.removeFirst() catch unreachable;
         }
     }
 
@@ -90,6 +170,7 @@ pub const View = struct {
         const inverse_matrix = matrix.inverse() orelse math.Mat4.identity;
         self.drawCollisionSpheres(matrix, inverse_matrix);
         self.drawHurtCylinders(direction, matrix, inverse_matrix);
+        self.drawHitHurtCylinders(direction, matrix, inverse_matrix);
         self.drawStickFigures(matrix);
         self.drawHitLines(matrix);
     }
@@ -108,7 +189,7 @@ pub const View = struct {
     }
 
     fn calculateLookAtMatrix(self: *const Self, direction: Direction) ?math.Mat4 {
-        const frame = if (self.current_frame) |*f| f else return null;
+        const frame: *const Frame = if (self.current_frame) |*f| f else return null;
         const p1 = frame[0].collision_spheres.lower_torso.position;
         const p2 = frame[1].collision_spheres.lower_torso.position;
         const eye = p1.add(p2).scale(0.5);
@@ -128,7 +209,7 @@ pub const View = struct {
     }
 
     fn calculateOrthographicMatrix(self: *const Self, direction: Direction, look_at_matrix: math.Mat4) ?math.Mat4 {
-        const frame = if (self.current_frame) |*f| f else return null;
+        const frame: *const Frame = if (self.current_frame) |*f| f else return null;
         var min = math.Vec3.fill(std.math.inf(f32));
         var max = math.Vec3.fill(-std.math.inf(f32));
         for (frame) |player| {
@@ -192,7 +273,7 @@ pub const View = struct {
     }
 
     fn drawCollisionSpheres(self: *const Self, matrix: math.Mat4, inverse_matrix: math.Mat4) void {
-        const frame = if (self.current_frame) |*f| f else return;
+        const frame: *const Frame = if (self.current_frame) |*f| f else return;
 
         const world_right = math.Vec3.plus_x.directionTransform(inverse_matrix).normalize();
         const world_up = math.Vec3.plus_y.directionTransform(inverse_matrix).normalize();
@@ -211,7 +292,7 @@ pub const View = struct {
     }
 
     fn drawHurtCylinders(self: *const Self, direction: Direction, matrix: math.Mat4, inverse_matrix: math.Mat4) void {
-        const frame = if (self.current_frame) |*f| f else return;
+        const frame: *const Frame = if (self.current_frame) |*f| f else return;
 
         const world_right = math.Vec3.plus_x.directionTransform(inverse_matrix).normalize();
         const world_up = math.Vec3.plus_y.directionTransform(inverse_matrix).normalize();
@@ -245,8 +326,56 @@ pub const View = struct {
         }
     }
 
+    fn drawHitHurtCylinders(self: *const Self, direction: Direction, matrix: math.Mat4, inverse_matrix: math.Mat4) void {
+        const frame: *const Frame = if (self.current_frame) |*f| f else return;
+
+        const world_right = math.Vec3.plus_x.directionTransform(inverse_matrix).normalize();
+        const world_up = math.Vec3.plus_y.directionTransform(inverse_matrix).normalize();
+
+        const hit_color = hit_hurt_cylinders_color;
+        const hit_thickness = hit_hurt_cylinders_thickness;
+        const lingering_color = lingering_hurt_cylinders_color;
+        const lingering_thickness = lingering_hurt_cylinders_thickness;
+
+        const draw_list = imgui.igGetWindowDrawList();
+        for (0..self.hurt_cylinders.len) |index| {
+            const element = self.hurt_cylinders.get(index) catch unreachable;
+            const hit_cylinder = &frame[element.player_index].hurt_cylinders.asConstArray()[element.cylinder_index];
+            const lingering_cylinder = &element.lingering_cylinder;
+            const completion = element.life_time / hurt_cylinders_duration;
+            for (
+                [2](*const game.HurtCylinder){ lingering_cylinder, hit_cylinder },
+                [2]imgui.ImVec4{ lingering_color, hit_color },
+                [2]f32{ lingering_thickness, hit_thickness },
+            ) |cylinder, color, thickness| {
+                const pos = cylinder.position.pointTransform(matrix).swizzle("xy");
+                var animated_color = color;
+                animated_color.w *= 1.0 - (completion * completion * completion * completion);
+                const u32_color = imgui.igGetColorU32_Vec4(animated_color);
+                switch (direction) {
+                    .front, .side => {
+                        const half_size = world_up.scale(cylinder.half_height)
+                            .add(world_right.scale(cylinder.radius))
+                            .directionTransform(matrix)
+                            .swizzle("xy");
+                        const min = pos.subtract(half_size);
+                        const max = pos.add(half_size);
+                        imgui.ImDrawList_AddRect(draw_list, min.toImVec(), max.toImVec(), u32_color, 0, 0, thickness);
+                    },
+                    .top => {
+                        const radius = world_up
+                            .add(world_right)
+                            .scale(cylinder.radius)
+                            .directionTransform(matrix).swizzle("xy");
+                        imgui.ImDrawList_AddEllipse(draw_list, pos.toImVec(), radius.toImVec(), u32_color, 0, 32, thickness);
+                    },
+                }
+            }
+        }
+    }
+
     fn drawStickFigures(self: *const Self, matrix: math.Mat4) void {
-        const frame = if (self.current_frame) |*f| f else return;
+        const frame: *const Frame = if (self.current_frame) |*f| f else return;
         for (frame) |player| {
             const transform = struct {
                 fn call(body_part: anytype, m: math.Mat4) imgui.ImVec2 {
