@@ -1,3 +1,6 @@
+pub const checkCylinderLineSegmentIntersection = @import("intersection.zig").checkCylinderLineSegmentIntersection;
+pub const checkCircleLineSegmentIntersection = @import("intersection.zig").checkCircleLineSegmentIntersection;
+pub const findIntervalIntersection = @import("intersection.zig").findIntervalIntersection;
 pub const vector_tag = @import("vector.zig").vector_tag;
 pub const Vector = @import("vector.zig").Vector;
 pub const Vec2 = Vector(2, f32);
