@@ -32,6 +32,8 @@ const MemorySearchResult = struct {
 const TickHook = hooking.Hook(game.TickFunction);
 
 const main_hooks = hooking.MainHooks(onHooksInit, onHooksDeinit, onHooksUpdate, beforeHooksResize, afterHooksResize);
+const number_of_hooking_retries = 10;
+const hooking_retry_sleep_time = 100 * std.time.ns_per_ms;
 
 var module_handle_shared_value: ?os.SharedValue(w32.HINSTANCE) = null;
 var base_dir = misc.BaseDir.working_dir;
@@ -142,11 +144,19 @@ fn init() void {
     std.log.info("Hooking initialized.", .{});
 
     std.log.debug("Initializing main hooks...", .{});
-    main_hooks.init() catch |err| {
-        misc.error_context.append("Failed to initialize main hooks.", .{});
-        misc.error_context.logError(err);
-        return;
-    };
+    for (0..number_of_hooking_retries) |retry_number| {
+        main_hooks.init() catch |err| {
+            if (retry_number < number_of_hooking_retries - 1) {
+                std.Thread.sleep(hooking_retry_sleep_time);
+                continue;
+            } else {
+                misc.error_context.append("Failed to initialize main hooks.", .{});
+                misc.error_context.logError(err);
+                return;
+            }
+        };
+        break;
+    }
     std.log.info("Main hooks initialized.", .{});
 
     std.log.info("Initialization completed.", .{});
