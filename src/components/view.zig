@@ -45,7 +45,7 @@ pub const View = struct {
     const hit_hurt_cylinders_thickness = 1.0;
     const lingering_hurt_cylinders_color = imgui.ImVec4{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 0.5 };
     const lingering_hurt_cylinders_thickness = 1.0;
-    const hit_line_duration = 1.0;
+    const hit_line_duration = 3.0;
     const hurt_cylinders_duration = 1.0;
 
     pub fn tick(self: *Self, player_1: ?*const Player, player_2: ?*const Player) void {
@@ -94,8 +94,8 @@ pub const View = struct {
             for (current_frame[player_index].hurt_cylinders.asConstArray(), 0..) |*cylinder, cylinder_index| {
                 var is_hit = false;
                 for (
-                    &current_frame[other_player_index].hit_lines,
                     &previous_frame[other_player_index].hit_lines,
+                    &current_frame[other_player_index].hit_lines,
                 ) |*previous_line, *current_line| {
                     if (current_line.ignore) {
                         continue;
