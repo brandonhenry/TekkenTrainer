@@ -334,23 +334,23 @@ pub const Player = struct {
     current_move_id: u32, // 0x0548
     can_move: u32, // 0x05C8
     current_move_total_frames: u32, // 0x05D4
-    hit_outcome: f32, // 0x0610
+    hit_outcome: u32, // 0x0610
     already_attacked: u32, // 0x066C
     already_attacked_2: u32, // 0x0674
-    stun: Stun, // 0x0774
+    // stun: Stun, // 0x0774
     cancel_flags: CancelFlags, // 0x0C80
-    rage: bool, // 0x0D71
-    floor_number_1: i32, // 0x1770
-    floor_number_2: i32, // 0x1774
-    floor_number_3: i32, // 0x1778
+    // rage: bool, // 0x0D71
+    // floor_number_1: i32, // 0x1770
+    // floor_number_2: i32, // 0x1774
+    // floor_number_3: i32, // 0x1778
     frame_data_flags: u32, // 0x19E0
-    next_move_pointer: usize, // 0x1F30
-    next_move_id: u32, // 0x1F4C
-    reaction_to_have: u32, // 0x1F50
-    attack_input: u32, // 0x1F70
-    direction_input: u32, // 0x1F74
-    used_heat: u32, // 0x2110
-    input: Input, // 0x2494
+    // next_move_pointer: usize, // 0x1F30
+    // next_move_id: u32, // 0x1F4C
+    // reaction_to_have: u32, // 0x1F50
+    // attack_input: u32, // 0x1F70
+    // direction_input: u32, // 0x1F74
+    // used_heat: u32, // 0x2110
+    // input: Input, // 0x2494
     hit_lines: memory.ConvertedValue(
         HitLines,
         HitLines,
@@ -369,7 +369,7 @@ pub const Player = struct {
         game.conversions.collisionSpheresToUnrealSpace,
         game.conversions.collisionSpheresFromUnrealSpace,
     ), // 0x2D40
-    health: i32, // 0x2EE4
+    // health: i32, // 0x2EE4
 };
 
 pub const TickFunction = fn (delta_time: f64) callconv(.c) void;
