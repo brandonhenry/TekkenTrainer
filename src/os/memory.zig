@@ -2,42 +2,30 @@ const std = @import("std");
 const w32 = @import("win32").everything;
 
 pub fn isMemoryReadable(address: usize, size_in_bytes: usize) bool {
-    if (size_in_bytes == 0) {
-        return true;
-    }
-    if (!isMemoryRangeValid(address, size_in_bytes)) {
-        return false;
-    }
-    var current_address = address;
-    while (current_address <= address +% size_in_bytes -% 1) {
-        var info: w32.MEMORY_BASIC_INFORMATION = undefined;
-        const success = w32.VirtualQuery(@ptrFromInt(current_address), &info, @sizeOf(@TypeOf(info)));
-        if (success == 0 or info.State != w32.MEM_COMMIT) {
-            return false;
-        }
-        const protect = info.Protect;
-        if (protect.PAGE_GUARD == 1 or protect.PAGE_NOACCESS == 1) {
-            return false;
-        }
-        const is_readable = protect.PAGE_EXECUTE_READ == 1 or
-            protect.PAGE_EXECUTE_READWRITE == 1 or
-            protect.PAGE_EXECUTE_WRITECOPY == 1 or
-            protect.PAGE_READONLY == 1 or
-            protect.PAGE_READWRITE == 1 or
-            protect.PAGE_WRITECOPY == 1;
-        if (!is_readable) {
-            return false;
-        }
-        const next_address = @addWithOverflow(@intFromPtr(info.BaseAddress), info.RegionSize);
-        if (next_address[1] == 1) {
-            return true;
-        }
-        current_address = next_address[0];
-    }
-    return true;
+    return isMemoryAccessibleAndInOneOfModes(address, size_in_bytes, &.{
+        w32.PAGE_EXECUTE_READ,
+        w32.PAGE_EXECUTE_READWRITE,
+        w32.PAGE_EXECUTE_WRITECOPY,
+        w32.PAGE_READONLY,
+        w32.PAGE_READWRITE,
+        w32.PAGE_WRITECOPY,
+    });
 }
 
 pub fn isMemoryWriteable(address: usize, size_in_bytes: usize) bool {
+    return isMemoryAccessibleAndInOneOfModes(address, size_in_bytes, &.{
+        w32.PAGE_EXECUTE_READWRITE,
+        w32.PAGE_EXECUTE_WRITECOPY,
+        w32.PAGE_READWRITE,
+        w32.PAGE_WRITECOPY,
+    });
+}
+
+fn isMemoryAccessibleAndInOneOfModes(
+    address: usize,
+    size_in_bytes: usize,
+    comptime modes: []const w32.PAGE_PROTECTION_FLAGS,
+) bool {
     if (size_in_bytes == 0) {
         return true;
     }
@@ -52,14 +40,25 @@ pub fn isMemoryWriteable(address: usize, size_in_bytes: usize) bool {
             return false;
         }
         const protect = info.Protect;
-        if (protect.PAGE_GUARD == 1 or protect.PAGE_NOACCESS == 1) {
+        if (protect.PAGE_GUARD == 1) {
             return false;
         }
-        const is_writeable = protect.PAGE_EXECUTE_READWRITE == 1 or
-            protect.PAGE_EXECUTE_WRITECOPY == 1 or
-            protect.PAGE_READWRITE == 1 or
-            protect.PAGE_WRITECOPY == 1;
-        if (!is_writeable) {
+        const actual_mode = w32.PAGE_PROTECTION_FLAGS{
+            .PAGE_EXECUTE = protect.PAGE_EXECUTE,
+            .PAGE_EXECUTE_READ = protect.PAGE_EXECUTE_READ,
+            .PAGE_EXECUTE_READWRITE = protect.PAGE_EXECUTE_READWRITE,
+            .PAGE_EXECUTE_WRITECOPY = protect.PAGE_EXECUTE_WRITECOPY,
+            .PAGE_NOACCESS = protect.PAGE_NOACCESS,
+            .PAGE_READONLY = protect.PAGE_READONLY,
+            .PAGE_READWRITE = protect.PAGE_READWRITE,
+            .PAGE_WRITECOPY = protect.PAGE_WRITECOPY,
+            .PAGE_TARGETS_NO_UPDATE = protect.PAGE_TARGETS_NO_UPDATE,
+        };
+        inline for (modes) |expected_mode| {
+            if (actual_mode == expected_mode) {
+                break;
+            }
+        } else {
             return false;
         }
         const next_address = @addWithOverflow(@intFromPtr(info.BaseAddress), info.RegionSize);
