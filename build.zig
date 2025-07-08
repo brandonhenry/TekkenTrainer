@@ -29,120 +29,12 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    // ZIG dependency: zigwin32
-    const win32 = b.dependency("zigwin32", .{}).module("win32");
-
-    // C dependency: lib_c_time ("time.h" from C)
-    const lib_c_time = b.addTranslateC(.{
-        .root_source_file = b.addWriteFile(
-            "time.h",
-            "#define _POSIX_C_SOURCE 200809L\n#include <time.h>",
-        ).getDirectory().path(b, "time.h"),
-        .target = target,
-        .optimize = optimize,
-    }).createModule();
-
-    // C dependency: minhook
-    const minhook_dep = b.dependency("minhook", .{});
-    const minhook = b.addTranslateC(.{
-        .root_source_file = minhook_dep.path("include/MinHook.h"),
-        .target = target,
-        .optimize = optimize,
-    }).createModule();
-    minhook.addIncludePath(minhook_dep.path("include"));
-    minhook.addCSourceFiles(.{
-        .root = .{
-            .dependency = .{
-                .dependency = minhook_dep,
-                .sub_path = "src",
-            },
-        },
-        .files = &.{
-            "buffer.c",
-            "hook.c",
-            "trampoline.c",
-            "hde/hde32.c",
-            "hde/hde64.c",
-        },
-        // Fixes undefined behaviour in hde64.c line 318.
-        .flags = &.{"-fno-sanitize=undefined"},
-    });
-
-    // C++ dependency: imgui (imgui, cimgui, imgui_test_engine)
-    const imgui_files = b.addWriteFiles();
-    _ = imgui_files.addCopyDirectory(
-        b.dependency("cimgui", .{}).path("."),
-        ".",
-        .{},
-    );
-    _ = imgui_files.addCopyDirectory(
-        b.dependency("imgui", .{}).path("."),
-        "./imgui",
-        .{},
-    );
-    _ = imgui_files.addCopyDirectory(
-        b.dependency("imgui_test_engine", .{}).path("./imgui_test_engine"),
-        "./imgui_test_engine",
-        .{},
-    );
-    _ = imgui_files.addCopyDirectory(
-        b.dependency("cimgui_test_engine", .{}).path("."),
-        ".",
-        .{},
-    );
-    const imgui_dir = imgui_files.getDirectory();
-    const imgui_lib = b.addStaticLibrary(.{
-        .name = "imgui",
-        .target = target,
-        .optimize = optimize,
-    });
-    imgui_lib.addIncludePath(imgui_dir);
-    imgui_lib.addIncludePath(imgui_dir.path(b, "./imgui"));
-    imgui_lib.addIncludePath(imgui_dir.path(b, "./imgui_test_engine"));
-    imgui_lib.addCSourceFiles(.{ .root = imgui_dir, .files = &.{
-        "./cimgui.cpp",
-        "./imgui/imgui.cpp",
-        "./imgui/imgui_demo.cpp",
-        "./imgui/imgui_draw.cpp",
-        "./imgui/imgui_tables.cpp",
-        "./imgui/imgui_widgets.cpp",
-        "./imgui/backends/imgui_impl_dx12.cpp",
-        "./imgui/backends/imgui_impl_win32.cpp",
-        "./cimgui_test_engine.cpp",
-        "./imgui_test_engine/imgui_capture_tool.cpp",
-        "./imgui_test_engine/imgui_te_context.cpp",
-        "./imgui_test_engine/imgui_te_coroutine.cpp",
-        "./imgui_test_engine/imgui_te_engine.cpp",
-        "./imgui_test_engine/imgui_te_exporters.cpp",
-        "./imgui_test_engine/imgui_te_perftool.cpp",
-        "./imgui_test_engine/imgui_te_ui.cpp",
-        "./imgui_test_engine/imgui_te_utils.cpp",
-    } });
-    imgui_lib.linkSystemLibrary("d3dcompiler_47"); // Required by: imgui_impl_dx12.cpp
-    imgui_lib.linkSystemLibrary("dwmapi"); // Required by: imgui_impl_win32.cpp
-    switch (target.result.abi) { // Required by: imgui_impl_win32.cpp
-        .msvc => imgui_lib.linkSystemLibrary("Gdi32"),
-        .gnu => imgui_lib.linkSystemLibrary("gdi32"),
-        else => {},
-    }
-    imgui_lib.root_module.addCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    imgui_lib.root_module.addCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
-    imgui_lib.root_module.addCMacro("IMGUI_IMPL_WIN32_DISABLE_GAMEPAD", "1");
-    imgui_lib.root_module.addCMacro("IMGUI_ENABLE_TEST_ENGINE", "");
-    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_IMPLOT", "0");
-    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_CAPTURE", "1");
-    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_STD_FUNCTION", "0");
-    imgui_lib.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL", "1");
-    imgui_lib.root_module.addCMacro("IM_DEBUG_BREAK()", "IM_ASSERT(0)");
-    imgui_lib.linkLibC();
-    imgui_lib.linkLibCpp();
-    const imgui_c = b.addTranslateC(.{
-        .root_source_file = imgui_dir.path(b, "cimgui_test_engine.h"),
-        .target = target,
-        .optimize = optimize,
-    });
-    imgui_c.defineCMacro("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "1");
-    const imgui = imgui_c.createModule();
+    // Dependencies:
+    const win32 = zigwin32Dependency(b);
+    const lib_c_time = libCTimeDependency(b, target, optimize);
+    const minhook = minhookDependency(b, target, optimize);
+    const imgui = imguiDependency(b, target, optimize, false);
+    const imgui_te = imguiDependency(b, target, optimize, true);
 
     const dll = b.addSharedLibrary(.{
         .name = "irony",
@@ -156,8 +48,8 @@ pub fn build(b: *std.Build) void {
     dll.root_module.addImport("win32", win32);
     dll.root_module.addImport("lib_c_time", lib_c_time);
     dll.root_module.addImport("minhook", minhook);
-    dll.linkLibrary(imgui_lib);
-    dll.root_module.addImport("imgui", imgui);
+    dll.linkLibrary(imgui.library);
+    dll.root_module.addImport("imgui", imgui.module);
 
     // This declares intent for the dll to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -219,8 +111,8 @@ pub fn build(b: *std.Build) void {
     tests.root_module.addImport("lib_c_time", lib_c_time);
     tests.root_module.addImport("win32", win32);
     tests.root_module.addImport("minhook", minhook);
-    tests.linkLibrary(imgui_lib);
-    tests.root_module.addImport("imgui", imgui);
+    tests.linkLibrary(imgui_te.library);
+    tests.root_module.addImport("imgui", imgui_te.module);
 
     // This *creates* a Test step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
@@ -239,4 +131,149 @@ pub fn build(b: *std.Build) void {
     // running the tests.
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&test_command.step);
+}
+
+const ModuleAndLibrary = struct {
+    module: *std.Build.Module,
+    library: *std.Build.Step.Compile,
+};
+
+// ZIG dependency: zigwin32
+fn zigwin32Dependency(b: *std.Build) *std.Build.Module {
+    return b.dependency("zigwin32", .{}).module("win32");
+}
+
+// C dependency: lib_c_time ("time.h" from C)
+fn libCTimeDependency(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const file = b.addWriteFile(
+        "time.h",
+        "#define _POSIX_C_SOURCE 200809L\n#include <time.h>",
+    ).getDirectory().path(b, "time.h");
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = file,
+        .target = target,
+        .optimize = optimize,
+    });
+    return translate_c.createModule();
+}
+
+// C dependency: minhook
+fn minhookDependency(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const dependency = b.dependency("minhook", .{});
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = dependency.path("include/MinHook.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const module = translate_c.createModule();
+    module.addIncludePath(dependency.path("include"));
+    module.addCSourceFiles(.{
+        .root = .{
+            .dependency = .{
+                .dependency = dependency,
+                .sub_path = "src",
+            },
+        },
+        .files = &.{
+            "buffer.c",
+            "hook.c",
+            "trampoline.c",
+            "hde/hde32.c",
+            "hde/hde64.c",
+        },
+        // Fixes undefined behaviour in hde64.c line 318.
+        .flags = &.{"-fno-sanitize=undefined"},
+    });
+    return module;
+}
+
+// C++ dependency: imgui (imgui, cimgui, imgui_test_engine, cimgui_test_engine)
+fn imguiDependency(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    use_test_engine: bool,
+) ModuleAndLibrary {
+    const files = b.addWriteFiles();
+    _ = files.addCopyDirectory(b.dependency("cimgui", .{}).path("."), ".", .{});
+    _ = files.addCopyDirectory(b.dependency("imgui", .{}).path("."), "./imgui", .{});
+    if (use_test_engine) {
+        _ = files.addCopyDirectory(
+            b.dependency("imgui_test_engine", .{}).path("./imgui_test_engine"),
+            "./imgui_test_engine",
+            .{},
+        );
+        _ = files.addCopyDirectory(b.dependency("cimgui_test_engine", .{}).path("."), ".", .{});
+    }
+    const directory = files.getDirectory();
+    const library = b.addStaticLibrary(.{
+        .name = "imgui",
+        .target = target,
+        .optimize = optimize,
+    });
+    library.addIncludePath(directory);
+    library.addIncludePath(directory.path(b, "./imgui"));
+    if (use_test_engine) {
+        library.addIncludePath(directory.path(b, "./imgui_test_engine"));
+    }
+    library.addCSourceFiles(.{ .root = directory, .files = &.{
+        "./cimgui.cpp",
+        "./imgui/imgui.cpp",
+        "./imgui/imgui_demo.cpp",
+        "./imgui/imgui_draw.cpp",
+        "./imgui/imgui_tables.cpp",
+        "./imgui/imgui_widgets.cpp",
+        "./imgui/backends/imgui_impl_dx12.cpp",
+        "./imgui/backends/imgui_impl_win32.cpp",
+    } });
+    if (use_test_engine) {
+        library.addCSourceFiles(.{ .root = directory, .files = &.{
+            "./cimgui_test_engine.cpp",
+            "./imgui_test_engine/imgui_capture_tool.cpp",
+            "./imgui_test_engine/imgui_te_context.cpp",
+            "./imgui_test_engine/imgui_te_coroutine.cpp",
+            "./imgui_test_engine/imgui_te_engine.cpp",
+            "./imgui_test_engine/imgui_te_exporters.cpp",
+            "./imgui_test_engine/imgui_te_perftool.cpp",
+            "./imgui_test_engine/imgui_te_ui.cpp",
+            "./imgui_test_engine/imgui_te_utils.cpp",
+        } });
+    }
+    library.linkSystemLibrary("d3dcompiler_47"); // Required by: imgui_impl_dx12.cpp
+    library.linkSystemLibrary("dwmapi"); // Required by: imgui_impl_win32.cpp
+    switch (target.result.abi) { // Required by: imgui_impl_win32.cpp
+        .msvc => library.linkSystemLibrary("Gdi32"),
+        .gnu => library.linkSystemLibrary("gdi32"),
+        else => {},
+    }
+    library.root_module.addCMacro("IMGUI_IMPL_API", "extern \"C\"");
+    library.root_module.addCMacro("IMGUI_DISABLE_OBSOLETE_FUNCTIONS", "1");
+    library.root_module.addCMacro("IMGUI_IMPL_WIN32_DISABLE_GAMEPAD", "1");
+    if (use_test_engine) {
+        library.root_module.addCMacro("IMGUI_ENABLE_TEST_ENGINE", "");
+        library.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_IMPLOT", "0");
+        library.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_CAPTURE", "1");
+        library.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_STD_FUNCTION", "0");
+        library.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL", "1");
+        library.root_module.addCMacro("IM_DEBUG_BREAK()", "IM_ASSERT(0)");
+    }
+    library.linkLibC();
+    library.linkLibCpp();
+    const root_source_file = if (use_test_engine) "cimgui_test_engine.h" else "cimgui.h";
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = directory.path(b, root_source_file),
+        .target = target,
+        .optimize = optimize,
+    });
+    translate_c.defineCMacro("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "1");
+    const module = translate_c.createModule();
+    return .{ .module = module, .library = library };
 }
