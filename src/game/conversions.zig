@@ -75,7 +75,7 @@ pub fn hitLinesFromUnrealSpace(value: game.HitLines) game.HitLines {
 
 pub fn hurtCylinderToUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
     var converted = value;
-    converted.position = pointToUnrealSpace(value.position);
+    converted.center = pointToUnrealSpace(value.center);
     converted.half_height = scaleToUnrealSpace(value.half_height);
     converted.squared_radius = scaleToUnrealSpace(scaleToUnrealSpace(value.squared_radius));
     converted.radius = scaleToUnrealSpace(value.radius);
@@ -84,7 +84,7 @@ pub fn hurtCylinderToUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
 
 pub fn hurtCylinderFromUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
     var converted = value;
-    converted.position = pointFromUnrealSpace(value.position);
+    converted.center = pointFromUnrealSpace(value.center);
     converted.half_height = scaleFromUnrealSpace(value.half_height);
     converted.squared_radius = scaleFromUnrealSpace(scaleFromUnrealSpace(value.squared_radius));
     converted.radius = scaleFromUnrealSpace(value.radius);
@@ -101,14 +101,14 @@ pub fn hurtCylindersToUnrealSpace(value: game.HurtCylinders) game.HurtCylinders 
 
 pub fn collisionSphereToUnrealSpace(value: game.CollisionSphere) game.CollisionSphere {
     var converted = value;
-    converted.position = pointToUnrealSpace(value.position);
+    converted.center = pointToUnrealSpace(value.center);
     converted.radius = scaleToUnrealSpace(value.radius);
     return converted;
 }
 
 pub fn collisionSphereFromUnrealSpace(value: game.CollisionSphere) game.CollisionSphere {
     var converted = value;
-    converted.position = pointFromUnrealSpace(value.position);
+    converted.center = pointFromUnrealSpace(value.center);
     converted.radius = scaleFromUnrealSpace(value.radius);
     return converted;
 }
@@ -193,7 +193,7 @@ test "hitLinesToUnrealSpace and hitLinesFromUnrealSpace should cancel out" {
 
 test "hurtCylinderToUnrealSpace and hurtCylinderFromUnrealSpace should cancel out" {
     const value = game.HurtCylinder{
-        .position = .fromArray(.{ 1, 2, 3 }),
+        .center = .fromArray(.{ 1, 2, 3 }),
         .multiplier = 4,
         .half_height = 5,
         .squared_radius = 6,
@@ -206,7 +206,7 @@ test "hurtCylinderToUnrealSpace and hurtCylinderFromUnrealSpace should cancel ou
 
 test "collisionSphereToUnrealSpace and collisionSphereFromUnrealSpace should cancel out" {
     const value = game.CollisionSphere{
-        .position = .fromArray(.{ 1, 2, 3 }),
+        .center = .fromArray(.{ 1, 2, 3 }),
         .multiplier = 4,
         .radius = 5,
         ._padding = undefined,
@@ -217,7 +217,7 @@ test "collisionSphereToUnrealSpace and collisionSphereFromUnrealSpace should can
 
 test "hurtCylindersToUnrealSpace and hurtCylindersFromUnrealSpace should cancel out" {
     const cylinder = game.HurtCylinder{
-        .position = .fromArray(.{ 1, 2, 3 }),
+        .center = .fromArray(.{ 1, 2, 3 }),
         .multiplier = 4,
         .half_height = 5,
         .squared_radius = 6,
@@ -246,7 +246,7 @@ test "hurtCylindersToUnrealSpace and hurtCylindersFromUnrealSpace should cancel 
 
 test "collisionSpheresToUnrealSpace and collisionSpheresFromUnrealSpace should cancel out" {
     const sphere = game.CollisionSphere{
-        .position = .fromArray(.{ 1, 2, 3 }),
+        .center = .fromArray(.{ 1, 2, 3 }),
         .multiplier = 4,
         .radius = 5,
         ._padding = undefined,

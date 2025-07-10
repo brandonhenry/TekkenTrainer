@@ -226,7 +226,7 @@ comptime {
 }
 
 pub const HurtCylinder = extern struct {
-    position: math.Vec3,
+    center: math.Vec3,
     multiplier: f32,
     half_height: f32,
     squared_radius: f32,
@@ -272,7 +272,7 @@ pub const HurtCylinders = extern struct {
 };
 
 pub const CollisionSphere = extern struct {
-    position: math.Vec3,
+    center: math.Vec3,
     multiplier: f32,
     radius: f32,
     _padding: [3]f32,
@@ -318,7 +318,7 @@ pub const Player = struct {
     position_y_relative_to_floor: f32, // 0x0184
     position_x_relative_to_floor: f32, // 0x018C
     position_z_relative_to_floor: f32, // 0x01A4
-    location: memory.ConvertedValue(
+    position: memory.ConvertedValue(
         math.Vec3,
         math.Vec3,
         game.conversions.pointToUnrealSpace,

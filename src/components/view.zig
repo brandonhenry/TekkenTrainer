@@ -110,7 +110,7 @@ pub const View = struct {
                     };
                     if (math.checkCylinderLineSegmentIntersection(
                         .{
-                            .center = cylinder.position,
+                            .center = cylinder.center,
                             .radius = cylinder.radius,
                             .half_height = cylinder.half_height,
                         },
@@ -124,7 +124,7 @@ pub const View = struct {
                     }
                     if (math.checkCylinderLineSegmentIntersection(
                         .{
-                            .center = cylinder.position,
+                            .center = cylinder.center,
                             .radius = cylinder.radius,
                             .half_height = cylinder.half_height,
                         },
@@ -198,8 +198,8 @@ pub const View = struct {
 
     fn calculateLookAtMatrix(self: *const Self, direction: Direction) ?math.Mat4 {
         const frame: *const Frame = if (self.current_frame) |*f| f else return null;
-        const p1 = frame[0].collision_spheres.lower_torso.position;
-        const p2 = frame[1].collision_spheres.lower_torso.position;
+        const p1 = frame[0].collision_spheres.lower_torso.center;
+        const p2 = frame[1].collision_spheres.lower_torso.center;
         const eye = p1.add(p2).scale(0.5);
         const difference_2d = p2.swizzle("xy").subtract(p1.swizzle("xy"));
         const player_dir = if (!difference_2d.isZero(0)) difference_2d.normalize().extend(0) else math.Vec3.plus_x;
@@ -222,13 +222,13 @@ pub const View = struct {
         var max = math.Vec3.fill(-std.math.inf(f32));
         for (frame) |player| {
             for (player.collision_spheres.asConstArray()) |*sphere| {
-                const pos = sphere.position.pointTransform(look_at_matrix);
+                const pos = sphere.center.pointTransform(look_at_matrix);
                 const half_size = math.Vec3.fill(sphere.radius);
                 min = math.Vec3.minElements(min, pos.subtract(half_size));
                 max = math.Vec3.maxElements(max, pos.add(half_size));
             }
             for (player.hurt_cylinders.asConstArray()) |*cylinder| {
-                const pos = cylinder.position.pointTransform(look_at_matrix);
+                const pos = cylinder.center.pointTransform(look_at_matrix);
                 const half_size = math.Vec3.fromArray(.{
                     cylinder.radius,
                     cylinder.radius,
@@ -292,7 +292,7 @@ pub const View = struct {
         const draw_list = imgui.igGetWindowDrawList();
         for (frame) |player| {
             for (player.collision_spheres.asConstArray()) |*sphere| {
-                const pos = sphere.position.pointTransform(matrix).swizzle("xy");
+                const pos = sphere.center.pointTransform(matrix).swizzle("xy");
                 const radius = world_up.add(world_right).scale(sphere.radius).directionTransform(matrix).swizzle("xy");
                 imgui.ImDrawList_AddEllipse(draw_list, pos.toImVec(), radius.toImVec(), color, 0, 32, thickness);
             }
@@ -311,7 +311,7 @@ pub const View = struct {
         const draw_list = imgui.igGetWindowDrawList();
         for (frame) |player| {
             for (player.hurt_cylinders.asConstArray()) |*cylinder| {
-                const pos = cylinder.position.pointTransform(matrix).swizzle("xy");
+                const pos = cylinder.center.pointTransform(matrix).swizzle("xy");
                 switch (direction) {
                     .front, .side => {
                         const half_size = world_up.scale(cylinder.half_height)
@@ -356,7 +356,7 @@ pub const View = struct {
                 [2]imgui.ImVec4{ lingering_color, hit_color },
                 [2]f32{ lingering_thickness, hit_thickness },
             ) |cylinder, color, thickness| {
-                const pos = cylinder.position.pointTransform(matrix).swizzle("xy");
+                const pos = cylinder.center.pointTransform(matrix).swizzle("xy");
                 var animated_color = color;
                 animated_color.w *= 1.0 - (completion * completion * completion * completion);
                 const u32_color = imgui.igGetColorU32_Vec4(animated_color);
@@ -387,7 +387,7 @@ pub const View = struct {
         for (frame) |player| {
             const transform = struct {
                 fn call(body_part: anytype, m: math.Mat4) imgui.ImVec2 {
-                    return body_part.position.pointTransform(m).swizzle("xy").toImVec();
+                    return body_part.center.pointTransform(m).swizzle("xy").toImVec();
                 }
             }.call;
             const cylinders = &player.hurt_cylinders;
