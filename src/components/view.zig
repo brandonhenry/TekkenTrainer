@@ -70,7 +70,9 @@ pub const View = struct {
     fn detectHitLines(self: *Self, previous_frame: *const Frame) void {
         const current_frame: *const Frame = if (self.current_frame) |*f| f else return;
         for (previous_frame, current_frame) |*previous_player, *current_player| {
-            for (&previous_player.hit_lines, &current_player.hit_lines) |*previous_line, *current_line| {
+            for (&previous_player.hit_lines, &current_player.hit_lines) |*raw_previous_line, *raw_current_line| {
+                const previous_line = raw_previous_line.convert();
+                const current_line = raw_current_line.convert();
                 if (current_line.ignore) {
                     continue;
                 }
@@ -91,12 +93,15 @@ pub const View = struct {
         const current_frame: *const Frame = if (self.current_frame) |*f| f else return;
         for (0..current_frame.len) |player_index| {
             const other_player_index = current_frame.len - 1 - player_index;
-            for (current_frame[player_index].hurt_cylinders.asConstArray(), 0..) |*cylinder, cylinder_index| {
+            for (current_frame[player_index].hurt_cylinders.asConstArray(), 0..) |*raw_cylinder, cylinder_index| {
+                const cylinder = raw_cylinder.convert();
                 var is_hit = false;
                 for (
                     &previous_frame[other_player_index].hit_lines,
                     &current_frame[other_player_index].hit_lines,
-                ) |*previous_line, *current_line| {
+                ) |*raw_previous_line, *raw_current_line| {
+                    const previous_line = raw_previous_line.convert();
+                    const current_line = raw_current_line.convert();
                     if (current_line.ignore) {
                         continue;
                     }
@@ -139,7 +144,7 @@ pub const View = struct {
                 }
                 if (is_hit) {
                     _ = self.hurt_cylinders.addToBack(.{
-                        .lingering_cylinder = cylinder.*,
+                        .lingering_cylinder = cylinder,
                         .player_index = player_index,
                         .cylinder_index = cylinder_index,
                         .life_time = 0,
@@ -198,8 +203,8 @@ pub const View = struct {
 
     fn calculateLookAtMatrix(self: *const Self, direction: Direction) ?math.Mat4 {
         const frame: *const Frame = if (self.current_frame) |*f| f else return null;
-        const p1 = frame[0].collision_spheres.lower_torso.center;
-        const p2 = frame[1].collision_spheres.lower_torso.center;
+        const p1 = frame[0].collision_spheres.lower_torso.convert().center;
+        const p2 = frame[1].collision_spheres.lower_torso.convert().center;
         const eye = p1.add(p2).scale(0.5);
         const difference_2d = p2.swizzle("xy").subtract(p1.swizzle("xy"));
         const player_dir = if (!difference_2d.isZero(0)) difference_2d.normalize().extend(0) else math.Vec3.plus_x;
@@ -221,13 +226,15 @@ pub const View = struct {
         var min = math.Vec3.fill(std.math.inf(f32));
         var max = math.Vec3.fill(-std.math.inf(f32));
         for (frame) |player| {
-            for (player.collision_spheres.asConstArray()) |*sphere| {
+            for (player.collision_spheres.asConstArray()) |*raw_sphere| {
+                const sphere = raw_sphere.convert();
                 const pos = sphere.center.pointTransform(look_at_matrix);
                 const half_size = math.Vec3.fill(sphere.radius);
                 min = math.Vec3.minElements(min, pos.subtract(half_size));
                 max = math.Vec3.maxElements(max, pos.add(half_size));
             }
-            for (player.hurt_cylinders.asConstArray()) |*cylinder| {
+            for (player.hurt_cylinders.asConstArray()) |*raw_cylinder| {
+                const cylinder = raw_cylinder.convert();
                 const pos = cylinder.center.pointTransform(look_at_matrix);
                 const half_size = math.Vec3.fromArray(.{
                     cylinder.radius,
@@ -291,7 +298,8 @@ pub const View = struct {
 
         const draw_list = imgui.igGetWindowDrawList();
         for (frame) |player| {
-            for (player.collision_spheres.asConstArray()) |*sphere| {
+            for (player.collision_spheres.asConstArray()) |*raw_sphere| {
+                const sphere = raw_sphere.convert();
                 const pos = sphere.center.pointTransform(matrix).swizzle("xy");
                 const radius = world_up.add(world_right).scale(sphere.radius).directionTransform(matrix).swizzle("xy");
                 imgui.ImDrawList_AddEllipse(draw_list, pos.toImVec(), radius.toImVec(), color, 0, 32, thickness);
@@ -310,7 +318,8 @@ pub const View = struct {
 
         const draw_list = imgui.igGetWindowDrawList();
         for (frame) |player| {
-            for (player.hurt_cylinders.asConstArray()) |*cylinder| {
+            for (player.hurt_cylinders.asConstArray()) |*raw_cylinder| {
+                const cylinder = raw_cylinder.convert();
                 const pos = cylinder.center.pointTransform(matrix).swizzle("xy");
                 switch (direction) {
                     .front, .side => {
@@ -348,7 +357,7 @@ pub const View = struct {
         const draw_list = imgui.igGetWindowDrawList();
         for (0..self.hurt_cylinders.len) |index| {
             const element = self.hurt_cylinders.get(index) catch unreachable;
-            const hit_cylinder = &frame[element.player_index].hurt_cylinders.asConstArray()[element.cylinder_index];
+            const hit_cylinder = &frame[element.player_index].hurt_cylinders.asConstArray()[element.cylinder_index].convert();
             const lingering_cylinder = &element.lingering_cylinder;
             const completion = element.life_time / hurt_cylinders_duration;
             for (
@@ -387,7 +396,7 @@ pub const View = struct {
         for (frame) |player| {
             const transform = struct {
                 fn call(body_part: anytype, m: math.Mat4) imgui.ImVec2 {
-                    return body_part.center.pointTransform(m).swizzle("xy").toImVec();
+                    return body_part.convert().center.pointTransform(m).swizzle("xy").toImVec();
                 }
             }.call;
             const cylinders = &player.hurt_cylinders;

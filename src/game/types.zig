@@ -220,7 +220,12 @@ pub const HitLine = extern struct {
     }
 };
 
-pub const HitLines = [4]HitLine;
+pub const HitLines = [4]memory.ConvertedValue(
+    HitLine,
+    HitLine,
+    game.hitLineToUnrealSpace,
+    game.hitLineFromUnrealSpace,
+);
 comptime {
     std.debug.assert(@sizeOf(HitLines) == 256);
 }
@@ -239,30 +244,36 @@ pub const HurtCylinder = extern struct {
 };
 
 pub const HurtCylinders = extern struct {
-    left_ankle: HurtCylinder,
-    right_ankle: HurtCylinder,
-    left_hand: HurtCylinder,
-    right_hand: HurtCylinder,
-    left_knee: HurtCylinder,
-    right_knee: HurtCylinder,
-    left_elbow: HurtCylinder,
-    right_elbow: HurtCylinder,
-    head: HurtCylinder,
-    left_shoulder: HurtCylinder,
-    right_shoulder: HurtCylinder,
-    upper_torso: HurtCylinder,
-    left_pelvis: HurtCylinder,
-    right_pelvis: HurtCylinder,
+    left_ankle: Element,
+    right_ankle: Element,
+    left_hand: Element,
+    right_hand: Element,
+    left_knee: Element,
+    right_knee: Element,
+    left_elbow: Element,
+    right_elbow: Element,
+    head: Element,
+    left_shoulder: Element,
+    right_shoulder: Element,
+    upper_torso: Element,
+    left_pelvis: Element,
+    right_pelvis: Element,
 
     const Self = @This();
+    const Element = memory.ConvertedValue(
+        HurtCylinder,
+        HurtCylinder,
+        game.hurtCylinderToUnrealSpace,
+        game.hurtCylinderFromUnrealSpace,
+    );
 
     pub const len = @typeInfo(Self).@"struct".fields.len;
 
-    pub fn asConstArray(self: *const Self) *const [len]HurtCylinder {
+    pub fn asConstArray(self: *const Self) *const [len]Element {
         return @ptrCast(self);
     }
 
-    pub fn asMutableArray(self: *Self) *[len]HurtCylinder {
+    pub fn asMutableArray(self: *Self) *[len]Element {
         return @ptrCast(self);
     }
 
@@ -283,24 +294,30 @@ pub const CollisionSphere = extern struct {
 };
 
 pub const CollisionSpheres = extern struct {
-    neck: CollisionSphere,
-    left_elbow: CollisionSphere,
-    right_elbow: CollisionSphere,
-    lower_torso: CollisionSphere,
-    left_knee: CollisionSphere,
-    right_knee: CollisionSphere,
-    left_ankle: CollisionSphere,
-    right_ankle: CollisionSphere,
+    neck: Element,
+    left_elbow: Element,
+    right_elbow: Element,
+    lower_torso: Element,
+    left_knee: Element,
+    right_knee: Element,
+    left_ankle: Element,
+    right_ankle: Element,
 
     const Self = @This();
+    const Element = memory.ConvertedValue(
+        CollisionSphere,
+        CollisionSphere,
+        game.collisionSphereToUnrealSpace,
+        game.collisionSphereFromUnrealSpace,
+    );
 
     pub const len = @typeInfo(Self).@"struct".fields.len;
 
-    pub fn asConstArray(self: *const Self) *const [len]CollisionSphere {
+    pub fn asConstArray(self: *const Self) *const [len]Element {
         return @ptrCast(self);
     }
 
-    pub fn asMutableArray(self: *Self) *[len]CollisionSphere {
+    pub fn asMutableArray(self: *Self) *[len]Element {
         return @ptrCast(self);
     }
 
@@ -321,8 +338,8 @@ pub const Player = struct {
     position: memory.ConvertedValue(
         math.Vec3,
         math.Vec3,
-        game.conversions.pointToUnrealSpace,
-        game.conversions.pointFromUnrealSpace,
+        game.pointToUnrealSpace,
+        game.pointFromUnrealSpace,
     ), //0x0230
     current_frame_number: u32, // 0x0390
     current_frame_float: f32, // 0x03BC
@@ -351,24 +368,9 @@ pub const Player = struct {
     // direction_input: u32, // 0x1F74
     // used_heat: u32, // 0x2110
     // input: Input, // 0x2494
-    hit_lines: memory.ConvertedValue(
-        HitLines,
-        HitLines,
-        game.conversions.hitLinesToUnrealSpace,
-        game.conversions.hitLinesFromUnrealSpace,
-    ), // 0x2500
-    hurt_cylinders: memory.ConvertedValue(
-        HurtCylinders,
-        HurtCylinders,
-        game.conversions.hurtCylindersToUnrealSpace,
-        game.conversions.hurtCylindersFromUnrealSpace,
-    ), // 0x2900
-    collision_spheres: memory.ConvertedValue(
-        CollisionSpheres,
-        CollisionSpheres,
-        game.conversions.collisionSpheresToUnrealSpace,
-        game.conversions.collisionSpheresFromUnrealSpace,
-    ), // 0x2D40
+    hit_lines: HitLines, // 0x2500
+    hurt_cylinders: HurtCylinders, // 0x2900
+    collision_spheres: CollisionSpheres, // 0x2D40
     // health: i32, // 0x2EE4
 };
 

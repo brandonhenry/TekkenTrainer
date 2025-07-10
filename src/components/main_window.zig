@@ -17,8 +17,8 @@ pub const MainWindow = struct {
     const Self = @This();
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        const player_1 = if (game_memory.player_1.takeConvertedPartialCopy(components.View.Player)) |p| &p else null;
-        const player_2 = if (game_memory.player_2.takeConvertedPartialCopy(components.View.Player)) |p| &p else null;
+        const player_1 = if (game_memory.player_1.takePartialCopy(components.View.Player)) |p| &p else null;
+        const player_2 = if (game_memory.player_2.takePartialCopy(components.View.Player)) |p| &p else null;
         self.view.tick(player_1, player_2);
     }
 
