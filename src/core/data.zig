@@ -109,12 +109,12 @@ pub const Player = struct {
 
 pub const HurtCylinder = struct {
     cylinder: math.Cylinder,
-    is_intersecting: bool,
+    intersects: bool,
 };
 
 pub const HitLine = struct {
     line: math.LineSegment3,
-    is_intersecting: bool,
+    intersects: bool,
 };
 
 const testing = std.testing;
@@ -171,11 +171,11 @@ test "Player.getSkeletonLines should return correct value" {
 test "Player.getHurtCylinders should return correct value" {
     const cylinder_1 = HurtCylinder{
         .cylinder = .{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 4, .half_height = 5 },
-        .is_intersecting = false,
+        .intersects = false,
     };
     const cylinder_2 = HurtCylinder{
         .cylinder = .{ .center = .fromArray(.{ 6, 7, 8 }), .radius = 9, .half_height = 10 },
-        .is_intersecting = true,
+        .intersects = true,
     };
     var player = Player{};
     player.hurt_cylinders_buffer[0] = cylinder_1;
@@ -197,11 +197,11 @@ test "Player.getGetCollisionSpheres should return correct value" {
 test "Player.getHitLines should return correct value" {
     const line_1 = HitLine{
         .line = .{ .point_1 = .fromArray(.{ 1, 2, 3 }), .point_2 = .fromArray(.{ 4, 5, 6 }) },
-        .is_intersecting = false,
+        .intersects = false,
     };
     const line_2 = HitLine{
         .line = .{ .point_1 = .fromArray(.{ 7, 8, 9 }), .point_2 = .fromArray(.{ 10, 11, 12 }) },
-        .is_intersecting = true,
+        .intersects = true,
     };
     var player = Player{};
     player.hit_lines_buffer[0] = line_1;
