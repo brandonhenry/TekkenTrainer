@@ -99,7 +99,7 @@ pub fn StructProxy(comptime Struct: type) type {
             inline for (partial_fields) |*field| {
                 const value_pointer = self.findConstFieldPointer(field.name) orelse return null;
                 if (isConvertedValue(@FieldType(Struct, field.name))) {
-                    @field(copy, field.name) = value_pointer.getValue();
+                    @field(copy, field.name) = value_pointer.convert();
                 } else {
                     @field(copy, field.name) = value_pointer.*;
                 }

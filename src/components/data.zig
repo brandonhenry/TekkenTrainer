@@ -458,16 +458,16 @@ fn drawConvertedValue(ctx: *const Context, pointer: anytype) void {
     };
     drawAny(&raw_ctx, raw_pointer);
 
-    const value_pointer = &pointer.getValue();
-    const value_ctx = Context{
-        .label = "value",
-        .type_name = @typeName(@TypeOf(value_pointer.*)),
-        .address = @intFromPtr(value_pointer),
+    const converted_pointer = &pointer.convert();
+    const converted_ctx = Context{
+        .label = "converted",
+        .type_name = @typeName(@TypeOf(converted_pointer.*)),
+        .address = @intFromPtr(converted_pointer),
         .bit_offset = null,
-        .bit_size = @bitSizeOf(@TypeOf(value_pointer.*)),
+        .bit_size = @bitSizeOf(@TypeOf(converted_pointer.*)),
         .parent = ctx,
     };
-    drawAny(&value_ctx, value_pointer);
+    drawAny(&converted_ctx, converted_pointer);
 }
 
 fn drawCustomPointer(ctx: *const Context, pointer: anytype) void {
@@ -1791,7 +1791,7 @@ test "should draw converted value correctly" {
             ctx.setRef("Window");
             ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
             try ctx.expectItemExists("test/raw: 123 (0x7B)");
-            try ctx.expectItemExists("test/value: 246 (0xF6)");
+            try ctx.expectItemExists("test/converted: 246 (0xF6)");
             ctx.itemClick("test/raw", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
@@ -1804,11 +1804,11 @@ test "should draw converted value correctly" {
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
             ctx.setRef("Window");
-            ctx.itemClick("test/value", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+            ctx.itemClick("test/converted", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: value");
-            try ctx.expectItemExists("path: test.value");
+            try ctx.expectItemExists("label: converted");
+            try ctx.expectItemExists("path: test.converted");
             try ctx.expectItemExists("type: i64");
             try ctx.expectItemExists("address");
             try ctx.expectItemExists("size: 8 (0x8) bytes");

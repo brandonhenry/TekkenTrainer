@@ -4,9 +4,9 @@ pub const converted_value_tag = opaque {};
 
 pub fn ConvertedValue(
     comptime Raw: type,
-    comptime Value: type,
-    comptime rawToValue: ?*const fn (raw: Raw) Value,
-    comptime valueToRaw: ?*const fn (value: Value) Raw,
+    comptime Converted: type,
+    comptime rawToConverted: ?*const fn (raw: Raw) Converted,
+    comptime convertedToRaw: ?*const fn (value: Converted) Raw,
 ) type {
     return extern struct {
         raw: Raw,
@@ -14,19 +14,19 @@ pub fn ConvertedValue(
         const Self = @This();
         pub const tag = converted_value_tag;
 
-        pub fn getValue(self: *const Self) Value {
-            if (rawToValue) |convert| {
-                return convert(self.raw);
+        pub fn convert(self: *const Self) Converted {
+            if (rawToConverted) |rtc| {
+                return rtc(self.raw);
             } else {
-                @compileError("Can not getValue of a ConvertedValue when rawToValue is not provided.");
+                @compileError("Can not convert a ConvertedValue when rawToConverted is not provided.");
             }
         }
 
-        pub fn setValue(self: *Self, value: Value) void {
-            if (valueToRaw) |convert| {
-                self.raw = convert(value);
+        pub fn setConverted(self: *Self, converted: Converted) void {
+            if (convertedToRaw) |ctr| {
+                self.raw = ctr(converted);
             } else {
-                @compileError("Can not setValue of a ConvertedValue when valueToRaw is not provided.");
+                @compileError("Can not setConverted a ConvertedValue when convertedToRaw is not provided.");
             }
         }
     };
@@ -38,23 +38,23 @@ test "should have same size as raw value" {
     try testing.expectEqual(@sizeOf(i64), @sizeOf(ConvertedValue(i64, u32, null, null)));
 }
 
-test "getValue should return correct value" {
-    const rawToValue = struct {
+test "convert should return correct value" {
+    const rawToConverted = struct {
         fn call(raw: i32) i32 {
             return raw + 5;
         }
     }.call;
-    const value = ConvertedValue(i32, i32, rawToValue, null){ .raw = 5 };
-    try testing.expectEqual(10, value.getValue());
+    const value = ConvertedValue(i32, i32, rawToConverted, null){ .raw = 5 };
+    try testing.expectEqual(10, value.convert());
 }
 
-test "setValue should set correct value" {
-    const valueToRaw = struct {
+test "setConverted should set correct value" {
+    const convertedToRaw = struct {
         fn call(raw: i32) i32 {
             return raw - 5;
         }
     }.call;
-    var value = ConvertedValue(i32, i32, null, valueToRaw){ .raw = 0 };
-    value.setValue(10);
+    var value = ConvertedValue(i32, i32, null, convertedToRaw){ .raw = 0 };
+    value.setConverted(10);
     try testing.expectEqual(5, value.raw);
 }
