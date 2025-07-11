@@ -370,6 +370,14 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             return result;
         }
 
+        pub fn lerpElements(self: Self, other: Self, t: Element) Self {
+            var result: Self = undefined;
+            inline for (self.array, other.array, 0..) |self_element, other_element, index| {
+                result.array[index] = std.math.lerp(self_element, other_element, t);
+            }
+            return result;
+        }
+
         pub fn dot(self: Self, other: Self) Element {
             var result: Element = 0;
             inline for (self.array, other.array) |self_element, other_element| {
@@ -811,6 +819,12 @@ test "maxElements should return correct value" {
     const vec_1 = Vector(4, f32).fromArray(.{ 1, 4, 5, 8 });
     const vec_2 = Vector(4, f32).fromArray(.{ 2, 3, 6, 7 });
     try testing.expectEqual(.{ 2, 4, 6, 8 }, vec_1.maxElements(vec_2).array);
+}
+
+test "lerpElements should return correct value" {
+    const vec_1 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
+    const vec_2 = Vector(4, f32).fromArray(.{ 5, 6, 7, 8 });
+    try testing.expectEqual(.{ 4, 5, 6, 7 }, vec_1.lerpElements(vec_2, 0.75).array);
 }
 
 test "dot should return correct value" {

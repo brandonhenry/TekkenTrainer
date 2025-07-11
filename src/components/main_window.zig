@@ -4,6 +4,7 @@ const dll = @import("../dll.zig");
 const components = @import("root.zig");
 const ui = @import("../ui/root.zig");
 const game = @import("../game/root.zig");
+const core = @import("../core/root.zig");
 
 pub const MainWindow = struct {
     is_first_draw: bool = true,
@@ -13,13 +14,13 @@ pub const MainWindow = struct {
     quadrant_layout: components.QuadrantLayout = .{},
     view: components.View = .{},
     controls_height: f32 = 0,
+    capture: core.Capture = .{},
 
     const Self = @This();
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        const player_1 = if (game_memory.player_1.takePartialCopy(components.View.Player)) |p| &p else null;
-        const player_2 = if (game_memory.player_2.takePartialCopy(components.View.Player)) |p| &p else null;
-        self.view.tick(player_1, player_2);
+        const frame = self.capture.captureFrame(game_memory);
+        self.view.processFrame(&frame);
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
