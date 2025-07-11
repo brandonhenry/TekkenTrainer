@@ -19,7 +19,11 @@ pub const MainWindow = struct {
     const Self = @This();
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        const frame = self.capture.captureFrame(game_memory);
+        const capture_game_memory = core.Capture.GameMemory{
+            .player_1 = game_memory.player_1.takePartialCopy(),
+            .player_2 = game_memory.player_2.takePartialCopy(),
+        };
+        const frame = self.capture.captureFrame(&capture_game_memory);
         self.view.processFrame(&frame);
     }
 
