@@ -5,7 +5,7 @@ const game = @import("../game/root.zig");
 const memory = @import("../memory/root.zig");
 const core = @import("root.zig");
 
-pub const Capture = struct {
+pub const Capturer = struct {
     previous_player_1_hit_lines: ?game.HitLines = null,
     previous_player_2_hit_lines: ?game.HitLines = null,
 

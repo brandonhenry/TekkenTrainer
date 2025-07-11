@@ -3,7 +3,7 @@ test {
     _ = @import("event_buss.zig");
     _ = @import("injector.zig");
 
-    _ = @import("core/capture.zig");
+    _ = @import("core/capturer.zig");
     _ = @import("core/data.zig");
 
     _ = @import("dx12/context.zig");

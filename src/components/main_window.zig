@@ -14,16 +14,16 @@ pub const MainWindow = struct {
     quadrant_layout: components.QuadrantLayout = .{},
     view: components.View = .{},
     controls_height: f32 = 0,
-    capture: core.Capture = .{},
+    capturer: core.Capturer = .{},
 
     const Self = @This();
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        const capture_game_memory = core.Capture.GameMemory{
+        const capture_game_memory = core.Capturer.GameMemory{
             .player_1 = game_memory.player_1.takePartialCopy(),
             .player_2 = game_memory.player_2.takePartialCopy(),
         };
-        const frame = self.capture.captureFrame(&capture_game_memory);
+        const frame = self.capturer.captureFrame(&capture_game_memory);
         self.view.processFrame(&frame);
     }
 

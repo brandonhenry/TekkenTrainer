@@ -1,4 +1,4 @@
-pub const Capture = @import("capture.zig").Capture;
+pub const Capturer = @import("capturer.zig").Capturer;
 pub const Frame = @import("data.zig").Frame;
 pub const PlayerId = @import("data.zig").PlayerId;
 pub const PlayerSide = @import("data.zig").PlayerSide;
