@@ -47,6 +47,9 @@ pub const View = struct {
     const lingering_hurt_cylinders_color = math.Vec4.fromArray(.{ 0.0, 0.75, 0.75, 0.5 });
     const lingering_hurt_cylinders_thickness = 1.0;
     const lingering_hurt_cylinders_duration = 1.0;
+    const look_at_color = math.Vec4.fromArray(.{ 1.0, 0.0, 1.0, 1.0 });
+    const look_at_length = 100.0;
+    const look_at_thickness = 1.0;
 
     pub fn processFrame(self: *Self, frame: *const core.Frame) void {
         self.processHurtCylinders(.player_1, frame);
@@ -132,6 +135,7 @@ pub const View = struct {
         self.drawLingeringHurtCylinders(direction, matrix, inverse_matrix);
         self.drawHurtCylinders(direction, matrix, inverse_matrix);
         self.drawFloor(direction, matrix);
+        self.drawLookAtLines(direction, matrix);
         self.drawSkeletons(matrix);
         self.drawLingeringHitLines(matrix);
         self.drawHitLines(matrix);
@@ -336,6 +340,22 @@ pub const View = struct {
             color.asColor().a *= 1.0 - (completion * completion * completion * completion);
 
             drawLine(line, color, hit_line_thickness, matrix);
+        }
+    }
+
+    fn drawLookAtLines(self: *const Self, direction: Direction, matrix: math.Mat4) void {
+        if (direction != .top) {
+            return;
+        }
+        for (&self.frame.players) |*player| {
+            const position = player.position orelse continue;
+            const rotation = player.rotation orelse continue;
+            const delta = math.Vec3.plus_y.scale(look_at_length).rotateZ(rotation);
+            const line = math.LineSegment3{
+                .point_1 = position,
+                .point_2 = position.add(delta),
+            };
+            drawLine(line, look_at_color, look_at_thickness, matrix);
         }
     }
 

@@ -89,6 +89,7 @@ pub const Capturer = struct {
         return .{
             .current_frame_number = player.current_frame_number,
             .position = capturePlayerPosition(player),
+            .rotation = capturePlayerRotation(player),
             .skeleton = captureSkeleton(player),
             .hurt_cylinders = captureHurtCylinders(player),
             .collision_spheres = captureCollisionSpheres(player),
@@ -104,6 +105,13 @@ pub const Capturer = struct {
             return cylinders.upper_torso.convert().center;
         }
         return null;
+    }
+
+    fn capturePlayerRotation(player: *const misc.Partial(game.Player)) ?f32 {
+        const raw_matrix = player.transform_matrix orelse return null;
+        const matrix: math.Mat4 = raw_matrix.convert();
+        const transformed = math.Vec3.plus_x.directionTransform(matrix);
+        return std.math.atan2(transformed.y(), transformed.x());
     }
 
     fn captureSkeleton(player: *const misc.Partial(game.Player)) ?core.Skeleton {
