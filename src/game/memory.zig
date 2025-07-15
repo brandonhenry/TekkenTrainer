@@ -79,6 +79,7 @@ pub const Memory = struct {
             // ))),
             // .floor_number_2 = 0x1774,
             // .floor_number_3 = 0x1778,
+            .frames_since_round_start = 0x1410,
             .frame_data_flags = deref(u32, add(3, pattern(
                 &cache,
                 "0F 11 87 ?? ?? ?? ?? 0F 10 86 ?? ?? ?? ?? 0F 11 86 ?? ?? ?? ?? 41 0F 10 04 24",

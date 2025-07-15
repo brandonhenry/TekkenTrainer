@@ -363,6 +363,7 @@ pub const Player = struct {
     // stun: Stun, // 0x0774
     cancel_flags: CancelFlags, // 0x0C80
     // rage: bool, // 0x0D71
+    frames_since_round_start: u32, // 0x1410
     // floor_number_1: i32, // 0x1770
     // floor_number_2: i32, // 0x1774
     // floor_number_3: i32, // 0x1778

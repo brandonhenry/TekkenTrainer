@@ -3,6 +3,7 @@ const math = @import("../math/root.zig");
 const game = @import("../game/root.zig");
 
 pub const Frame = struct {
+    frames_since_round_start: ?u32 = null,
     players: [2]Player = .{ .{}, .{} },
     left_player_id: PlayerId = .player_1,
     main_player_id: PlayerId = .player_1,
@@ -77,6 +78,7 @@ pub const PlayerRole = enum {
 };
 
 pub const Player = struct {
+    current_frame_number: ?u32 = null,
     position: ?math.Vec3 = null,
     skeleton: ?Skeleton = null,
     hurt_cylinders: ?HurtCylinders = null,

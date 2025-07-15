@@ -16,6 +16,7 @@ pub const Capturer = struct {
     };
 
     pub fn captureFrame(self: *Self, game_memory: *const GameMemory) core.Frame {
+        const frames_since_round_start = captureFramesSinceRoundStart(game_memory);
         var player_1 = self.capturePlayer(&game_memory.player_1, .player_1);
         var player_2 = self.capturePlayer(&game_memory.player_2, .player_2);
         detectIntersections(&player_1.hurt_cylinders, &player_2.hit_lines);
@@ -24,6 +25,7 @@ pub const Capturer = struct {
         const left_player_id = captureLeftPlayerId(game_memory, main_player_id);
         self.updatePreviousHitLines(game_memory);
         return .{
+            .frames_since_round_start = frames_since_round_start,
             .players = .{ player_1, player_2 },
             .left_player_id = left_player_id,
             .main_player_id = main_player_id,
@@ -33,6 +35,16 @@ pub const Capturer = struct {
     fn updatePreviousHitLines(self: *Self, game_memory: *const GameMemory) void {
         self.previous_player_1_hit_lines = game_memory.player_1.hit_lines;
         self.previous_player_2_hit_lines = game_memory.player_2.hit_lines;
+    }
+
+    fn captureFramesSinceRoundStart(game_memory: *const GameMemory) ?u32 {
+        if (game_memory.player_1.frames_since_round_start) |frames| {
+            return frames;
+        }
+        if (game_memory.player_2.frames_since_round_start) |frames| {
+            return frames;
+        }
+        return null;
     }
 
     fn captureMainPlayerId(game_memory: *const GameMemory) core.PlayerId {
@@ -56,6 +68,7 @@ pub const Capturer = struct {
 
     fn capturePlayer(self: *Self, player: *const misc.Partial(game.Player), player_id: core.PlayerId) core.Player {
         return .{
+            .current_frame_number = player.current_frame_number,
             .position = capturePlayerPosition(player),
             .skeleton = captureSkeleton(player),
             .hurt_cylinders = captureHurtCylinders(player),
