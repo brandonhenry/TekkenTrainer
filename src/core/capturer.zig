@@ -17,6 +17,7 @@ pub const Capturer = struct {
 
     pub fn captureFrame(self: *Self, game_memory: *const GameMemory) core.Frame {
         const frames_since_round_start = captureFramesSinceRoundStart(game_memory);
+        const floor_z = captureFloorZ(game_memory);
         var player_1 = self.capturePlayer(&game_memory.player_1, .player_1);
         var player_2 = self.capturePlayer(&game_memory.player_2, .player_2);
         detectIntersections(&player_1.hurt_cylinders, &player_2.hit_lines);
@@ -26,6 +27,7 @@ pub const Capturer = struct {
         self.updatePreviousHitLines(game_memory);
         return .{
             .frames_since_round_start = frames_since_round_start,
+            .floor_z = floor_z,
             .players = .{ player_1, player_2 },
             .left_player_id = left_player_id,
             .main_player_id = main_player_id,
@@ -45,6 +47,23 @@ pub const Capturer = struct {
             return frames;
         }
         return null;
+    }
+
+    fn captureFloorZ(game_memory: *const GameMemory) ?f32 {
+        if (game_memory.player_1.floor_z) |raw_z1| {
+            const z1 = raw_z1.convert();
+            if (game_memory.player_2.floor_z) |raw_z2| {
+                const z2 = raw_z2.convert();
+                return 0.5 * (z1 + z2);
+            } else {
+                return z1;
+            }
+        } else if (game_memory.player_2.floor_z) |raw_z2| {
+            const z2 = raw_z2.convert();
+            return z2;
+        } else {
+            return null;
+        }
     }
 
     fn captureMainPlayerId(game_memory: *const GameMemory) core.PlayerId {

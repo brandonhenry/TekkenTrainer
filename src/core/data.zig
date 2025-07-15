@@ -4,6 +4,7 @@ const game = @import("../game/root.zig");
 
 pub const Frame = struct {
     frames_since_round_start: ?u32 = null,
+    floor_z: ?f32 = null,
     players: [2]Player = .{ .{}, .{} },
     left_player_id: PlayerId = .player_1,
     main_player_id: PlayerId = .player_1,

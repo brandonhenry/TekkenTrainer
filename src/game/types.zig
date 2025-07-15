@@ -347,6 +347,12 @@ pub const Player = struct {
         game.pointToUnrealSpace,
         game.pointFromUnrealSpace,
     ), //0x0230
+    floor_z: memory.ConvertedValue(
+        f32,
+        f32,
+        game.scaleToUnrealSpace,
+        game.scaleFromUnrealSpace,
+    ), // 0x0354
     current_frame_number: u32, // 0x0390
     current_frame_float: f32, // 0x03BC
     current_move_pointer: usize, // 0x03D8

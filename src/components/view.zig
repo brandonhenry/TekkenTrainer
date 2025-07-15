@@ -30,6 +30,8 @@ pub const View = struct {
         life_time: f32,
     };
 
+    const floor_color = math.Vec4.fromArray(.{ 0.0, 1.0, 0.0, 1.0 });
+    const floor_thickness = 1.0;
     const collision_spheres_color = math.Vec4.fromArray(.{ 0.0, 0.0, 1.0, 0.5 });
     const collision_spheres_thickness = 1.0;
     const hurt_cylinders_color = math.Vec4.fromArray(.{ 0.5, 0.5, 0.5, 0.5 });
@@ -129,6 +131,7 @@ pub const View = struct {
         self.drawCollisionSpheres(matrix, inverse_matrix);
         self.drawLingeringHurtCylinders(direction, matrix, inverse_matrix);
         self.drawHurtCylinders(direction, matrix, inverse_matrix);
+        self.drawFloor(direction, matrix);
         self.drawSkeletons(matrix);
         self.drawLingeringHitLines(matrix);
         self.drawHitLines(matrix);
@@ -334,6 +337,29 @@ pub const View = struct {
 
             drawLine(line, color, hit_line_thickness, matrix);
         }
+    }
+
+    fn drawFloor(self: *const Self, direction: Direction, matrix: math.Mat4) void {
+        if (direction == .top) {
+            return;
+        }
+
+        var window_pos: math.Vec2 = undefined;
+        imgui.igGetCursorScreenPos(window_pos.asImVec());
+        var window_size: math.Vec2 = undefined;
+        imgui.igGetContentRegionAvail(window_size.asImVec());
+        const world_z = self.frame.floor_z orelse return;
+
+        const screen_x = window_pos.toCoords().x;
+        const screen_w = window_size.toCoords().x;
+        const screen_y = math.Vec3.plus_z.scale(world_z).pointTransform(matrix).toCoords().y;
+
+        const draw_list = imgui.igGetWindowDrawList();
+        const point_1 = math.Vec2.fromArray(.{ screen_x, screen_y }).toImVec();
+        const point_2 = math.Vec2.fromArray(.{ screen_x + screen_w, screen_y }).toImVec();
+        const u32_color = imgui.igGetColorU32_Vec4(floor_color.toImVec());
+
+        imgui.ImDrawList_AddLine(draw_list, point_1, point_2, u32_color, floor_thickness);
     }
 
     fn drawSphere(
