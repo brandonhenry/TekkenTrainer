@@ -31,7 +31,7 @@ pub const Memory = struct {
             .position_y_relative_to_floor = 0x0184,
             .position_x_relative_to_floor = 0x018C,
             .position_z_relative_to_floor = 0x01A4,
-            .position = 0x0230,
+            .transform_matrix = 0x200,
             .floor_z = 0x0354,
             .current_frame_number = deref(u32, add(8, pattern(
                 &cache,

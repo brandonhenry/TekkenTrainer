@@ -5,6 +5,14 @@ const math = @import("../math/root.zig");
 const to_unreal_scale = 0.1;
 const from_unreal_scale = 1.0 / to_unreal_scale;
 
+pub fn scaleToUnrealSpace(value: f32) f32 {
+    return value * to_unreal_scale;
+}
+
+pub fn scaleFromUnrealSpace(value: f32) f32 {
+    return value * from_unreal_scale;
+}
+
 pub fn pointToUnrealSpace(value: math.Vec3) math.Vec3 {
     return math.Vec3.fromArray(.{
         value.z() * to_unreal_scale,
@@ -21,12 +29,24 @@ pub fn pointFromUnrealSpace(value: math.Vec3) math.Vec3 {
     });
 }
 
-pub fn scaleToUnrealSpace(value: f32) f32 {
-    return value * to_unreal_scale;
+pub fn matrixToUnrealSpace(value: math.Mat4) math.Mat4 {
+    const conversion_matrix = comptime math.Mat4.fromArray(.{
+        pointToUnrealSpace(math.Vec3.plus_x).extend(0).array,
+        pointToUnrealSpace(math.Vec3.plus_y).extend(0).array,
+        pointToUnrealSpace(math.Vec3.plus_z).extend(0).array,
+        .{ 0, 0, 0, 1 },
+    });
+    return value.multiply(conversion_matrix);
 }
 
-pub fn scaleFromUnrealSpace(value: f32) f32 {
-    return value * from_unreal_scale;
+pub fn matrixFromUnrealSpace(value: math.Mat4) math.Mat4 {
+    const conversion_matrix = comptime math.Mat4.fromArray(.{
+        pointFromUnrealSpace(math.Vec3.plus_x).extend(0).array,
+        pointFromUnrealSpace(math.Vec3.plus_y).extend(0).array,
+        pointFromUnrealSpace(math.Vec3.plus_z).extend(0).array,
+        .{ 0, 0, 0, 1 },
+    });
+    return value.multiply(conversion_matrix);
 }
 
 pub fn hitLineToUnrealSpace(value: game.HitLine) game.HitLine {
@@ -79,16 +99,33 @@ pub fn collisionSphereFromUnrealSpace(value: game.CollisionSphere) game.Collisio
 
 const testing = std.testing;
 
+test "scaleToUnrealSpace and scaleFromUnrealSpace should cancel out" {
+    const value: f32 = 123;
+    try testing.expectEqual(value, scaleToUnrealSpace(scaleFromUnrealSpace(value)));
+    try testing.expectEqual(value, scaleFromUnrealSpace(scaleToUnrealSpace(value)));
+}
+
 test "pointToUnrealSpace and pointFromUnrealSpace should cancel out" {
     const value = math.Vec3.fromArray(.{ 1, 2, 3 });
     try testing.expectEqual(value, pointToUnrealSpace(pointFromUnrealSpace(value)));
     try testing.expectEqual(value, pointFromUnrealSpace(pointToUnrealSpace(value)));
 }
 
-test "scaleToUnrealSpace and scaleFromUnrealSpace should cancel out" {
-    const value: f32 = 123;
-    try testing.expectEqual(value, scaleToUnrealSpace(scaleFromUnrealSpace(value)));
-    try testing.expectEqual(value, scaleFromUnrealSpace(scaleToUnrealSpace(value)));
+test "matrixToUnrealSpace and matrixFromUnrealSpace should cancel out" {
+    const value = math.Mat4.fromArray(.{
+        .{ 1, 2, 3, 4 },
+        .{ 5, 6, 7, 8 },
+        .{ 8, 10, 11, 12 },
+        .{ 13, 14, 15, 16 },
+    });
+    const result_1 = matrixToUnrealSpace(matrixFromUnrealSpace(value));
+    const result_2 = matrixFromUnrealSpace(matrixToUnrealSpace(value));
+    for (0..4) |i| {
+        for (0..4) |j| {
+            try testing.expectApproxEqAbs(value.array[i][j], result_1.array[i][j], 0.0001);
+            try testing.expectApproxEqAbs(value.array[i][j], result_2.array[i][j], 0.0001);
+        }
+    }
 }
 
 test "hitLineToUnrealSpace and hitLineFromUnrealSpace should cancel out" {

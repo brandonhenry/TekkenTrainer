@@ -341,12 +341,12 @@ pub const Player = struct {
     position_y_relative_to_floor: f32, // 0x0184
     position_x_relative_to_floor: f32, // 0x018C
     position_z_relative_to_floor: f32, // 0x01A4
-    position: memory.ConvertedValue(
-        math.Vec3,
-        math.Vec3,
-        game.pointToUnrealSpace,
-        game.pointFromUnrealSpace,
-    ), //0x0230
+    transform_matrix: memory.ConvertedValue(
+        math.Mat4,
+        math.Mat4,
+        game.matrixToUnrealSpace,
+        game.matrixFromUnrealSpace,
+    ), // 0x1F4
     floor_z: memory.ConvertedValue(
         f32,
         f32,

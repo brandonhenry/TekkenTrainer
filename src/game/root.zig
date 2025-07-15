@@ -1,7 +1,9 @@
-pub const pointToUnrealSpace = @import("conversions.zig").pointToUnrealSpace;
-pub const pointFromUnrealSpace = @import("conversions.zig").pointFromUnrealSpace;
 pub const scaleToUnrealSpace = @import("conversions.zig").scaleToUnrealSpace;
 pub const scaleFromUnrealSpace = @import("conversions.zig").scaleFromUnrealSpace;
+pub const pointToUnrealSpace = @import("conversions.zig").pointToUnrealSpace;
+pub const pointFromUnrealSpace = @import("conversions.zig").pointFromUnrealSpace;
+pub const matrixToUnrealSpace = @import("conversions.zig").matrixToUnrealSpace;
+pub const matrixFromUnrealSpace = @import("conversions.zig").matrixFromUnrealSpace;
 pub const hitLineToUnrealSpace = @import("conversions.zig").hitLineToUnrealSpace;
 pub const hitLineFromUnrealSpace = @import("conversions.zig").hitLineFromUnrealSpace;
 pub const hurtCylinderToUnrealSpace = @import("conversions.zig").hurtCylinderToUnrealSpace;
