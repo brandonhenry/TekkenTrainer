@@ -350,7 +350,7 @@ pub const View = struct {
         for (&self.frame.players) |*player| {
             const position = player.position orelse continue;
             const rotation = player.rotation orelse continue;
-            const delta = math.Vec3.plus_y.scale(look_at_length).rotateZ(rotation);
+            const delta = math.Vec3.plus_x.scale(look_at_length).rotateZ(rotation);
             const line = math.LineSegment3{
                 .point_1 = position,
                 .point_2 = position.add(delta),

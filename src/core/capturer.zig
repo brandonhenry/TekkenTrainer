@@ -108,10 +108,18 @@ pub const Capturer = struct {
     }
 
     fn capturePlayerRotation(player: *const misc.Partial(game.Player)) ?f32 {
-        const raw_matrix = player.transform_matrix orelse return null;
+        const raw_matrix = player.transform_matrix orelse {
+            const raw_rotation = player.rotation orelse return null;
+            return raw_rotation.convert();
+        };
         const matrix: math.Mat4 = raw_matrix.convert();
         const transformed = math.Vec3.plus_x.directionTransform(matrix);
-        return std.math.atan2(transformed.y(), transformed.x());
+        var angle = std.math.atan2(transformed.y(), transformed.x());
+        angle += 0.5 * std.math.pi; // Since model's forward direction is +Y the look at direction differs for 90 deg.
+        if (angle >= std.math.pi) {
+            angle -= 2.0 * std.math.pi;
+        }
+        return angle;
     }
 
     fn captureSkeleton(player: *const misc.Partial(game.Player)) ?core.Skeleton {
