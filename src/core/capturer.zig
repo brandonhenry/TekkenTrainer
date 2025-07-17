@@ -242,3 +242,163 @@ pub const Capturer = struct {
         }
     }
 };
+
+const testing = std.testing;
+
+test "should capture frames since round start correctly" {
+    var capturer = Capturer{};
+    try testing.expectEqual(
+        123,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .frames_since_round_start = 123 },
+            .player_2 = .{ .frames_since_round_start = 123 },
+        }).frames_since_round_start,
+    );
+    try testing.expectEqual(
+        123,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .frames_since_round_start = 123 },
+            .player_2 = .{ .frames_since_round_start = null },
+        }).frames_since_round_start,
+    );
+    try testing.expectEqual(
+        123,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .frames_since_round_start = null },
+            .player_2 = .{ .frames_since_round_start = 123 },
+        }).frames_since_round_start,
+    );
+    try testing.expectEqual(
+        null,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .frames_since_round_start = null },
+            .player_2 = .{ .frames_since_round_start = null },
+        }).frames_since_round_start,
+    );
+}
+
+test "should capture floor Z correctly" {
+    var capturer = Capturer{};
+    try testing.expectEqual(
+        150.0,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .floor_z = .fromConverted(100.0) },
+            .player_2 = .{ .floor_z = .fromConverted(200.0) },
+        }).floor_z,
+    );
+    try testing.expectEqual(
+        123.0,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .floor_z = .fromConverted(123.0) },
+            .player_2 = .{ .floor_z = null },
+        }).floor_z,
+    );
+    try testing.expectEqual(
+        123.0,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .floor_z = null },
+            .player_2 = .{ .floor_z = .fromConverted(123.0) },
+        }).floor_z,
+    );
+    try testing.expectEqual(
+        null,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .floor_z = null },
+            .player_2 = .{ .floor_z = null },
+        }).floor_z,
+    );
+}
+
+test "should capture left player id correctly" {
+    var capturer = Capturer{};
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = true, .input_side = null },
+            .player_2 = .{ .is_picked_by_main_player = false, .input_side = null },
+        }).left_player_id,
+    );
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = true, .input_side = .left },
+            .player_2 = .{ .is_picked_by_main_player = false, .input_side = null },
+        }).left_player_id,
+    );
+    try testing.expectEqual(
+        .player_2,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = true, .input_side = .right },
+            .player_2 = .{ .is_picked_by_main_player = false, .input_side = null },
+        }).left_player_id,
+    );
+    try testing.expectEqual(
+        .player_2,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = false, .input_side = null },
+            .player_2 = .{ .is_picked_by_main_player = true, .input_side = .left },
+        }).left_player_id,
+    );
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = false, .input_side = null },
+            .player_2 = .{ .is_picked_by_main_player = true, .input_side = .right },
+        }).left_player_id,
+    );
+}
+
+test "should capture main player id correctly" {
+    var capturer = Capturer{};
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = true },
+            .player_2 = .{ .is_picked_by_main_player = false },
+        }).main_player_id,
+    );
+    try testing.expectEqual(
+        .player_2,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = false },
+            .player_2 = .{ .is_picked_by_main_player = true },
+        }).main_player_id,
+    );
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = null },
+            .player_2 = .{ .is_picked_by_main_player = null },
+        }).main_player_id,
+    );
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = true },
+            .player_2 = .{ .is_picked_by_main_player = null },
+        }).main_player_id,
+    );
+    try testing.expectEqual(
+        .player_2,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = false },
+            .player_2 = .{ .is_picked_by_main_player = null },
+        }).main_player_id,
+    );
+    try testing.expectEqual(
+        .player_2,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = null },
+            .player_2 = .{ .is_picked_by_main_player = true },
+        }).main_player_id,
+    );
+    try testing.expectEqual(
+        .player_1,
+        capturer.captureFrame(&.{
+            .player_1 = .{ .is_picked_by_main_player = null },
+            .player_2 = .{ .is_picked_by_main_player = false },
+        }).main_player_id,
+    );
+}
+
+// TODO rest of the tests
