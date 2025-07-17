@@ -123,6 +123,14 @@ pub fn collisionSphereFromUnrealSpace(value: game.CollisionSphere) game.Collisio
     return converted;
 }
 
+pub fn decryptHeatGauge(value: u32) u32 {
+    return std.math.rotl(u32, value, @as(usize, 8));
+}
+
+pub fn encryptHeatGauge(value: u32) u32 {
+    return std.math.rotr(u32, value, @as(usize, 8));
+}
+
 const testing = std.testing;
 
 test "scaleToUnrealSpace and scaleFromUnrealSpace should cancel out" {
@@ -196,4 +204,10 @@ test "collisionSphereToUnrealSpace and collisionSphereFromUnrealSpace should can
     };
     try testing.expectEqual(value, collisionSphereToUnrealSpace(collisionSphereFromUnrealSpace(value)));
     try testing.expectEqual(value, collisionSphereFromUnrealSpace(collisionSphereToUnrealSpace(value)));
+}
+
+test "decryptHeatGauge and encryptHeatGauge should cancel out" {
+    const value = 0x12345678;
+    try testing.expectEqual(value, decryptHeatGauge(encryptHeatGauge(value)));
+    try testing.expectEqual(value, encryptHeatGauge(decryptHeatGauge(value)));
 }

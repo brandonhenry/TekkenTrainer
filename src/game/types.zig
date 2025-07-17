@@ -264,14 +264,19 @@ pub const Player = struct {
     in_rage: bool, // 0x0DD1
     frames_since_round_start: u32, // 0x1410
     used_heat: bool, // 0x21C0
-    heat_gauge: i32, // 0x21B0
+    heat_gauge: memory.ConvertedValue(
+        u32,
+        u32,
+        game.decryptHeatGauge,
+        game.encryptHeatGauge,
+    ), // 0x21B0
     in_heat: bool, // 0x21E1
     input_side: PlayerSide, // 0x252C
     input: Input, // 0x2554
     hit_lines: HitLines, // 0x2500
     hurt_cylinders: HurtCylinders, // 0x2900
     collision_spheres: CollisionSpheres, // 0x2D40
-    health: i32, // 0x3588
+    health: i64, // 0x3588
 };
 
 pub const TickFunction = fn (delta_time: f64) callconv(.c) void;
