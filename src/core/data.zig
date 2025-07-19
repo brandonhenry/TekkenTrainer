@@ -79,13 +79,85 @@ pub const PlayerRole = enum {
 };
 
 pub const Player = struct {
+    character_id: ?u32 = null,
+    current_move_id: ?u32 = null,
     current_move_frame: ?u32 = null,
+    current_move_total_frames: ?u32 = null,
+    attack_type: ?AttackType = null,
+    attack_damage: ?i32 = null,
+    hit_outcome: ?HitOutcome = null,
+    input: ?Input = null,
+    health: ?i32 = null,
+    rage: ?Rage = null,
+    heat: ?Heat = null,
     position: ?math.Vec3 = null,
     rotation: ?f32 = null,
     skeleton: ?Skeleton = null,
     hurt_cylinders: ?HurtCylinders = null,
     collision_spheres: ?CollisionSpheres = null,
     hit_lines: HitLines = .{},
+};
+
+pub const AttackType = enum {
+    not_attack,
+    high,
+    mid,
+    low,
+    special_mid,
+    high_unblockable,
+    mid_unblockable,
+    low_unblockable,
+    throw,
+    projectile,
+    antiair_only,
+};
+
+pub const HitOutcome = enum {
+    none,
+    blocked_standing,
+    blocked_crouching,
+    juggle,
+    screw,
+    grounded_face_down,
+    grounded_face_up,
+    counter_hit_standing,
+    counter_hit_crouching,
+    normal_hit_standing,
+    normal_hit_crouching,
+    normal_hit_standing_left,
+    normal_hit_crouching_left,
+    normal_hit_standing_back,
+    normal_hit_crouching_back,
+    normal_hit_standing_right,
+    normal_hit_crouching_right,
+};
+
+pub const Input = packed struct {
+    forward: bool = false,
+    back: bool = false,
+    up: bool = false,
+    down: bool = false,
+    left: bool = false,
+    right: bool = false,
+    special_style: bool = false,
+    heat: bool = false,
+    rage: bool = false,
+    button_1: bool = false,
+    button_2: bool = false,
+    button_3: bool = false,
+    button_4: bool = false,
+};
+
+pub const Rage = enum {
+    available,
+    activated,
+    used_up,
+};
+
+pub const Heat = union(enum) {
+    available: void,
+    activated: struct { gauge: f32 },
+    used_up: void,
 };
 
 pub const SkeletonPointId = enum {
