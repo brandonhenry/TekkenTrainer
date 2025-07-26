@@ -17,6 +17,7 @@ pub const MainWindow = struct {
     frame_detector: core.FrameDetector = .{},
     pause_detector: core.PauseDetector(.{}) = .{},
     capturer: core.Capturer = .{},
+    hit_detector: core.HitDetector = .{},
 
     const Self = @This();
 
@@ -27,7 +28,8 @@ pub const MainWindow = struct {
             return;
         }
         self.pause_detector.update();
-        const frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2 });
+        var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2 });
+        self.hit_detector.detect(&frame);
         self.view.processFrame(&frame);
     }
 

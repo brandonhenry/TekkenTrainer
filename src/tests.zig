@@ -6,6 +6,7 @@ test {
     _ = @import("core/capturer.zig");
     _ = @import("core/frame_detector.zig");
     _ = @import("core/data.zig");
+    _ = @import("core/hit_detector.zig");
     _ = @import("core/pause_detector.zig");
 
     _ = @import("dx12/context.zig");

@@ -18,10 +18,8 @@ pub const Capturer = struct {
     pub fn captureFrame(self: *Self, game_memory: *const GameMemory) core.Frame {
         const frames_since_round_start = captureFramesSinceRoundStart(game_memory);
         const floor_z = captureFloorZ(game_memory);
-        var player_1 = self.capturePlayer(&game_memory.player_1, .player_1);
-        var player_2 = self.capturePlayer(&game_memory.player_2, .player_2);
-        detectIntersections(&player_1.hurt_cylinders, &player_2.hit_lines);
-        detectIntersections(&player_2.hurt_cylinders, &player_1.hit_lines);
+        const player_1 = self.capturePlayer(&game_memory.player_1, .player_1);
+        const player_2 = self.capturePlayer(&game_memory.player_2, .player_2);
         const main_player_id = captureMainPlayerId(game_memory);
         const left_player_id = captureLeftPlayerId(game_memory, main_player_id);
         self.updatePreviousHitLines(game_memory);
@@ -155,7 +153,7 @@ pub const Capturer = struct {
                     .radius = converted.radius,
                     .half_height = converted.half_height,
                 };
-                return .{ .cylinder = cylinder, .intersects = false };
+                return .{ .cylinder = cylinder };
             }
         }.call;
         return .init(.{
@@ -224,22 +222,11 @@ pub const Capturer = struct {
                 .point_1 = current_line.points[1].position,
                 .point_2 = current_line.points[2].position,
             };
-            result.buffer[result.len] = .{ .line = line_1, .intersects = false };
-            result.buffer[result.len + 1] = .{ .line = line_2, .intersects = false };
+            result.buffer[result.len] = .{ .line = line_1 };
+            result.buffer[result.len + 1] = .{ .line = line_2 };
             result.len += 2;
         }
         return result;
-    }
-
-    fn detectIntersections(hurt_cylinders: *?core.HurtCylinders, hit_lines: *core.HitLines) void {
-        const cylinders: *core.HurtCylinders = if (hurt_cylinders.*) |*c| c else return;
-        for (&cylinders.values) |*cylinder| {
-            for (hit_lines.asMutableSlice()) |*line| {
-                const intersects = math.checkCylinderLineSegmentIntersection(cylinder.cylinder, line.line);
-                cylinder.intersects = intersects;
-                line.intersects = intersects;
-            }
-        }
     }
 };
 

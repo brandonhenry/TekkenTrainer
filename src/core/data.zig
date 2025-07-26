@@ -202,7 +202,7 @@ pub const HurtCylinderId = enum {
 
 pub const HurtCylinder = struct {
     cylinder: math.Cylinder,
-    intersects: bool,
+    intersects: bool = false,
 };
 
 pub const HurtCylinders = std.EnumArray(HurtCylinderId, HurtCylinder);
@@ -224,7 +224,7 @@ pub const CollisionSpheres = std.EnumArray(CollisionSphereId, CollisionSphere);
 
 pub const HitLine = struct {
     line: math.LineSegment3,
-    intersects: bool,
+    intersects: bool = false,
 };
 
 pub const HitLines = struct {
