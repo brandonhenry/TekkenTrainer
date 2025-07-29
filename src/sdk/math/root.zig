@@ -16,3 +16,4 @@ pub const Cylinder = @import("shapes.zig").Cylinder;
 pub const checkCylinderLineSegmentIntersection = @import("intersection.zig").checkCylinderLineSegmentIntersection;
 pub const checkCircleLineSegmentIntersection = @import("intersection.zig").checkCircleLineSegmentIntersection;
 pub const findIntervalIntersection = @import("intersection.zig").findIntervalIntersection;
+pub const doSlicesIntersect = @import("intersection.zig").doSlicesIntersect;

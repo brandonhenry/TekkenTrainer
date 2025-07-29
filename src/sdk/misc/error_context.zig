@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const math = @import("../math/root.zig");
 const misc = @import("root.zig");
 
 pub const ErrorContextConfig = struct {
@@ -106,7 +107,7 @@ pub fn ErrorContext(comptime config: ErrorContextConfig) type {
             for (0..self.items.len) |index| {
                 const item = self.items.get(index) catch unreachable;
                 const item_region = item.getBufferRegion() orelse continue;
-                if (misc.doSlicesCollide(u8, item_region, region)) {
+                if (math.doSlicesIntersect(u8, item_region, region)) {
                     elements_to_remove = index + 1;
                 } else {
                     break;

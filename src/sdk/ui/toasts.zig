@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const imgui = @import("imgui");
+const math = @import("../math/root.zig");
 const misc = @import("../misc/root.zig");
 const ui = @import("root.zig");
 
@@ -92,7 +93,7 @@ pub fn Toasts(comptime config: ToastsConfig) type {
 
         fn clearBufferRegion(region: []const u8) void {
             while (toasts.getFirst() catch null) |toast| {
-                if (!misc.doSlicesCollide(u8, toast.getBufferRegion(), region)) {
+                if (!math.doSlicesIntersect(u8, toast.getBufferRegion(), region)) {
                     break;
                 }
                 _ = toasts.removeFirst() catch unreachable;

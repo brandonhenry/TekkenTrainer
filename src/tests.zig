@@ -36,7 +36,6 @@ test {
     _ = @import("sdk/misc/circular_buffer.zig");
     _ = @import("sdk/misc/error_context.zig");
     _ = @import("sdk/misc/meta.zig");
-    _ = @import("sdk/misc/misc.zig");
     _ = @import("sdk/misc/task.zig");
     _ = @import("sdk/misc/timer.zig");
     _ = @import("sdk/misc/timestamp.zig");

@@ -7,7 +7,6 @@ pub const ErrorContext = @import("error_context.zig").ErrorContext;
 pub threadlocal var error_context = ErrorContext(.{}){};
 pub const Partial = @import("meta.zig").Partial;
 pub const FieldMap = @import("meta.zig").FieldMap;
-pub const doSlicesCollide = @import("misc.zig").doSlicesCollide;
 pub const Task = @import("task.zig").Task;
 pub const Timer = @import("timer.zig").Timer;
 pub const TimerConfig = @import("timer.zig").TimerConfig;

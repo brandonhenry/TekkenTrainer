@@ -1,4 +1,5 @@
 const std = @import("std");
+const math = @import("../math/root.zig");
 const misc = @import("../misc/root.zig");
 
 pub const BufferLoggerConfig = struct {
@@ -110,7 +111,7 @@ pub fn BufferLogger(comptime config: BufferLoggerConfig) type {
 
         fn clearBufferRegion(region: []const u8) void {
             while (entries.getFirst() catch null) |entry| {
-                if (!misc.doSlicesCollide(u8, entry.buffer_region, region)) {
+                if (!math.doSlicesIntersect(u8, entry.buffer_region, region)) {
                     break;
                 }
                 _ = entries.removeFirst() catch unreachable;
