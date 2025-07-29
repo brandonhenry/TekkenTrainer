@@ -1,5 +1,4 @@
 const std = @import("std");
-const core = @import("root.zig");
 
 pub const PauseDetectorConfig = struct {
     nanoTimestamp: *const fn () i128 = std.time.nanoTimestamp,

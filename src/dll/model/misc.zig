@@ -1,0 +1,65 @@
+pub const AttackType = enum {
+    not_attack,
+    high,
+    mid,
+    low,
+    special_mid,
+    high_unblockable,
+    mid_unblockable,
+    low_unblockable,
+    throw,
+    projectile,
+    antiair_only,
+};
+
+pub const HitOutcome = enum {
+    none,
+    blocked_standing,
+    blocked_crouching,
+    juggle,
+    screw,
+    grounded_face_down,
+    grounded_face_up,
+    counter_hit_standing,
+    counter_hit_crouching,
+    normal_hit_standing,
+    normal_hit_crouching,
+    normal_hit_standing_left,
+    normal_hit_crouching_left,
+    normal_hit_standing_back,
+    normal_hit_crouching_back,
+    normal_hit_standing_right,
+    normal_hit_crouching_right,
+};
+
+pub const Input = packed struct {
+    forward: bool = false,
+    back: bool = false,
+    up: bool = false,
+    down: bool = false,
+    left: bool = false,
+    right: bool = false,
+    special_style: bool = false,
+    heat: bool = false,
+    rage: bool = false,
+    button_1: bool = false,
+    button_2: bool = false,
+    button_3: bool = false,
+    button_4: bool = false,
+};
+
+pub const Rage = enum {
+    available,
+    activated,
+    used_up,
+};
+
+pub const Heat = union(enum) {
+    available: void,
+    activated: ActivatedHeat,
+    used_up: void,
+};
+
+pub const ActivatedHeat = struct {
+    gauge: f32,
+};

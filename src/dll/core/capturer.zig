@@ -1,7 +1,7 @@
 const std = @import("std");
 const sdk = @import("../../sdk/root.zig");
+const model = @import("../model/root.zig");
 const game = @import("../game/root.zig");
-const core = @import("root.zig");
 
 pub const Capturer = struct {
     previous_player_1_hit_lines: ?game.HitLines = null,
@@ -13,7 +13,7 @@ pub const Capturer = struct {
         player_2: sdk.misc.Partial(game.Player),
     };
 
-    pub fn captureFrame(self: *Self, game_memory: *const GameMemory) core.Frame {
+    pub fn captureFrame(self: *Self, game_memory: *const GameMemory) model.Frame {
         const frames_since_round_start = captureFramesSinceRoundStart(game_memory);
         const floor_z = captureFloorZ(game_memory);
         const player_1 = self.capturePlayer(&game_memory.player_1, .player_1);
@@ -62,7 +62,7 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureMainPlayerId(game_memory: *const GameMemory) core.PlayerId {
+    fn captureMainPlayerId(game_memory: *const GameMemory) model.PlayerId {
         if (game_memory.player_1.is_picked_by_main_player) |is_main| {
             return if (is_main) .player_1 else .player_2;
         }
@@ -72,7 +72,7 @@ pub const Capturer = struct {
         return .player_1;
     }
 
-    fn captureLeftPlayerId(game_memory: *const GameMemory, main_player_id: core.PlayerId) core.PlayerId {
+    fn captureLeftPlayerId(game_memory: *const GameMemory, main_player_id: model.PlayerId) model.PlayerId {
         const main_player = if (main_player_id == .player_1) &game_memory.player_1 else &game_memory.player_2;
         if (main_player.input_side) |side| {
             return if (side == .left) main_player_id else main_player_id.getOther();
@@ -81,7 +81,7 @@ pub const Capturer = struct {
         }
     }
 
-    fn capturePlayer(self: *Self, player: *const sdk.misc.Partial(game.Player), player_id: core.PlayerId) core.Player {
+    fn capturePlayer(self: *Self, player: *const sdk.misc.Partial(game.Player), player_id: model.PlayerId) model.Player {
         return .{
             .character_id = player.character_id,
             .current_move_id = player.current_move_id,
@@ -103,7 +103,7 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureAttackType(player: *const sdk.misc.Partial(game.Player)) ?core.AttackType {
+    fn captureAttackType(player: *const sdk.misc.Partial(game.Player)) ?model.AttackType {
         const attack_type: game.AttackType = player.attack_type orelse return null;
         return switch (attack_type) {
             .not_attack => .not_attack,
@@ -121,7 +121,7 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureHitOutcome(player: *const sdk.misc.Partial(game.Player)) ?core.HitOutcome {
+    fn captureHitOutcome(player: *const sdk.misc.Partial(game.Player)) ?model.HitOutcome {
         const hit_outcome: game.HitOutcome = player.hit_outcome orelse return null;
         return switch (hit_outcome) {
             .none => .none,
@@ -145,7 +145,7 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureInput(player: *const sdk.misc.Partial(game.Player), player_id: core.PlayerId) ?core.Input {
+    fn captureInput(player: *const sdk.misc.Partial(game.Player), player_id: model.PlayerId) ?model.Input {
         const input: game.Input = player.input orelse return null;
         const input_side: game.PlayerSide = player.input_side orelse (if (player_id == .player_1) .left else .right);
         return .{
@@ -165,7 +165,7 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureRage(player: *const sdk.misc.Partial(game.Player)) ?core.Rage {
+    fn captureRage(player: *const sdk.misc.Partial(game.Player)) ?model.Rage {
         const in_rage = player.in_rage orelse return null;
         const used_rage = player.used_rage orelse return null;
         if (in_rage) {
@@ -177,7 +177,7 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureHeat(player: *const sdk.misc.Partial(game.Player)) ?core.Heat {
+    fn captureHeat(player: *const sdk.misc.Partial(game.Player)) ?model.Heat {
         const in_heat = player.in_heat orelse return null;
         const used_heat = player.used_heat orelse return null;
         const heat_gauge = player.heat_gauge orelse return null;
@@ -215,7 +215,7 @@ pub const Capturer = struct {
         return angle;
     }
 
-    fn captureSkeleton(player: *const sdk.misc.Partial(game.Player)) ?core.Skeleton {
+    fn captureSkeleton(player: *const sdk.misc.Partial(game.Player)) ?model.Skeleton {
         const cylinders: *const game.HurtCylinders = if (player.hurt_cylinders) |*c| c else return null;
         const spheres: *const game.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
         return .init(.{
@@ -238,10 +238,10 @@ pub const Capturer = struct {
         });
     }
 
-    fn captureHurtCylinders(player: *const sdk.misc.Partial(game.Player)) ?core.HurtCylinders {
+    fn captureHurtCylinders(player: *const sdk.misc.Partial(game.Player)) ?model.HurtCylinders {
         const cylinders: *const game.HurtCylinders = if (player.hurt_cylinders) |*c| c else return null;
         const convert = struct {
-            fn call(input: *const game.HurtCylinders.Element) core.HurtCylinder {
+            fn call(input: *const game.HurtCylinders.Element) model.HurtCylinder {
                 const converted = input.convert();
                 const cylinder = sdk.math.Cylinder{
                     .center = converted.center,
@@ -269,10 +269,10 @@ pub const Capturer = struct {
         });
     }
 
-    fn captureCollisionSpheres(player: *const sdk.misc.Partial(game.Player)) ?core.CollisionSpheres {
+    fn captureCollisionSpheres(player: *const sdk.misc.Partial(game.Player)) ?model.CollisionSpheres {
         const spheres: *const game.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
         const convert = struct {
-            fn call(input: *const game.CollisionSpheres.Element) core.CollisionSphere {
+            fn call(input: *const game.CollisionSpheres.Element) model.CollisionSphere {
                 const converted = input.convert();
                 return .{ .center = converted.center, .radius = converted.radius };
             }
@@ -292,9 +292,9 @@ pub const Capturer = struct {
     fn captureHitLines(
         self: *const Self,
         player: *const sdk.misc.Partial(game.Player),
-        player_id: core.PlayerId,
-    ) core.HitLines {
-        var result: core.HitLines = .{};
+        player_id: model.PlayerId,
+    ) model.HitLines {
+        var result: model.HitLines = .{};
         const previous_lines: *const game.HitLines = switch (player_id) {
             .player_1 => &(self.previous_player_1_hit_lines orelse return result),
             .player_2 => &(self.previous_player_2_hit_lines orelse return result),
@@ -567,7 +567,7 @@ test "should capture input correctly" {
             .input_side = null,
         },
     });
-    try testing.expectEqual(core.Input{
+    try testing.expectEqual(model.Input{
         .forward = true,
         .back = false,
         .up = false,
@@ -710,7 +710,7 @@ test "should capture heat correctly" {
     });
     try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).heat);
     try testing.expectEqual(
-        core.Heat{ .activated = .{ .gauge = 0.5 } },
+        model.Heat{ .activated = .{ .gauge = 0.5 } },
         frame_1.getPlayerById(.player_2).heat,
     );
     try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_1).heat);
@@ -883,7 +883,7 @@ test "should capture skeleton correctly" {
             .collision_spheres = null,
         },
     });
-    try testing.expectEqual(core.Skeleton.init(.{
+    try testing.expectEqual(model.Skeleton.init(.{
         .head = .fromArray(.{ 1, 2, 3 }),
         .neck = .fromArray(.{ 4, 5, 6 }),
         .upper_torso = .fromArray(.{ 7, 8, 9 }),
@@ -1035,7 +1035,7 @@ test "should capture hit lines correctly" {
         }
     }.call;
     const line = struct {
-        fn call(point_1: [3]f32, point_2: [3]f32) core.HitLine {
+        fn call(point_1: [3]f32, point_2: [3]f32) model.HitLine {
             return .{
                 .line = .{
                     .point_1 = .fromArray(point_1),
@@ -1062,8 +1062,8 @@ test "should capture hit lines correctly" {
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
         } },
     });
-    try testing.expectEqualSlices(core.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(core.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asConstSlice());
 
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{ .hit_lines = .{
@@ -1079,13 +1079,13 @@ test "should capture hit lines correctly" {
             hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 72 } }, true),
         } },
     });
-    try testing.expectEqualSlices(core.HitLine, &.{
+    try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 10, 11, 12 }, .{ 13, 14, 15 }),
         line(.{ 13, 14, 15 }, .{ 16, 17, 18 }),
         line(.{ 28, 29, 30 }, .{ 31, 32, 33 }),
         line(.{ 31, 32, 33 }, .{ 34, 35, 36 }),
     }, frame_2.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(core.HitLine, &.{
+    try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 37, 38, 39 }, .{ 40, 41, 42 }),
         line(.{ 40, 41, 42 }, .{ 43, 44, 45 }),
         line(.{ 55, 56, 57 }, .{ 58, 59, 60 }),
@@ -1106,8 +1106,8 @@ test "should capture hit lines correctly" {
             hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 1000 } }, false),
         } },
     });
-    try testing.expectEqualSlices(core.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(core.HitLine, &.{
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 1000, 38, 39 }, .{ 40, 41, 42 }),
         line(.{ 40, 41, 42 }, .{ 43, 44, 45 }),
         line(.{ 46, 1000, 48 }, .{ 49, 50, 51 }),
@@ -1122,6 +1122,6 @@ test "should capture hit lines correctly" {
         .player_1 = .{ .hit_lines = null },
         .player_2 = .{ .hit_lines = null },
     });
-    try testing.expectEqualSlices(core.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(core.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asConstSlice());
 }

@@ -1,0 +1,59 @@
+const std = @import("std");
+const model = @import("root.zig");
+
+pub const Frame = struct {
+    frames_since_round_start: ?u32 = null,
+    floor_z: ?f32 = null,
+    players: [2]model.Player = .{ .{}, .{} },
+    left_player_id: model.PlayerId = .player_1,
+    main_player_id: model.PlayerId = .player_1,
+
+    const Self = @This();
+
+    pub fn getPlayerById(self: *const Self, id: model.PlayerId) *const model.Player {
+        switch (id) {
+            .player_1 => return &self.players[0],
+            .player_2 => return &self.players[1],
+        }
+    }
+
+    pub fn getPlayerBySide(self: *const Self, side: model.PlayerSide) *const model.Player {
+        return switch (side) {
+            .left => return self.getPlayerById(self.left_player_id),
+            .right => return self.getPlayerById(self.left_player_id.getOther()),
+        };
+    }
+
+    pub fn getPlayerByRole(self: *const Self, role: model.PlayerRole) *const model.Player {
+        return switch (role) {
+            .main => return self.getPlayerById(self.main_player_id),
+            .secondary => return self.getPlayerById(self.main_player_id.getOther()),
+        };
+    }
+};
+
+const testing = std.testing;
+
+test "Frame.getPlayerById should return correct player" {
+    const frame = Frame{};
+    try testing.expectEqual(&frame.players[0], frame.getPlayerById(.player_1));
+    try testing.expectEqual(&frame.players[1], frame.getPlayerById(.player_2));
+}
+
+test "Frame.getPlayerBySide should return correct player" {
+    const frame_1 = Frame{ .left_player_id = .player_1 };
+    const frame_2 = Frame{ .left_player_id = .player_2 };
+    try testing.expectEqual(&frame_1.players[0], frame_1.getPlayerBySide(.left));
+    try testing.expectEqual(&frame_1.players[1], frame_1.getPlayerBySide(.right));
+    try testing.expectEqual(&frame_2.players[1], frame_2.getPlayerBySide(.left));
+    try testing.expectEqual(&frame_2.players[0], frame_2.getPlayerBySide(.right));
+}
+
+test "Frame.getPlayerByRole should return correct player" {
+    const frame_1 = Frame{ .main_player_id = .player_1 };
+    const frame_2 = Frame{ .main_player_id = .player_2 };
+    try testing.expectEqual(&frame_1.players[0], frame_1.getPlayerByRole(.main));
+    try testing.expectEqual(&frame_1.players[1], frame_1.getPlayerByRole(.secondary));
+    try testing.expectEqual(&frame_2.players[1], frame_2.getPlayerByRole(.main));
+    try testing.expectEqual(&frame_2.players[0], frame_2.getPlayerByRole(.secondary));
+}

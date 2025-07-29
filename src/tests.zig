@@ -65,9 +65,20 @@ test {
 
     _ = @import("dll/core/capturer.zig");
     _ = @import("dll/core/frame_detector.zig");
-    _ = @import("dll/core/data.zig");
     _ = @import("dll/core/hit_detector.zig");
     _ = @import("dll/core/pause_detector.zig");
+
+    _ = @import("dll/game/conversions.zig");
+    _ = @import("dll/game/memory.zig");
+    _ = @import("dll/game/types.zig");
+
+    _ = @import("dll/model/collision_sphere.zig");
+    _ = @import("dll/model/frame.zig");
+    _ = @import("dll/model/hit_lines.zig");
+    _ = @import("dll/model/hurt_cylinders.zig");
+    _ = @import("dll/model/misc.zig");
+    _ = @import("dll/model/player.zig");
+    _ = @import("dll/model/skeleton.zig");
 
     _ = @import("dll/ui/data.zig");
     _ = @import("dll/ui/game_memory_window.zig");
@@ -75,10 +86,6 @@ test {
     _ = @import("dll/ui/main_window.zig");
     _ = @import("dll/ui/quadrant-layout.zig");
     _ = @import("dll/ui/logs_window.zig");
-
-    _ = @import("dll/game/conversions.zig");
-    _ = @import("dll/game/memory.zig");
-    _ = @import("dll/game/types.zig");
 
     _ = struct {
         test "should have no memory leaks after de-initializing UI testing context" {

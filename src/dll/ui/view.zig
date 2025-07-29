@@ -1,12 +1,12 @@
 const std = @import("std");
 const imgui = @import("imgui");
 const sdk = @import("../../sdk/root.zig");
-const core = @import("../core/root.zig");
+const model = @import("../model/root.zig");
 
 pub const View = struct {
     window_size: std.EnumArray(Direction, sdk.math.Vec2) = .initFill(sdk.math.Vec2.zero),
-    frame: core.Frame = .{},
-    hit_hurt_cylinder_life_time: std.EnumArray(core.PlayerId, std.EnumArray(core.HurtCylinderId, f32)) = .initFill(
+    frame: model.Frame = .{},
+    hit_hurt_cylinder_life_time: std.EnumArray(model.PlayerId, std.EnumArray(model.HurtCylinderId, f32)) = .initFill(
         .initFill(std.math.inf(f32)),
     ),
     lingering_hurt_cylinders: sdk.misc.CircularBuffer(32, LingeringCylinder) = .{},
@@ -20,12 +20,12 @@ pub const View = struct {
     };
     const LingeringLine = struct {
         line: sdk.math.LineSegment3,
-        player_id: core.PlayerId,
+        player_id: model.PlayerId,
         life_time: f32,
     };
     const LingeringCylinder = struct {
         cylinder: sdk.math.Cylinder,
-        player_id: core.PlayerId,
+        player_id: model.PlayerId,
         life_time: f32,
     };
 
@@ -50,7 +50,7 @@ pub const View = struct {
     const look_at_length = 100.0;
     const look_at_thickness = 1.0;
 
-    pub fn processFrame(self: *Self, frame: *const core.Frame) void {
+    pub fn processFrame(self: *Self, frame: *const model.Frame) void {
         self.processHurtCylinders(.player_1, frame);
         self.processHurtCylinders(.player_2, frame);
         self.processHitLines(.player_1, frame);
@@ -58,14 +58,14 @@ pub const View = struct {
         self.frame = frame.*;
     }
 
-    fn processHurtCylinders(self: *Self, player_id: core.PlayerId, frame: *const core.Frame) void {
+    fn processHurtCylinders(self: *Self, player_id: model.PlayerId, frame: *const model.Frame) void {
         const player = frame.getPlayerById(player_id);
-        const cylinders: *const core.HurtCylinders = if (player.hurt_cylinders) |*c| c else return;
+        const cylinders: *const model.HurtCylinders = if (player.hurt_cylinders) |*c| c else return;
         for (&cylinders.values, 0..) |*hurt_cylinder, index| {
             if (!hurt_cylinder.intersects) {
                 continue;
             }
-            const cylinder_id = core.HurtCylinders.Indexer.keyForIndex(index);
+            const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
             self.hit_hurt_cylinder_life_time.getPtr(player_id).getPtr(cylinder_id).* = 0;
             _ = self.lingering_hurt_cylinders.addToBack(.{
                 .cylinder = hurt_cylinder.cylinder,
@@ -75,7 +75,7 @@ pub const View = struct {
         }
     }
 
-    fn processHitLines(self: *Self, player_id: core.PlayerId, frame: *const core.Frame) void {
+    fn processHitLines(self: *Self, player_id: model.PlayerId, frame: *const model.Frame) void {
         const player = frame.getPlayerById(player_id);
         for (player.hit_lines.asConstSlice()) |*hit_line| {
             _ = self.lingering_hit_lines.addToBack(.{
@@ -246,7 +246,7 @@ pub const View = struct {
 
     fn drawCollisionSpheres(self: *const Self, matrix: sdk.math.Mat4, inverse_matrix: sdk.math.Mat4) void {
         for (&self.frame.players) |*player| {
-            const spheres: *const core.CollisionSpheres = if (player.collision_spheres) |*s| s else continue;
+            const spheres: *const model.CollisionSpheres = if (player.collision_spheres) |*s| s else continue;
             for (spheres.values) |sphere| {
                 drawSphere(sphere, collision_spheres_color, collision_spheres_thickness, matrix, inverse_matrix);
             }
@@ -259,12 +259,12 @@ pub const View = struct {
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {
-        for (core.PlayerId.all) |player_id| {
+        for (model.PlayerId.all) |player_id| {
             const player = self.frame.getPlayerById(player_id);
-            const cylinders: *const core.HurtCylinders = if (player.hurt_cylinders) |*c| c else continue;
+            const cylinders: *const model.HurtCylinders = if (player.hurt_cylinders) |*c| c else continue;
             for (cylinders.values, 0..) |hurt_cylinder, index| {
                 const cylinder = hurt_cylinder.cylinder;
-                const cylinder_id = core.HurtCylinders.Indexer.keyForIndex(index);
+                const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
 
                 const life_time = self.hit_hurt_cylinder_life_time.getPtrConst(player_id).get(cylinder_id);
                 const completion: f32 = if (hurt_cylinder.intersects) 0.0 else block: {
@@ -301,16 +301,16 @@ pub const View = struct {
         const drawBone = struct {
             fn call(
                 mat: sdk.math.Mat4,
-                skeleton: *const core.Skeleton,
-                point_1: core.SkeletonPointId,
-                point_2: core.SkeletonPointId,
+                skeleton: *const model.Skeleton,
+                point_1: model.SkeletonPointId,
+                point_2: model.SkeletonPointId,
             ) void {
                 const line = sdk.math.LineSegment3{ .point_1 = skeleton.get(point_1), .point_2 = skeleton.get(point_2) };
                 drawLine(line, skeleton_color, skeleton_thickness, mat);
             }
         }.call;
         for (&self.frame.players) |*player| {
-            const skeleton: *const core.Skeleton = if (player.skeleton) |*s| s else continue;
+            const skeleton: *const model.Skeleton = if (player.skeleton) |*s| s else continue;
             drawBone(matrix, skeleton, .head, .neck);
             drawBone(matrix, skeleton, .neck, .upper_torso);
             drawBone(matrix, skeleton, .upper_torso, .left_shoulder);

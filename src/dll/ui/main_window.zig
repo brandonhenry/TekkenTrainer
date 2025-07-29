@@ -2,9 +2,9 @@ const std = @import("std");
 const imgui = @import("imgui");
 const dll = @import("../../dll.zig");
 const sdk = @import("../../sdk/root.zig");
-const ui = @import("root.zig");
 const core = @import("../core/root.zig");
 const game = @import("../game/root.zig");
+const ui = @import("root.zig");
 
 pub const MainWindow = struct {
     is_first_draw: bool = true,
