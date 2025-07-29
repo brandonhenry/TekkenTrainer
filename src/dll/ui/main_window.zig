@@ -2,17 +2,17 @@ const std = @import("std");
 const imgui = @import("imgui");
 const dll = @import("../../dll.zig");
 const sdk = @import("../../sdk/root.zig");
-const components = @import("root.zig");
+const ui = @import("root.zig");
 const core = @import("../core/root.zig");
 const game = @import("../game/root.zig");
 
 pub const MainWindow = struct {
     is_first_draw: bool = true,
     is_open: bool = false,
-    logs_window: components.LogsWindow = .{},
-    game_memory_window: components.GameMemoryWindow = .{},
-    quadrant_layout: components.QuadrantLayout = .{},
-    view: components.View = .{},
+    logs_window: ui.LogsWindow = .{},
+    game_memory_window: ui.GameMemoryWindow = .{},
+    quadrant_layout: ui.QuadrantLayout = .{},
+    view: ui.View = .{},
     controls_height: f32 = 0,
     frame_detector: core.FrameDetector = .{},
     pause_detector: core.PauseDetector(.{}) = .{},
@@ -99,11 +99,11 @@ pub const MainWindow = struct {
             defer imgui.igEndMenu();
             if (imgui.igMenuItem_Bool("Logs", null, false, true)) {
                 self.logs_window.is_open = true;
-                imgui.igSetWindowFocus_Str(components.LogsWindow.name);
+                imgui.igSetWindowFocus_Str(ui.LogsWindow.name);
             }
             if (imgui.igMenuItem_Bool("Game Memory", null, false, true)) {
                 self.game_memory_window.is_open = true;
-                imgui.igSetWindowFocus_Str(components.GameMemoryWindow.name);
+                imgui.igSetWindowFocus_Str(ui.GameMemoryWindow.name);
             }
         }
     }

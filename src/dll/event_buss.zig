@@ -2,14 +2,14 @@ const std = @import("std");
 const w32 = @import("win32").everything;
 const imgui = @import("imgui");
 const sdk = @import("../sdk/root.zig");
-const components = @import("components/root.zig");
+const ui = @import("ui/root.zig");
 const game = @import("game/root.zig");
 
 pub const EventBuss = struct {
     timer: sdk.misc.Timer(.{}),
     dx12_context: ?sdk.dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?sdk.ui.Context,
-    main_window: components.MainWindow,
+    main_window: ui.MainWindow,
 
     const Self = @This();
     const buffer_count = 3;
@@ -130,7 +130,7 @@ pub const EventBuss = struct {
         if (game_memory) |memory| {
             self.main_window.draw(memory);
         } else {
-            components.drawLoadingWindow("Searching for memory addresses and offsets...");
+            ui.drawLoadingWindow("Searching for memory addresses and offsets...");
         }
         ui_context.endFrame();
 

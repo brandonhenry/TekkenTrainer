@@ -1,7 +1,7 @@
 const std = @import("std");
 const imgui = @import("imgui");
 const game = @import("../game/root.zig");
-const components = @import("root.zig");
+const ui = @import("root.zig");
 
 pub const GameMemoryWindow = struct {
     is_open: bool = false,
@@ -18,14 +18,14 @@ pub const GameMemoryWindow = struct {
         if (!render_content) {
             return;
         }
-        components.drawData("game_memory", game_memory);
+        ui.drawData("game_memory", game_memory);
         // if (game_memory.player_1.findBaseAddress()) |address| {
         //     const array: *const [3000]f32 = @ptrFromInt(address);
-        //     components.drawData("player_1_array", array);
+        //     ui.drawData("player_1_array", array);
         // }
         // if (game_memory.player_2.findBaseAddress()) |address| {
         //     const array: *const [3000]f32 = @ptrFromInt(address);
-        //     components.drawData("player_2_array", array);
+        //     ui.drawData("player_2_array", array);
         // }
     }
 };

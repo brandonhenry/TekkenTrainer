@@ -64,18 +64,18 @@ test {
     _ = @import("dll.zig");
     _ = @import("dll/event_buss.zig");
 
-    _ = @import("dll/components/data.zig");
-    _ = @import("dll/components/game_memory_window.zig");
-    _ = @import("dll/components/loading_window.zig");
-    _ = @import("dll/components/main_window.zig");
-    _ = @import("dll/components/quadrant-layout.zig");
-    _ = @import("dll/components/logs_window.zig");
-
     _ = @import("dll/core/capturer.zig");
     _ = @import("dll/core/frame_detector.zig");
     _ = @import("dll/core/data.zig");
     _ = @import("dll/core/hit_detector.zig");
     _ = @import("dll/core/pause_detector.zig");
+
+    _ = @import("dll/ui/data.zig");
+    _ = @import("dll/ui/game_memory_window.zig");
+    _ = @import("dll/ui/loading_window.zig");
+    _ = @import("dll/ui/main_window.zig");
+    _ = @import("dll/ui/quadrant-layout.zig");
+    _ = @import("dll/ui/logs_window.zig");
 
     _ = @import("dll/game/conversions.zig");
     _ = @import("dll/game/memory.zig");
