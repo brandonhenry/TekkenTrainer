@@ -1,6 +1,6 @@
 const std = @import("std");
 const imgui = @import("imgui");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 const core = @import("../core/root.zig");
 
 pub const View = struct {

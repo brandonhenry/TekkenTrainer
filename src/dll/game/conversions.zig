@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 const game = @import("root.zig");
 
 const to_unreal_scale = 0.1;

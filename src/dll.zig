@@ -1,8 +1,7 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
 const sdk = @import("sdk/root.zig");
-const game = @import("game/root.zig");
-const EventBuss = @import("event_buss.zig").EventBuss;
+const dll = @import("dll/root.zig");
 
 pub const module_name = "irony.dll";
 
@@ -21,10 +20,10 @@ pub const std_options = std.Options{
 const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
 const MemorySearchTask = sdk.misc.Task(MemorySearchResult);
 const MemorySearchResult = struct {
-    game_memory: game.Memory,
+    game_memory: dll.game.Memory,
     tick_hook: ?TickHook,
 };
-const TickHook = sdk.hooking.Hook(game.TickFunction);
+const TickHook = sdk.hooking.Hook(dll.game.TickFunction);
 
 const main_hooks = sdk.hooking.MainHooks(onHooksInit, onHooksDeinit, onHooksUpdate, beforeHooksResize, afterHooksResize);
 const number_of_hooking_retries = 10;
@@ -34,7 +33,7 @@ var module_handle_shared_value: ?sdk.os.SharedValue(w32.HINSTANCE) = null;
 var base_dir = sdk.misc.BaseDir.working_dir;
 var main_allocator: ?MainAllocator = null;
 var window_procedure: ?sdk.os.WindowProcedure = null;
-var event_buss: ?EventBuss = null;
+var event_buss: ?dll.EventBuss = null;
 var memory_search_task: ?MemorySearchTask = null;
 
 pub fn DllMain(
@@ -230,7 +229,7 @@ fn onHooksInit(
     const allocator = if (main_allocator) |*a| a.allocator() else return;
 
     std.log.info("Initializing event buss...", .{});
-    event_buss = EventBuss.init(allocator, &base_dir, window, device, command_queue, swap_chain);
+    event_buss = dll.EventBuss.init(allocator, &base_dir, window, device, command_queue, swap_chain);
     std.log.info("Event buss initialized.", .{});
 
     std.log.debug("Initializing window procedure...", .{});
@@ -256,7 +255,7 @@ fn onHooksInit(
 
 fn performMemorySearch(allocator: std.mem.Allocator, dir: *const sdk.misc.BaseDir) MemorySearchResult {
     std.log.debug("Initializing game memory...", .{});
-    const game_memory = game.Memory.init(allocator, dir);
+    const game_memory = dll.game.Memory.init(allocator, dir);
     std.log.info("Game memory initialized.", .{});
 
     std.log.debug("Creating tick hook...", .{});

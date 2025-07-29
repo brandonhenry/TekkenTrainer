@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 const game = @import("../game/root.zig");
 
 pub const FrameDetector = struct {

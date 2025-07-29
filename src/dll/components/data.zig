@@ -1,7 +1,7 @@
 const std = @import("std");
 const imgui = @import("imgui");
 const builtin = @import("builtin");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 
 pub fn drawData(label: [:0]const u8, pointer: anytype) void {
     if (@typeInfo(@TypeOf(pointer)) != .pointer or @typeInfo(@TypeOf(pointer)).pointer.size != .one) {

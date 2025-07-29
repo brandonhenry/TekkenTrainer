@@ -1,6 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 const game = @import("root.zig");
 
 pub const Memory = struct {

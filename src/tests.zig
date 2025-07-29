@@ -1,8 +1,4 @@
 test {
-    _ = @import("dll.zig");
-    _ = @import("event_buss.zig");
-    _ = @import("injector.zig");
-
     _ = @import("sdk/dx12/context.zig");
     _ = @import("sdk/dx12/descriptor_heap_allocator.zig");
     _ = @import("sdk/dx12/error.zig");
@@ -61,25 +57,29 @@ test {
     _ = @import("sdk/ui/testing_context.zig"); // First test using UI testing context.
     _ = @import("sdk/ui/toasts.zig");
 
+    _ = @import("injector.zig");
     _ = @import("injector/injected_module.zig");
     _ = @import("injector/process_loop.zig");
 
-    _ = @import("components/data.zig");
-    _ = @import("components/game_memory_window.zig");
-    _ = @import("components/loading_window.zig");
-    _ = @import("components/main_window.zig");
-    _ = @import("components/quadrant-layout.zig");
-    _ = @import("components/logs_window.zig");
+    _ = @import("dll.zig");
+    _ = @import("dll/event_buss.zig");
 
-    _ = @import("core/capturer.zig");
-    _ = @import("core/frame_detector.zig");
-    _ = @import("core/data.zig");
-    _ = @import("core/hit_detector.zig");
-    _ = @import("core/pause_detector.zig");
+    _ = @import("dll/components/data.zig");
+    _ = @import("dll/components/game_memory_window.zig");
+    _ = @import("dll/components/loading_window.zig");
+    _ = @import("dll/components/main_window.zig");
+    _ = @import("dll/components/quadrant-layout.zig");
+    _ = @import("dll/components/logs_window.zig");
 
-    _ = @import("game/conversions.zig");
-    _ = @import("game/memory.zig");
-    _ = @import("game/types.zig");
+    _ = @import("dll/core/capturer.zig");
+    _ = @import("dll/core/frame_detector.zig");
+    _ = @import("dll/core/data.zig");
+    _ = @import("dll/core/hit_detector.zig");
+    _ = @import("dll/core/pause_detector.zig");
+
+    _ = @import("dll/game/conversions.zig");
+    _ = @import("dll/game/memory.zig");
+    _ = @import("dll/game/types.zig");
 
     _ = struct {
         test "should have no memory leaks after de-initializing UI testing context" {

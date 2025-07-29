@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const imgui = @import("imgui");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 
 pub const LogsWindow = struct {
     is_open: bool = false,

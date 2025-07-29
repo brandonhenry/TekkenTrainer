@@ -1,6 +1,6 @@
 const std = @import("std");
 const imgui = @import("imgui");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 
 pub const QuadrantLayout = struct {
     division: imgui.ImVec2 = .{ .x = 0.5, .y = 0.5 },

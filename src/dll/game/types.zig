@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdk = @import("../sdk/root.zig");
+const sdk = @import("../../sdk/root.zig");
 const game = @import("root.zig");
 
 pub const PlayerSide = enum(u8) {

@@ -1,7 +1,7 @@
 const std = @import("std");
 const w32 = @import("win32").everything;
 const imgui = @import("imgui");
-const sdk = @import("sdk/root.zig");
+const sdk = @import("../sdk/root.zig");
 const components = @import("components/root.zig");
 const game = @import("game/root.zig");
 
