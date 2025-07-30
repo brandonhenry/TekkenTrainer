@@ -64,6 +64,7 @@ test {
     _ = @import("dll/event_buss.zig");
 
     _ = @import("dll/core/capturer.zig");
+    _ = @import("dll/core/controller.zig");
     _ = @import("dll/core/frame_detector.zig");
     _ = @import("dll/core/hit_detector.zig");
     _ = @import("dll/core/pause_detector.zig");

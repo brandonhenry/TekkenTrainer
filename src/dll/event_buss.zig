@@ -2,6 +2,7 @@ const std = @import("std");
 const w32 = @import("win32").everything;
 const imgui = @import("imgui");
 const sdk = @import("../sdk/root.zig");
+const core = @import("core/root.zig");
 const ui = @import("ui/root.zig");
 const game = @import("game/root.zig");
 
@@ -9,6 +10,7 @@ pub const EventBuss = struct {
     timer: sdk.misc.Timer(.{}),
     dx12_context: ?sdk.dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?sdk.ui.Context,
+    controller: core.Controller,
     main_window: ui.MainWindow,
 
     const Self = @This();
@@ -63,6 +65,7 @@ pub const EventBuss = struct {
             .timer = .{},
             .dx12_context = dx12_context,
             .ui_context = ui_context,
+            .controller = .{},
             .main_window = .{},
         };
     }
@@ -101,7 +104,8 @@ pub const EventBuss = struct {
     }
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        self.main_window.tick(game_memory);
+        self.controller.tick(game_memory);
+        self.main_window.tick(&self.controller.frame);
     }
 
     pub fn draw(
@@ -118,8 +122,9 @@ pub const EventBuss = struct {
         _ = device;
 
         const delta_time = self.timer.measureDeltaTime();
+        const is_paused = self.controller.pause_detector.isPaused();
         sdk.ui.toasts.update(delta_time);
-        self.main_window.update(delta_time);
+        self.main_window.update(delta_time, is_paused);
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;

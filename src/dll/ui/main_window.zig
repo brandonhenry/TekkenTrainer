@@ -4,6 +4,7 @@ const dll = @import("../../dll.zig");
 const sdk = @import("../../sdk/root.zig");
 const core = @import("../core/root.zig");
 const game = @import("../game/root.zig");
+const model = @import("../model/root.zig");
 const ui = @import("root.zig");
 
 pub const MainWindow = struct {
@@ -14,30 +15,17 @@ pub const MainWindow = struct {
     quadrant_layout: ui.QuadrantLayout = .{},
     view: ui.View = .{},
     controls_height: f32 = 0,
-    frame_detector: core.FrameDetector = .{},
-    pause_detector: core.PauseDetector(.{}) = .{},
-    capturer: core.Capturer = .{},
-    hit_detector: core.HitDetector = .{},
 
     const Self = @This();
 
-    pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        const player_1 = game_memory.player_1.takePartialCopy();
-        const player_2 = game_memory.player_2.takePartialCopy();
-        if (!self.frame_detector.detect(&player_1, &player_2)) {
-            return;
-        }
-        self.pause_detector.update();
-        var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2 });
-        self.hit_detector.detect(&frame);
-        self.view.processFrame(&frame);
+    pub fn tick(self: *Self, frame: *const model.Frame) void {
+        self.view.processFrame(frame);
     }
 
-    pub fn update(self: *Self, delta_time: f32) void {
-        if (self.pause_detector.isPaused()) {
-            return;
+    pub fn update(self: *Self, delta_time: f32, is_paused: bool) void {
+        if (!is_paused) {
+            self.view.update(delta_time);
         }
-        self.view.update(delta_time);
     }
 
     pub fn draw(self: *Self, game_memory: *const game.Memory) void {
