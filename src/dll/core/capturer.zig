@@ -94,6 +94,7 @@ pub const Capturer = struct {
             .attack_type = captureAttackType(player),
             .attack_damage = player.attack_damage,
             .hit_outcome = captureHitOutcome(player),
+            .can_move = if (player.can_move) |can_move| can_move.toBool() else null,
             .input = captureInput(player, player_id),
             .health = if (player.health) |*health| health.convert() else null,
             .rage = captureRage(player),
@@ -545,6 +546,22 @@ test "should capture hit outcome correctly" {
     });
     try testing.expectEqual(.normal_hit_standing, frame.getPlayerById(.player_1).hit_outcome);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).hit_outcome);
+}
+
+test "should capture can move correctly" {
+    var capturer = Capturer{};
+    const frame_1 = capturer.captureFrame(&.{
+        .player_1 = .{ .can_move = .false },
+        .player_2 = .{ .can_move = .true },
+    });
+    const frame_2 = capturer.captureFrame(&.{
+        .player_1 = .{ .can_move = null },
+        .player_2 = .{ .can_move = @enumFromInt(2) },
+    });
+    try testing.expectEqual(false, frame_1.getPlayerById(.player_1).can_move);
+    try testing.expectEqual(true, frame_1.getPlayerById(.player_2).can_move);
+    try testing.expectEqual(null, frame_2.getPlayerById(.player_1).can_move);
+    try testing.expectEqual(null, frame_2.getPlayerById(.player_2).can_move);
 }
 
 test "should capture input correctly" {

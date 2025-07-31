@@ -55,6 +55,7 @@ pub const Player = struct {
     attack_type: ?model.AttackType = null,
     attack_damage: ?i32 = null,
     hit_outcome: ?model.HitOutcome = null,
+    can_move: ?bool = null,
     input: ?model.Input = null,
     health: ?i32 = null,
     rage: ?model.Rage = null,
