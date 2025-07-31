@@ -191,7 +191,7 @@ test "hitLineToUnrealSpace and hitLineFromUnrealSpace should cancel out" {
             .{ .position = .fromArray(.{ 7, 8, 9 }), ._padding = undefined },
         },
         ._padding_1 = undefined,
-        .ignore = true,
+        .ignore = .true,
         ._padding_2 = undefined,
     };
     try testing.expectEqual(value, hitLineToUnrealSpace(hitLineFromUnrealSpace(value)));

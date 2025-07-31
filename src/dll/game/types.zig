@@ -2,6 +2,35 @@ const std = @import("std");
 const sdk = @import("../../sdk/root.zig");
 const game = @import("root.zig");
 
+pub const Boolean = enum(u8) {
+    false = 0,
+    true = 1,
+    _,
+
+    const Self = @This();
+
+    pub fn fromBool(b: bool) Self {
+        return switch (b) {
+            false => .false,
+            true => .true,
+        };
+    }
+
+    pub fn toBool(self: Self) ?bool {
+        return switch (self) {
+            .false => false,
+            .true => true,
+            else => null,
+        };
+    }
+
+    comptime {
+        std.debug.assert(@as(Self, @enumFromInt(0)).toBool() == false);
+        std.debug.assert(@as(Self, @enumFromInt(1)).toBool() == true);
+        std.debug.assert(@as(Self, @enumFromInt(2)).toBool() == null);
+    }
+};
+
 pub const PlayerSide = enum(u8) {
     left = 0,
     right = 1,
@@ -83,11 +112,11 @@ pub const Input = packed struct(u32) {
 
     const Self = @This();
 
-    fn fromInt(int: u32) Self {
+    pub fn fromInt(int: u32) Self {
         return @bitCast(int);
     }
 
-    fn toInt(self: Self) u32 {
+    pub fn toInt(self: Self) u32 {
         return @bitCast(self);
     }
 
@@ -118,7 +147,7 @@ pub const HitLinePoint = extern struct {
 pub const HitLine = extern struct {
     points: [3]HitLinePoint,
     _padding_1: [8]u8,
-    ignore: bool,
+    ignore: Boolean,
     _padding_2: [7]u8,
 
     comptime {
@@ -235,7 +264,7 @@ pub const CollisionSpheres = extern struct {
 pub const EncryptedHealth = [16]u64;
 
 pub const Player = struct {
-    is_picked_by_main_player: bool, // 0x0009
+    is_picked_by_main_player: Boolean, // 0x0009
     character_id: u32, // 0x0168
     transform_matrix: sdk.memory.ConvertedValue(
         sdk.math.Mat4,
@@ -259,20 +288,20 @@ pub const Player = struct {
     attack_damage: i32, // 0x0504
     attack_type: AttackType, // 0x0510
     current_move_id: u32, // 0x0548
-    can_move: u32, // 0x05C8
+    can_move: Boolean, // 0x05C8
     current_move_total_frames: u32, // 0x05D4
     hit_outcome: HitOutcome, // 0x0610
-    in_rage: bool, // 0x0DD1
-    used_rage: bool, // 0x0E08
+    in_rage: Boolean, // 0x0DD1
+    used_rage: Boolean, // 0x0E08
     frames_since_round_start: u32, // 0x1410
-    used_heat: bool, // 0x21C0
+    used_heat: Boolean, // 0x21C0
     heat_gauge: sdk.memory.ConvertedValue(
         u32,
         f32,
         game.decryptHeatGauge,
         game.encryptHeatGauge,
     ), // 0x21B0
-    in_heat: bool, // 0x21E1
+    in_heat: Boolean, // 0x21E1
     input_side: PlayerSide, // 0x252C
     input: Input, // 0x2554
     hit_lines: HitLines, // 0x2500

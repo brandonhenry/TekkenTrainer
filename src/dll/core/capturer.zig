@@ -63,11 +63,15 @@ pub const Capturer = struct {
     }
 
     fn captureMainPlayerId(game_memory: *const GameMemory) model.PlayerId {
-        if (game_memory.player_1.is_picked_by_main_player) |is_main| {
-            return if (is_main) .player_1 else .player_2;
+        if (game_memory.player_1.is_picked_by_main_player) |boolean| {
+            if (boolean.toBool()) |is_main| {
+                return if (is_main) .player_1 else .player_2;
+            }
         }
-        if (game_memory.player_2.is_picked_by_main_player) |is_main| {
-            return if (is_main) .player_2 else .player_1;
+        if (game_memory.player_2.is_picked_by_main_player) |boolean| {
+            if (boolean.toBool()) |is_main| {
+                return if (is_main) .player_2 else .player_1;
+            }
         }
         return .player_1;
     }
@@ -166,8 +170,8 @@ pub const Capturer = struct {
     }
 
     fn captureRage(player: *const sdk.misc.Partial(game.Player)) ?model.Rage {
-        const in_rage = player.in_rage orelse return null;
-        const used_rage = player.used_rage orelse return null;
+        const in_rage = (if (player.in_rage) |b| b.toBool() else null) orelse return null;
+        const used_rage = (if (player.used_rage) |b| b.toBool() else null) orelse return null;
         if (in_rage) {
             return .activated;
         } else if (used_rage) {
@@ -178,8 +182,8 @@ pub const Capturer = struct {
     }
 
     fn captureHeat(player: *const sdk.misc.Partial(game.Player)) ?model.Heat {
-        const in_heat = player.in_heat orelse return null;
-        const used_heat = player.used_heat orelse return null;
+        const in_heat = (if (player.in_heat) |b| b.toBool() else null) orelse return null;
+        const used_heat = (if (player.used_heat) |b| b.toBool() else null) orelse return null;
         const heat_gauge = player.heat_gauge orelse return null;
         if (in_heat) {
             return .{ .activated = .{ .gauge = heat_gauge.convert() } };
@@ -303,7 +307,7 @@ pub const Capturer = struct {
         for (previous_lines, current_lines) |*raw_previous_line, *raw_current_line| {
             const previous_line = raw_previous_line.convert();
             const current_line = raw_current_line.convert();
-            if (current_line.ignore) {
+            if (current_line.ignore != .false) {
                 continue;
             }
             if (std.meta.eql(previous_line.points, current_line.points)) {
@@ -396,36 +400,36 @@ test "should capture left player id correctly" {
     try testing.expectEqual(
         .player_1,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = true, .input_side = null },
-            .player_2 = .{ .is_picked_by_main_player = false, .input_side = null },
+            .player_1 = .{ .is_picked_by_main_player = .true, .input_side = null },
+            .player_2 = .{ .is_picked_by_main_player = .false, .input_side = null },
         }).left_player_id,
     );
     try testing.expectEqual(
         .player_1,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = true, .input_side = .left },
-            .player_2 = .{ .is_picked_by_main_player = false, .input_side = null },
+            .player_1 = .{ .is_picked_by_main_player = .true, .input_side = .left },
+            .player_2 = .{ .is_picked_by_main_player = .false, .input_side = null },
         }).left_player_id,
     );
     try testing.expectEqual(
         .player_2,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = true, .input_side = .right },
-            .player_2 = .{ .is_picked_by_main_player = false, .input_side = null },
+            .player_1 = .{ .is_picked_by_main_player = .true, .input_side = .right },
+            .player_2 = .{ .is_picked_by_main_player = .false, .input_side = null },
         }).left_player_id,
     );
     try testing.expectEqual(
         .player_2,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = false, .input_side = null },
-            .player_2 = .{ .is_picked_by_main_player = true, .input_side = .left },
+            .player_1 = .{ .is_picked_by_main_player = .false, .input_side = null },
+            .player_2 = .{ .is_picked_by_main_player = .true, .input_side = .left },
         }).left_player_id,
     );
     try testing.expectEqual(
         .player_1,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = false, .input_side = null },
-            .player_2 = .{ .is_picked_by_main_player = true, .input_side = .right },
+            .player_1 = .{ .is_picked_by_main_player = .false, .input_side = null },
+            .player_2 = .{ .is_picked_by_main_player = .true, .input_side = .right },
         }).left_player_id,
     );
 }
@@ -435,15 +439,15 @@ test "should capture main player id correctly" {
     try testing.expectEqual(
         .player_1,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = true },
-            .player_2 = .{ .is_picked_by_main_player = false },
+            .player_1 = .{ .is_picked_by_main_player = .true },
+            .player_2 = .{ .is_picked_by_main_player = .false },
         }).main_player_id,
     );
     try testing.expectEqual(
         .player_2,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = false },
-            .player_2 = .{ .is_picked_by_main_player = true },
+            .player_1 = .{ .is_picked_by_main_player = .false },
+            .player_2 = .{ .is_picked_by_main_player = .true },
         }).main_player_id,
     );
     try testing.expectEqual(
@@ -456,14 +460,14 @@ test "should capture main player id correctly" {
     try testing.expectEqual(
         .player_1,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = true },
+            .player_1 = .{ .is_picked_by_main_player = .true },
             .player_2 = .{ .is_picked_by_main_player = null },
         }).main_player_id,
     );
     try testing.expectEqual(
         .player_2,
         capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = false },
+            .player_1 = .{ .is_picked_by_main_player = .false },
             .player_2 = .{ .is_picked_by_main_player = null },
         }).main_player_id,
     );
@@ -471,14 +475,14 @@ test "should capture main player id correctly" {
         .player_2,
         capturer.captureFrame(&.{
             .player_1 = .{ .is_picked_by_main_player = null },
-            .player_2 = .{ .is_picked_by_main_player = true },
+            .player_2 = .{ .is_picked_by_main_player = .true },
         }).main_player_id,
     );
     try testing.expectEqual(
         .player_1,
         capturer.captureFrame(&.{
             .player_1 = .{ .is_picked_by_main_player = null },
-            .player_2 = .{ .is_picked_by_main_player = false },
+            .player_2 = .{ .is_picked_by_main_player = .false },
         }).main_player_id,
     );
 }
@@ -669,11 +673,11 @@ test "should capture forward/back correctly depending on the input side" {
 test "should capture rage correctly" {
     var capturer = Capturer{};
     const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = false, .used_rage = false },
-        .player_2 = .{ .in_rage = true, .used_rage = false },
+        .player_1 = .{ .in_rage = .false, .used_rage = .false },
+        .player_2 = .{ .in_rage = .true, .used_rage = .false },
     });
     const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = false, .used_rage = true },
+        .player_1 = .{ .in_rage = .false, .used_rage = .true },
         .player_2 = .{ .in_rage = null, .used_rage = null },
     });
     try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).rage);
@@ -686,20 +690,20 @@ test "should capture heat correctly" {
     var capturer = Capturer{};
     const frame_1 = capturer.captureFrame(&.{
         .player_1 = .{
-            .in_heat = false,
-            .used_heat = false,
+            .in_heat = .false,
+            .used_heat = .false,
             .heat_gauge = .fromConverted(0.5),
         },
         .player_2 = .{
-            .in_heat = true,
-            .used_heat = false,
+            .in_heat = .true,
+            .used_heat = .false,
             .heat_gauge = .fromConverted(0.5),
         },
     });
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{
-            .in_heat = false,
-            .used_heat = true,
+            .in_heat = .false,
+            .used_heat = .true,
             .heat_gauge = .fromConverted(0.5),
         },
         .player_2 = .{
@@ -1029,7 +1033,7 @@ test "should capture hit lines correctly" {
                     .{ .position = .fromArray(points[2]), ._padding = 0 },
                 },
                 ._padding_1 = [1]u8{0} ** 8,
-                .ignore = ignore,
+                .ignore = .fromBool(ignore),
                 ._padding_2 = [1]u8{0} ** 7,
             });
         }
