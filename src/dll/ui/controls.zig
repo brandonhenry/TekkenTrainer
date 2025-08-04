@@ -30,14 +30,23 @@ pub const Controls = struct {
         imgui.igGetItemRectSize(&total_frames_size);
         self.total_frames_width = total_frames_size.x;
 
+        const spacing = imgui.igGetStyle().*.ItemSpacing.x;
         drawPlayButton(controller);
-        imgui.igSameLine(0, -1);
+        imgui.igSameLine(0, spacing);
         drawPauseButton(controller);
-        imgui.igSameLine(0, -1);
+        imgui.igSameLine(0, spacing);
         drawStopButton(controller);
-        imgui.igSameLine(0, -1);
+        imgui.igSameLine(0, spacing);
         drawRecordButton(controller);
-        imgui.igSameLine(0, -1);
+        imgui.igSameLine(0, 2 * spacing);
+        drawFirstFrameButton(controller);
+        imgui.igSameLine(0, spacing);
+        drawPreviousFrameButton(controller);
+        imgui.igSameLine(0, spacing);
+        drawNextFrameButton(controller);
+        imgui.igSameLine(0, spacing);
+        drawLastFrameButton(controller);
+        imgui.igSameLine(0, 2 * spacing);
         drawClearButton(controller);
     }
 
@@ -109,6 +118,47 @@ pub const Controls = struct {
         defer if (disabled) imgui.igEndDisabled();
         if (imgui.igButton("Record", .{})) {
             controller.record();
+        }
+    }
+
+    fn drawFirstFrameButton(controller: *core.Controller) void {
+        const total = controller.getTotalFrames();
+        const disabled = total == 0;
+        if (disabled) imgui.igBeginDisabled(true);
+        defer if (disabled) imgui.igEndDisabled();
+        if (imgui.igButton("First Frame", .{})) {
+            controller.setCurrentFrameIndex(0);
+        }
+    }
+
+    fn drawLastFrameButton(controller: *core.Controller) void {
+        const total = controller.getTotalFrames();
+        const disabled = total == 0;
+        if (disabled) imgui.igBeginDisabled(true);
+        defer if (disabled) imgui.igEndDisabled();
+        if (imgui.igButton("Last Frame", .{})) {
+            controller.setCurrentFrameIndex(total - 1);
+        }
+    }
+
+    fn drawPreviousFrameButton(controller: *core.Controller) void {
+        const current = controller.getCurrentFrameIndex();
+        const disabled = current == null or current == 0;
+        if (disabled) imgui.igBeginDisabled(true);
+        defer if (disabled) imgui.igEndDisabled();
+        if (imgui.igButton("Previous Frame", .{})) {
+            controller.setCurrentFrameIndex(current.? - 1);
+        }
+    }
+
+    fn drawNextFrameButton(controller: *core.Controller) void {
+        const current = controller.getCurrentFrameIndex();
+        const total = controller.getTotalFrames();
+        const disabled = total == 0 or current == null or current.? >= total - 1;
+        if (disabled) imgui.igBeginDisabled(true);
+        defer if (disabled) imgui.igEndDisabled();
+        if (imgui.igButton("Next Frame", .{})) {
+            controller.setCurrentFrameIndex(current.? + 1);
         }
     }
 
