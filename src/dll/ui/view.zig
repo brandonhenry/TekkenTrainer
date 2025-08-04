@@ -41,7 +41,7 @@ pub const View = struct {
     const cant_move_skeleton_thickness = 2.0;
     const hit_line_color = sdk.math.Vec4.fromArray(.{ 1.0, 0.0, 0.0, 1.0 });
     const hit_line_thickness = 1.0;
-    const hit_line_duration = 3.0;
+    const hit_line_duration = 1.0;
     const hit_hurt_cylinders_color = sdk.math.Vec4.fromArray(.{ 1.0, 1.0, 0.0, 0.5 });
     const hit_hurt_cylinders_thickness = 1.0;
     const hit_hurt_cylinders_duration = 1.0;
@@ -53,11 +53,28 @@ pub const View = struct {
     const look_at_thickness = 1.0;
 
     pub fn processFrame(self: *Self, frame: *const model.Frame) void {
-        self.processHurtCylinders(.player_1, frame);
-        self.processHurtCylinders(.player_2, frame);
-        self.processHitLines(.player_1, frame);
-        self.processHitLines(.player_2, frame);
+        if (self.isNewFrame(frame)) {
+            self.processHurtCylinders(.player_1, frame);
+            self.processHurtCylinders(.player_2, frame);
+            self.processHitLines(.player_1, frame);
+            self.processHitLines(.player_2, frame);
+        }
         self.frame = frame.*;
+    }
+
+    fn isNewFrame(self: *const Self, frame: *const model.Frame) bool {
+        if (frame.frames_since_round_start != self.frame.frames_since_round_start) {
+            return true;
+        }
+        if (frame.players[0].current_move_frame != self.frame.players[0].current_move_frame) {
+            return true;
+        }
+        if (frame.players[1].current_move_frame != self.frame.players[1].current_move_frame) {
+            return true;
+        }
+        return frame.frames_since_round_start == null and
+            frame.players[0].current_move_frame == null and
+            frame.players[1].current_move_frame == null;
     }
 
     fn processHurtCylinders(self: *Self, player_id: model.PlayerId, frame: *const model.Frame) void {

@@ -132,8 +132,7 @@ pub const EventBuss = struct {
         const delta_time = self.timer.measureDeltaTime();
         self.core.update(delta_time);
         sdk.ui.toasts.update(delta_time);
-        const is_paused = self.core.pause_detector.isPaused();
-        self.main_window.update(delta_time, is_paused);
+        self.main_window.update(delta_time);
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;

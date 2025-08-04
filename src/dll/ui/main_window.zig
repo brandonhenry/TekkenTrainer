@@ -25,10 +25,8 @@ pub const MainWindow = struct {
         }
     }
 
-    pub fn update(self: *Self, delta_time: f32, is_paused: bool) void {
-        if (!is_paused) {
-            self.view.update(delta_time);
-        }
+    pub fn update(self: *Self, delta_time: f32) void {
+        self.view.update(delta_time);
     }
 
     pub fn draw(self: *Self, game_memory: *const game.Memory, controller: *core.Controller) void {
