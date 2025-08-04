@@ -50,7 +50,7 @@ pub const Controls = struct {
     }
 
     fn drawTotalFrames(controller: *core.Controller) void {
-        const total = controller.recording.items.len;
+        const total = controller.getTotalFrames();
         if (total != 0) {
             imgui.igText("%05zu", total);
         } else {
@@ -61,7 +61,7 @@ pub const Controls = struct {
     fn drawSeekbar(controller: *core.Controller) void {
         const current = controller.getCurrentFrameIndex() orelse 0;
         var value: i32 = @intCast(current);
-        const max: i32 = @intCast(controller.recording.items.len);
+        const max: i32 = @intCast(controller.getTotalFrames());
         const changed = imgui.igSliderInt(
             "##seekbar",
             &value,
@@ -77,7 +77,7 @@ pub const Controls = struct {
     }
 
     fn drawPlayButton(controller: *core.Controller) void {
-        const disabled = controller.mode == .playback or controller.recording.items.len == 0;
+        const disabled = controller.mode == .playback or controller.getTotalFrames() == 0;
         if (disabled) imgui.igBeginDisabled(true);
         defer if (disabled) imgui.igEndDisabled();
         if (imgui.igButton("Play", .{})) {
@@ -86,7 +86,7 @@ pub const Controls = struct {
     }
 
     fn drawPauseButton(controller: *core.Controller) void {
-        const disabled = controller.mode == .pause or controller.recording.items.len == 0;
+        const disabled = controller.mode == .pause or controller.getTotalFrames() == 0;
         if (disabled) imgui.igBeginDisabled(true);
         defer if (disabled) imgui.igEndDisabled();
         if (imgui.igButton("Pause", .{})) {
@@ -113,7 +113,7 @@ pub const Controls = struct {
     }
 
     fn drawClearButton(controller: *core.Controller) void {
-        const disabled = controller.recording.items.len == 0;
+        const disabled = controller.getTotalFrames() == 0;
         if (disabled) imgui.igBeginDisabled(true);
         defer if (disabled) imgui.igEndDisabled();
         if (imgui.igButton("Clear", .{})) {
