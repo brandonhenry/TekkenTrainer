@@ -10,7 +10,7 @@ pub const EventBuss = struct {
     timer: sdk.misc.Timer(.{}),
     dx12_context: ?sdk.dx12.Context(buffer_count, srv_heap_size),
     ui_context: ?sdk.ui.Context,
-    controller: core.Controller,
+    core: core.Core,
     main_window: ui.MainWindow,
 
     const Self = @This();
@@ -61,11 +61,15 @@ pub const EventBuss = struct {
             }
         } else null;
 
+        std.log.debug("Initializing core...", .{});
+        const c = core.Core.init(allocator);
+        std.log.info("Core initialized.", .{});
+
         return .{
             .timer = .{},
             .dx12_context = dx12_context,
             .ui_context = ui_context,
-            .controller = .{},
+            .core = c,
             .main_window = .{},
         };
     }
@@ -83,6 +87,10 @@ pub const EventBuss = struct {
         _ = window;
         _ = device;
         _ = command_queue;
+
+        std.log.debug("De-initializing core...", .{});
+        self.core.deinit();
+        std.log.info("Core de-initialized.", .{});
 
         std.log.debug("De-initializing UI context...", .{});
         if (self.ui_context) |*context| {
@@ -104,8 +112,8 @@ pub const EventBuss = struct {
     }
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
-        self.controller.tick(game_memory);
-        self.main_window.tick(&self.controller.frame);
+        self.core.tick(game_memory);
+        self.main_window.tick(self.core.controller.getCurrentFrame());
     }
 
     pub fn draw(
@@ -122,8 +130,9 @@ pub const EventBuss = struct {
         _ = device;
 
         const delta_time = self.timer.measureDeltaTime();
-        const is_paused = self.controller.pause_detector.isPaused();
+        self.core.update(delta_time);
         sdk.ui.toasts.update(delta_time);
+        const is_paused = self.core.pause_detector.isPaused();
         self.main_window.update(delta_time, is_paused);
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
