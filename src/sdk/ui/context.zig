@@ -6,6 +6,8 @@ const misc = @import("../misc/root.zig");
 const dx12 = @import("../dx12/root.zig");
 const ui = @import("root.zig");
 
+const font_file = @embedFile("font.ttf");
+
 pub const Context = struct {
     allocator: std.mem.Allocator,
     old_allocator: ?std.mem.Allocator,
@@ -49,6 +51,28 @@ pub const Context = struct {
         errdefer imgui.igGetIO().*.IniFilename = null;
 
         imgui.igStyleColorsDark(null);
+
+        if (imgui.ImFontAtlas_AddFontFromMemoryTTF(
+            imgui.igGetIO().*.Fonts,
+            @constCast(font_file.ptr),
+            font_file.len,
+            18.0,
+            &.{
+                .FontDataOwnedByAtlas = false,
+                .MergeMode = false,
+                .PixelSnapH = false,
+                .GlyphMaxAdvanceX = imgui.__FLT_MAX__,
+                .RasterizerMultiply = 1.0,
+                .RasterizerDensity = 1.0,
+            },
+            null,
+        )) |font| {
+            imgui.igGetIO().*.FontDefault = font;
+        } else {
+            misc.error_context.new("ImFontAtlas_AddFontFromMemoryTTF returned null.", .{});
+            misc.error_context.append("Failed to load UI font. Falling back to default font.", .{});
+            misc.error_context.logError(error.ImguiError);
+        }
 
         const win32_success = ui.backend.ImGui_ImplWin32_Init(window);
         if (!win32_success) {
