@@ -11,15 +11,15 @@ pub const Controls = struct {
 
     pub fn draw(self: *Self, controller: *core.Controller) void {
         imgui.igAlignTextToFramePadding();
+        const spacing = imgui.igGetStyle().*.ItemSpacing.x;
 
         drawCurrentFrame(controller);
 
-        imgui.igSameLine(0, -1);
+        imgui.igSameLine(0, spacing);
 
         var content_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&content_size);
-        const padding = imgui.igGetStyle().*.ItemSpacing.x;
-        imgui.igPushItemWidth(content_size.x - self.total_frames_width - padding);
+        imgui.igPushItemWidth(content_size.x - self.total_frames_width - spacing);
         drawSeekbar(controller);
         imgui.igPopItemWidth();
 
@@ -30,7 +30,6 @@ pub const Controls = struct {
         imgui.igGetItemRectSize(&total_frames_size);
         self.total_frames_width = total_frames_size.x;
 
-        const spacing = imgui.igGetStyle().*.ItemSpacing.x;
         drawPlayButton(controller);
         imgui.igSameLine(0, spacing);
         drawPauseButton(controller);
@@ -129,7 +128,7 @@ pub const Controls = struct {
             controller.record();
         }
         if (imgui.igIsItemHovered(0)) {
-            imgui.igSetTooltip("Record");
+            imgui.igSetTooltip("Start Recording");
         }
     }
 
@@ -142,7 +141,7 @@ pub const Controls = struct {
             controller.setCurrentFrameIndex(0);
         }
         if (imgui.igIsItemHovered(0)) {
-            imgui.igSetTooltip("First Frame");
+            imgui.igSetTooltip("Go To First Frame");
         }
     }
 
@@ -155,7 +154,7 @@ pub const Controls = struct {
             controller.setCurrentFrameIndex(total - 1);
         }
         if (imgui.igIsItemHovered(0)) {
-            imgui.igSetTooltip("Last Frame");
+            imgui.igSetTooltip("Go To Last Frame");
         }
     }
 
@@ -168,7 +167,7 @@ pub const Controls = struct {
             controller.setCurrentFrameIndex(current.? - 1);
         }
         if (imgui.igIsItemHovered(0)) {
-            imgui.igSetTooltip("Previous Frame");
+            imgui.igSetTooltip("Go To Previous Frame");
         }
     }
 
@@ -182,7 +181,7 @@ pub const Controls = struct {
             controller.setCurrentFrameIndex(current.? + 1);
         }
         if (imgui.igIsItemHovered(0)) {
-            imgui.igSetTooltip("Next Frame");
+            imgui.igSetTooltip("Go To Next Frame");
         }
     }
 
