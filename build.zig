@@ -275,6 +275,7 @@ fn imguiDependency(
         .optimize = optimize,
     });
     translate_c.defineCMacro("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "1");
+    translate_c.defineCMacro("IMGUI_USE_WCHAR32", "1");
     const module = translate_c.createModule();
     return .{ .module = module, .library = library };
 }
