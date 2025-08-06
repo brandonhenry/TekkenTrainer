@@ -72,7 +72,7 @@ pub const Memory = struct {
             .decrypt_health_function = functionPointer(
                 "decrypt_health_function",
                 game.DecryptHealthFunction,
-                pattern(&cache, "48 89 5c 24 08 57 48 83 EC ?? 48 8b d9 48 83 c1 08 e8 ?? ?? ?? ?? 85 c0"),
+                pattern(&cache, "48 89 5C 24 08 57 48 83 EC ?? 48 8D 79 08 48 8B D9 48 8b CF E8 97 ?? ?? ?? 85 C0"),
             ),
         };
         game.conversion_globals.decrypt_health_function = self.decrypt_health_function;
