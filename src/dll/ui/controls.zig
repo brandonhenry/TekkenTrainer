@@ -163,6 +163,8 @@ pub const Controls = struct {
         const disabled = current == null or current == 0;
         if (disabled) imgui.igBeginDisabled(true);
         defer if (disabled) imgui.igEndDisabled();
+        imgui.igPushItemFlag(imgui.ImGuiItemFlags_ButtonRepeat, true);
+        defer imgui.igPopItemFlag();
         if (imgui.igButton(" ⏪ ##previous_frame", .{})) {
             controller.setCurrentFrameIndex(current.? - 1);
         }
@@ -177,6 +179,8 @@ pub const Controls = struct {
         const disabled = total == 0 or current == null or current.? >= total - 1;
         if (disabled) imgui.igBeginDisabled(true);
         defer if (disabled) imgui.igEndDisabled();
+        imgui.igPushItemFlag(imgui.ImGuiItemFlags_ButtonRepeat, true);
+        defer imgui.igPopItemFlag();
         if (imgui.igButton(" ⏩ ##next_frame", .{})) {
             controller.setCurrentFrameIndex(current.? + 1);
         }
