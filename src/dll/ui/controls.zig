@@ -78,7 +78,7 @@ pub fn Controls(comptime config: ControlsConfig) type {
             if (controller.getCurrentFrameIndex()) |current| {
                 drawText("current_frame", "{d:0>5}", .{current});
             } else {
-                drawText("current_frame", "-----", .{});
+                drawText("current_frame", "‒‒‒‒‒", .{});
             }
         }
 
@@ -87,7 +87,7 @@ pub fn Controls(comptime config: ControlsConfig) type {
             if (total != 0) {
                 drawText("total_frames", "{d:0>5}", .{total});
             } else {
-                drawText("total_frames", "-----", .{});
+                drawText("total_frames", "‒‒‒‒‒", .{});
             }
         }
 
@@ -364,7 +364,7 @@ test "should display current frame index correctly when null" {
 
         fn testFunction(ctx: sdk.ui.TestContext) !void {
             ctx.setRef("Window");
-            try ctx.expectItemExists("current_frame: -----");
+            try ctx.expectItemExists("current_frame: ‒‒‒‒‒");
         }
     };
     const context = try sdk.ui.getTestingContext();
@@ -404,7 +404,7 @@ test "should display total frames correctly when zero" {
 
         fn testFunction(ctx: sdk.ui.TestContext) !void {
             ctx.setRef("Window");
-            try ctx.expectItemExists("total_frames: -----");
+            try ctx.expectItemExists("total_frames: ‒‒‒‒‒");
         }
     };
     const context = try sdk.ui.getTestingContext();
