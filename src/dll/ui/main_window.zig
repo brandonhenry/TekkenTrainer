@@ -14,7 +14,7 @@ pub const MainWindow = struct {
     game_memory_window: ui.GameMemoryWindow = .{},
     quadrant_layout: ui.QuadrantLayout = .{},
     view: ui.View = .{},
-    controls: ui.Controls = .{},
+    controls: ui.Controls(.{}) = .{},
     controls_height: f32 = 0,
 
     const Self = @This();

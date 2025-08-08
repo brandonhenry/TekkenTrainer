@@ -52,11 +52,9 @@ pub const LogsWindow = struct {
     fn drawColoredText(color: imgui.ImVec4, text: [:0]const u8) void {
         imgui.igTextColored(color, "%s", text.ptr);
         if (builtin.is_test) {
-            var min: imgui.ImVec2 = undefined;
-            var max: imgui.ImVec2 = undefined;
-            imgui.igGetItemRectMin(&min);
-            imgui.igGetItemRectMax(&max);
-            const rect = imgui.ImRect{ .Min = min, .Max = max };
+            var rect: imgui.ImRect = undefined;
+            imgui.igGetItemRectMin(&rect.Min);
+            imgui.igGetItemRectMax(&rect.Max);
             imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(text), &rect, null);
         }
     }

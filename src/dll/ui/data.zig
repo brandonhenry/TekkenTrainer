@@ -790,11 +790,9 @@ fn drawMenuText(label: [:0]const u8, text: [:0]const u8) void {
 fn drawText(label: [:0]const u8, text: [:0]const u8) void {
     imgui.igText("%s: %s", label.ptr, text.ptr);
 
-    var min: imgui.ImVec2 = undefined;
-    var max: imgui.ImVec2 = undefined;
-    imgui.igGetItemRectMin(&min);
-    imgui.igGetItemRectMax(&max);
-    const rect = imgui.ImRect{ .Min = min, .Max = max };
+    var rect: imgui.ImRect = undefined;
+    imgui.igGetItemRectMin(&rect.Min);
+    imgui.igGetItemRectMax(&rect.Max);
     _ = imgui.igItemAdd(rect, imgui.igGetID_Str(label), null, imgui.ImGuiItemFlags_NoNav);
 
     if (imgui.igIsItemClicked(imgui.ImGuiMouseButton_Left)) {
