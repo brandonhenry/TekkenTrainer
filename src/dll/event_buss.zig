@@ -143,7 +143,10 @@ pub const EventBuss = struct {
         if (game_memory) |memory| {
             self.main_window.draw(memory, &self.core.controller);
         } else {
-            ui.drawLoadingWindow("Searching for memory addresses and offsets...");
+            ui.drawMessageWindow("Loading", "Searching for memory addresses and offsets...", .center);
+        }
+        if (self.core.controller.mode == .record) {
+            ui.drawMessageWindow("Recording", "⏺ Recording...", .top);
         }
         ui_context.endFrame();
 
