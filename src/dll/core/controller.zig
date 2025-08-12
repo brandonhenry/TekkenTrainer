@@ -34,7 +34,7 @@ pub const Controller = struct {
         time_since_last_frame: f32,
         is_frame_processed: bool,
     };
-    pub const normal_speed_frame_time = 1.0 / 60.0;
+    pub const frame_time = 1.0 / 60.0;
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -101,8 +101,7 @@ pub const Controller = struct {
                     }
                     state.is_frame_processed = true;
                 }
-                state.time_since_last_frame += delta_time;
-                const frame_time = normal_speed_frame_time / @abs(self.playback_speed);
+                state.time_since_last_frame += delta_time * @abs(self.playback_speed);
                 if (self.playback_speed >= 0) {
                     while (state.time_since_last_frame >= frame_time) {
                         if (state.frame_index >= self.recording.items.len - 1) {
@@ -606,28 +605,28 @@ test "should play recording from beginning when playing after recording" {
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(0.5 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(0.5 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(5, Callback.times_called);
     try testing.expectEqual(frame_1, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(6, Callback.times_called);
     try testing.expectEqual(frame_2, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
-    controller.update(2.0 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(2.0 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(8, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(8, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
@@ -668,28 +667,28 @@ test "should play recording from current frame when playing after paused in the 
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
-    controller.update(0.5 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(0.5 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(5, Callback.times_called);
     try testing.expectEqual(frame_2, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(6, Callback.times_called);
     try testing.expectEqual(frame_3, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_3, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(7, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(7, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
@@ -730,28 +729,28 @@ test "should play recording from beginning when playing after paused on the end 
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(0.5 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(0.5 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(5, Callback.times_called);
     try testing.expectEqual(frame_1, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(6, Callback.times_called);
     try testing.expectEqual(frame_2, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
-    controller.update(2.0 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(2.0 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(8, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(8, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
@@ -765,28 +764,28 @@ test "should play recording from beginning when playing after paused on the end 
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(0.5 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(0.5 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(9, Callback.times_called);
     try testing.expectEqual(frame_1, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(10, Callback.times_called);
     try testing.expectEqual(frame_2, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
-    controller.update(2.0 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(2.0 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(12, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
 
-    controller.update(Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(12, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
@@ -820,7 +819,7 @@ test "should pause at the current frame when pausing while playing" {
     controller.processFrame(&frame_4, {}, Callback.call);
     controller.play();
 
-    controller.update(0.9 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(0.9 * Controller.frame_time, {}, Callback.call);
 
     controller.pause();
 
@@ -829,7 +828,7 @@ test "should pause at the current frame when pausing while playing" {
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
-    controller.update(10 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(10 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(5, Callback.times_called);
     try testing.expectEqual(frame_1, Callback.last_frame);
@@ -837,7 +836,7 @@ test "should pause at the current frame when pausing while playing" {
     try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
 
     controller.play();
-    controller.update(1.9 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(1.9 * Controller.frame_time, {}, Callback.call);
     controller.pause();
 
     try testing.expectEqual(6, Callback.times_called);
@@ -845,7 +844,7 @@ test "should pause at the current frame when pausing while playing" {
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
-    controller.update(10 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(10 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(6, Callback.times_called);
     try testing.expectEqual(frame_2, Callback.last_frame);
@@ -853,7 +852,7 @@ test "should pause at the current frame when pausing while playing" {
     try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
 
     controller.play();
-    controller.update(2.9 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(2.9 * Controller.frame_time, {}, Callback.call);
     controller.pause();
 
     try testing.expectEqual(8, Callback.times_called);
@@ -861,7 +860,7 @@ test "should pause at the current frame when pausing while playing" {
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
 
-    controller.update(10 * Controller.normal_speed_frame_time, {}, Callback.call);
+    controller.update(10 * Controller.frame_time, {}, Callback.call);
 
     try testing.expectEqual(8, Callback.times_called);
     try testing.expectEqual(frame_4, Callback.last_frame);
@@ -869,4 +868,76 @@ test "should pause at the current frame when pausing while playing" {
     try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
 }
 
-// TODO write tests for different playback speeds
+test "should play recording correctly when changing the playback speed" {
+    const Callback = struct {
+        var times_called: usize = 0;
+        var last_frame: ?model.Frame = null;
+
+        fn call(_: void, frame: *const model.Frame) void {
+            times_called += 1;
+            last_frame = frame.*;
+        }
+    };
+
+    var controller = Controller.init(testing.allocator);
+    defer controller.deinit();
+
+    const frame_1 = model.Frame{ .frames_since_round_start = 1 };
+    const frame_2 = model.Frame{ .frames_since_round_start = 2 };
+    const frame_3 = model.Frame{ .frames_since_round_start = 3 };
+    const frame_4 = model.Frame{ .frames_since_round_start = 4 };
+    const frame_5 = model.Frame{ .frames_since_round_start = 5 };
+
+    controller.record();
+    controller.processFrame(&frame_1, {}, Callback.call);
+    controller.processFrame(&frame_2, {}, Callback.call);
+    controller.processFrame(&frame_3, {}, Callback.call);
+    controller.processFrame(&frame_4, {}, Callback.call);
+    controller.processFrame(&frame_5, {}, Callback.call);
+    controller.play();
+
+    try testing.expectEqual(5, Callback.times_called);
+    try testing.expectEqual(frame_5, Callback.last_frame);
+    try testing.expect(controller.getCurrentFrame() != null);
+    try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
+
+    controller.playback_speed = 0.5;
+    controller.update(Controller.frame_time, {}, Callback.call);
+
+    try testing.expectEqual(6, Callback.times_called);
+    try testing.expectEqual(frame_1, Callback.last_frame);
+    try testing.expect(controller.getCurrentFrame() != null);
+    try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
+
+    controller.playback_speed = 1.0;
+    controller.update(Controller.frame_time, {}, Callback.call);
+
+    try testing.expectEqual(7, Callback.times_called);
+    try testing.expectEqual(frame_2, Callback.last_frame);
+    try testing.expect(controller.getCurrentFrame() != null);
+    try testing.expectEqual(frame_2, controller.getCurrentFrame().?.*);
+
+    controller.playback_speed = 2.0;
+    controller.update(Controller.frame_time, {}, Callback.call);
+
+    try testing.expectEqual(9, Callback.times_called);
+    try testing.expectEqual(frame_4, Callback.last_frame);
+    try testing.expect(controller.getCurrentFrame() != null);
+    try testing.expectEqual(frame_4, controller.getCurrentFrame().?.*);
+
+    controller.playback_speed = -1.0;
+    controller.update(Controller.frame_time, {}, Callback.call);
+
+    try testing.expectEqual(10, Callback.times_called);
+    try testing.expectEqual(frame_3, Callback.last_frame);
+    try testing.expect(controller.getCurrentFrame() != null);
+    try testing.expectEqual(frame_3, controller.getCurrentFrame().?.*);
+
+    controller.playback_speed = -2.0;
+    controller.update(Controller.frame_time, {}, Callback.call);
+
+    try testing.expectEqual(12, Callback.times_called);
+    try testing.expectEqual(frame_1, Callback.last_frame);
+    try testing.expect(controller.getCurrentFrame() != null);
+    try testing.expectEqual(frame_1, controller.getCurrentFrame().?.*);
+}
