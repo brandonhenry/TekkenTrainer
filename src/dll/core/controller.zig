@@ -101,56 +101,14 @@ pub const Controller = struct {
         onFrameChange: ?*const fn (context: @TypeOf(context), frame: *const model.Frame) void,
     ) void {
         switch (self.mode) {
-            .pause => |*state| if (!state.is_frame_processed) {
-                if (onFrameChange) |callback| {
-                    if (self.getCurrentFrame()) |frame| {
-                        callback(context, frame);
-                    }
-                }
-                state.is_frame_processed = true;
-            },
+            .pause => |*state| self.processUnprocessedFrame(&state.is_frame_processed, context, onFrameChange),
             .playback => |*state| {
-                if (!state.is_frame_processed) {
-                    if (onFrameChange) |callback| {
-                        if (self.getCurrentFrame()) |frame| {
-                            callback(context, frame);
-                        }
-                    }
-                    state.is_frame_processed = true;
-                }
+                self.processUnprocessedFrame(&state.is_frame_processed, context, onFrameChange);
                 state.frame_progress += self.playback_speed * delta_time / frame_time;
-                while (state.frame_progress < 0.0) {
-                    if (state.frame_index <= 0) {
-                        self.pause();
-                        return;
-                    }
-                    state.frame_index -= 1;
-                    state.frame_progress += 1.0;
-                    if (onFrameChange) |callback| {
-                        callback(context, &self.recording.items[state.frame_index]);
-                    }
-                }
-                while (state.frame_progress >= 1.0) {
-                    if (state.frame_index >= self.recording.items.len - 1) {
-                        self.pause();
-                        return;
-                    }
-                    state.frame_index += 1;
-                    state.frame_progress -= 1.0;
-                    if (onFrameChange) |callback| {
-                        callback(context, &self.recording.items[state.frame_index]);
-                    }
-                }
+                self.applyFrameProgress(&state.frame_progress, &state.frame_index, context, onFrameChange);
             },
             .scrub => |*state| {
-                if (!state.is_frame_processed) {
-                    if (onFrameChange) |callback| {
-                        if (self.getCurrentFrame()) |frame| {
-                            callback(context, frame);
-                        }
-                    }
-                    state.is_frame_processed = true;
-                }
+                self.processUnprocessedFrame(&state.is_frame_processed, context, onFrameChange);
                 const abs_speed = std.math.lerp(
                     min_scrub_speed,
                     max_scrub_speed,
@@ -163,30 +121,57 @@ pub const Controller = struct {
                 };
                 state.frame_progress += speed * delta_time / frame_time;
                 state.scrubbing_time += delta_time;
-                while (state.frame_progress < 0.0) {
-                    if (state.frame_index <= 0) {
-                        self.pause();
-                        return;
-                    }
-                    state.frame_index -= 1;
-                    state.frame_progress += 1.0;
-                    if (onFrameChange) |callback| {
-                        callback(context, &self.recording.items[state.frame_index]);
-                    }
-                }
-                while (state.frame_progress >= 1.0) {
-                    if (state.frame_index >= self.recording.items.len - 1) {
-                        self.pause();
-                        return;
-                    }
-                    state.frame_index += 1;
-                    state.frame_progress -= 1.0;
-                    if (onFrameChange) |callback| {
-                        callback(context, &self.recording.items[state.frame_index]);
-                    }
-                }
+                self.applyFrameProgress(&state.frame_progress, &state.frame_index, context, onFrameChange);
             },
             else => {},
+        }
+    }
+
+    fn processUnprocessedFrame(
+        self: *const Self,
+        is_frame_processed: *bool,
+        context: anytype,
+        onFrameChange: ?*const fn (context: @TypeOf(context), frame: *const model.Frame) void,
+    ) void {
+        if (is_frame_processed.*) {
+            return;
+        }
+        if (onFrameChange) |callback| {
+            if (self.getCurrentFrame()) |frame| {
+                callback(context, frame);
+            }
+        }
+        is_frame_processed.* = true;
+    }
+
+    fn applyFrameProgress(
+        self: *Self,
+        frame_progress: *f32,
+        frame_index: *usize,
+        context: anytype,
+        onFrameChange: ?*const fn (context: @TypeOf(context), frame: *const model.Frame) void,
+    ) void {
+        while (frame_progress.* < 0.0) {
+            if (frame_index.* <= 0) {
+                self.pause();
+                return;
+            }
+            frame_index.* -= 1;
+            frame_progress.* += 1.0;
+            if (onFrameChange) |callback| {
+                callback(context, &self.recording.items[frame_index.*]);
+            }
+        }
+        while (frame_progress.* >= 1.0) {
+            if (frame_index.* >= self.recording.items.len - 1) {
+                self.pause();
+                return;
+            }
+            frame_index.* += 1;
+            frame_progress.* -= 1.0;
+            if (onFrameChange) |callback| {
+                callback(context, &self.recording.items[frame_index.*]);
+            }
         }
     }
 
