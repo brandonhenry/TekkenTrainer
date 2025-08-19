@@ -2,34 +2,47 @@ const std = @import("std");
 const sdk = @import("../../sdk/root.zig");
 const game = @import("root.zig");
 
-pub const Boolean = enum(u8) {
-    false = 0,
-    true = 1,
-    _,
-
-    const Self = @This();
-
-    pub fn fromBool(b: bool) Self {
-        return switch (b) {
-            false => .false,
-            true => .true,
-        };
-    }
-
-    pub fn toBool(self: Self) ?bool {
-        return switch (self) {
-            .false => false,
-            .true => true,
-            else => null,
-        };
-    }
-
-    comptime {
-        std.debug.assert(@as(Self, @enumFromInt(0)).toBool() == false);
-        std.debug.assert(@as(Self, @enumFromInt(1)).toBool() == true);
-        std.debug.assert(@as(Self, @enumFromInt(2)).toBool() == null);
-    }
+pub const BooleanConfig = struct {
+    BackingInt: type = u8,
+    false_value: comptime_int = 0,
+    true_value: comptime_int = 1,
 };
+
+pub fn Boolean(comptime config: BooleanConfig) type {
+    return enum(config.BackingInt) {
+        false = config.false_value,
+        true = config.true_value,
+        _,
+
+        const Self = @This();
+
+        pub fn fromBool(b: bool) Self {
+            return switch (b) {
+                false => .false,
+                true => .true,
+            };
+        }
+
+        pub fn toBool(self: Self) ?bool {
+            return switch (self) {
+                .false => false,
+                .true => true,
+                else => null,
+            };
+        }
+
+        comptime {
+            const false_v = config.false_value;
+            const true_v = config.true_value;
+            const third_v = if (false_v != 0 and true_v != 0) 0 else if (false_v != 1 and true_v != 1) 1 else 2;
+            std.debug.assert(Self.fromBool(false) == .false);
+            std.debug.assert(Self.fromBool(true) == .true);
+            std.debug.assert(@as(Self, @enumFromInt(false_v)).toBool() == false);
+            std.debug.assert(@as(Self, @enumFromInt(true_v)).toBool() == true);
+            std.debug.assert(@as(Self, @enumFromInt(third_v)).toBool() == null);
+        }
+    };
+}
 
 pub const PlayerSide = enum(u8) {
     left = 0,
@@ -147,7 +160,7 @@ pub const HitLinePoint = extern struct {
 pub const HitLine = extern struct {
     points: [3]HitLinePoint,
     _padding_1: [8]u8,
-    ignore: Boolean,
+    ignore: Boolean(.{}),
     _padding_2: [7]u8,
 
     comptime {
@@ -264,7 +277,7 @@ pub const CollisionSpheres = extern struct {
 pub const EncryptedHealth = [16]u64;
 
 pub const Player = struct {
-    is_picked_by_main_player: Boolean, // 0x0009
+    is_picked_by_main_player: Boolean(.{}), // 0x0009
     character_id: u32, // 0x0168
     transform_matrix: sdk.memory.ConvertedValue(
         sdk.math.Mat4,
@@ -288,20 +301,22 @@ pub const Player = struct {
     attack_damage: i32, // 0x0504
     attack_type: AttackType, // 0x0510
     current_move_id: u32, // 0x0548
-    can_move: Boolean, // 0x05C8
+    can_move: Boolean(.{}), // 0x05C8
     current_move_total_frames: u32, // 0x05D4
     hit_outcome: HitOutcome, // 0x0610
-    in_rage: Boolean, // 0x0DD1
-    used_rage: Boolean, // 0x0E08
+    is_a_parry_move: Boolean(.{ .true_value = 2 }), // 0xA2C
+    power_crushing: Boolean(.{}), // 0x0A70
+    in_rage: Boolean(.{}), // 0x0DD1
+    used_rage: Boolean(.{}), // 0x0E08
     frames_since_round_start: u32, // 0x1410
-    used_heat: Boolean, // 0x21C0
+    used_heat: Boolean(.{}), // 0x21C0
     heat_gauge: sdk.memory.ConvertedValue(
         u32,
         f32,
         game.decryptHeatGauge,
         game.encryptHeatGauge,
     ), // 0x21B0
-    in_heat: Boolean, // 0x21E1
+    in_heat: Boolean(.{}), // 0x21E1
     input_side: PlayerSide, // 0x252C
     input: Input, // 0x2554
     hit_lines: HitLines, // 0x2500

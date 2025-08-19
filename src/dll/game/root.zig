@@ -16,6 +16,7 @@ pub const collisionSphereFromUnrealSpace = @import("conversions.zig").collisionS
 pub const decryptHeatGauge = @import("conversions.zig").decryptHeatGauge;
 pub const encryptHeatGauge = @import("conversions.zig").encryptHeatGauge;
 pub const decryptHealth = @import("conversions.zig").decryptHealth;
+pub const BooleanConfig = @import("types.zig").BooleanConfig;
 pub const Boolean = @import("types.zig").Boolean;
 pub const Memory = @import("memory.zig").Memory;
 pub const PlayerSide = @import("types.zig").PlayerSide;
