@@ -32,6 +32,29 @@ pub const HitOutcome = enum {
     normal_hit_crouching_right,
 };
 
+pub const Posture = enum {
+    standing,
+    crouching,
+    downed_face_up,
+    downed_face_down,
+    airborne,
+};
+
+pub const Blocking = enum {
+    not_blocking,
+    neutral_blocking_mids,
+    fully_blocking_mids,
+    neutral_blocking_lows,
+    fully_blocking_lows,
+};
+
+pub const Crushing = packed struct {
+    high_crushing: bool = false,
+    low_crushing: bool = false,
+    power_crushing: bool = false,
+    invincibility: bool = false,
+};
+
 pub const Input = packed struct {
     forward: bool = false,
     back: bool = false,
