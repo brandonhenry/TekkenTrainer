@@ -50,6 +50,107 @@ pub const PlayerSide = enum(u8) {
     _,
 };
 
+pub const StateFlags = packed struct(u16) {
+    crouching: bool = false,
+    standing_or_airborne: bool = false,
+    being_juggled_or_downed: bool = false,
+    blocking_lows: bool = false,
+    blocking_mids: bool = false,
+    wants_to_crouch: bool = false,
+    not_high_crushing: bool = false,
+    downed: bool = false,
+    neutral_blocking: bool = false,
+    face_down: bool = false,
+    being_juggled: bool = false,
+    not_blocking_or_neutral_blocking: bool = false,
+    blocking: bool = false,
+    high_crushing: bool = false,
+    airborne_move_or_downed: bool = false,
+    airborne_move_and_not_juggled: bool = false,
+
+    const Self = @This();
+
+    pub fn fromInt(int: u16) Self {
+        return @bitCast(int);
+    }
+
+    pub fn toInt(self: Self) u16 {
+        return @bitCast(self);
+    }
+
+    comptime {
+        std.debug.assert((Self{ .crouching = true }).toInt() == 1);
+        std.debug.assert((Self{ .standing_or_airborne = true }).toInt() == 2);
+        std.debug.assert((Self{ .being_juggled_or_downed = true }).toInt() == 4);
+        std.debug.assert((Self{ .blocking_lows = true }).toInt() == 8);
+        std.debug.assert((Self{ .blocking_mids = true }).toInt() == 16);
+        std.debug.assert((Self{ .wants_to_crouch = true }).toInt() == 32);
+        std.debug.assert((Self{ .not_high_crushing = true }).toInt() == 64);
+        std.debug.assert((Self{ .downed = true }).toInt() == 128);
+        std.debug.assert((Self{ .neutral_blocking = true }).toInt() == 256);
+        std.debug.assert((Self{ .face_down = true }).toInt() == 512);
+        std.debug.assert((Self{ .being_juggled = true }).toInt() == 1024);
+        std.debug.assert((Self{ .not_blocking_or_neutral_blocking = true }).toInt() == 2048);
+        std.debug.assert((Self{ .blocking = true }).toInt() == 4096);
+        std.debug.assert((Self{ .high_crushing = true }).toInt() == 8192);
+        std.debug.assert((Self{ .airborne_move_or_downed = true }).toInt() == 16384);
+        std.debug.assert((Self{ .airborne_move_and_not_juggled = true }).toInt() == 32768);
+    }
+};
+
+pub const AirborneFlags = packed struct(u32) {
+    _0: bool = false,
+    _1: bool = false,
+    _2: bool = false,
+    _3: bool = false,
+    _4: bool = false,
+    _5: bool = false,
+    _6: bool = false,
+    _7: bool = false,
+    _8: bool = false,
+    low_crushing_end: bool = false,
+    _10: bool = false,
+    _11: bool = false,
+    _12: bool = false,
+    _13: bool = false,
+    _14: bool = false,
+    _15: bool = false,
+    _16: bool = false,
+    _17: bool = false,
+    _18: bool = false,
+    _19: bool = false,
+    _20: bool = false,
+    probably_low_crushing: bool = false,
+    low_crushing_start: bool = false,
+    airborne_end: bool = false,
+    _24: bool = false,
+    _25: bool = false,
+    _26: bool = false,
+    _27: bool = false,
+    _28: bool = false,
+    _29: bool = false,
+    not_airborne_and_not_downed: bool = false,
+    _31: bool = false,
+
+    const Self = @This();
+
+    pub fn fromInt(int: u32) Self {
+        return @bitCast(int);
+    }
+
+    pub fn toInt(self: Self) u32 {
+        return @bitCast(self);
+    }
+
+    comptime {
+        std.debug.assert((Self{ .low_crushing_end = true }).toInt() == 512);
+        std.debug.assert((Self{ .probably_low_crushing = true }).toInt() == 2097152);
+        std.debug.assert((Self{ .low_crushing_start = true }).toInt() == 4194304);
+        std.debug.assert((Self{ .airborne_end = true }).toInt() == 8388608);
+        std.debug.assert((Self{ .not_airborne_and_not_downed = true }).toInt() == 1073741824);
+    }
+};
+
 pub const AttackType = enum(u32) {
     not_attack = 0xC000001D,
     high = 0xA000050F,
@@ -336,57 +437,3 @@ pub const Player = struct {
 pub const TickFunction = fn (delta_time: f64) callconv(.c) void;
 
 pub const DecryptHealthFunction = fn (encrypted_health: *const EncryptedHealth) callconv(.c) i64;
-
-pub const StateFlags = packed struct(u16) {
-    crouching: bool,
-    standing_or_airborne: bool,
-    being_juggled_or_downed: bool,
-    blocking_lows: bool,
-    blocking_mids: bool,
-    wants_to_crouch: bool,
-    not_high_crushing: bool,
-    downed: bool,
-    neutral_blocking: bool,
-    face_down: bool,
-    being_juggled: bool,
-    not_blocking_or_neutral_blocking: bool,
-    blocking: bool,
-    high_crushing: bool,
-    airborne_move_or_downed: bool,
-    airborne_move_and_not_juggled: bool,
-};
-
-pub const AirborneFlags = packed struct(u32) {
-    _0: bool,
-    _1: bool,
-    _2: bool,
-    _3: bool,
-    _4: bool,
-    _5: bool,
-    _6: bool,
-    _7: bool,
-    _8: bool,
-    low_crushing_end: bool,
-    _10: bool,
-    _11: bool,
-    _12: bool,
-    _13: bool,
-    _14: bool,
-    _15: bool,
-    _16: bool,
-    _17: bool,
-    _18: bool,
-    _19: bool,
-    _20: bool,
-    probably_low_crushing: bool,
-    low_crushing_start: bool,
-    airborne_end: bool,
-    _24: bool,
-    _25: bool,
-    _26: bool,
-    _27: bool,
-    _28: bool,
-    _29: bool,
-    not_airborne_and_not_downed: bool,
-    _31: bool,
-};
