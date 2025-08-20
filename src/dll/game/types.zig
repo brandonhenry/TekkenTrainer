@@ -305,6 +305,7 @@ pub const Player = struct {
     can_move: Boolean(.{}), // 0x05C8
     current_move_total_frames: u32, // 0x05D4
     hit_outcome: HitOutcome, // 0x0610
+    invincible: Boolean(.{}), // 0x08F8
     is_a_parry_move: Boolean(.{ .true_value = 2 }), // 0xA2C
     power_crushing: Boolean(.{}), // 0x0A70
     airborne_flags: AirborneFlags, // 0x0D9C

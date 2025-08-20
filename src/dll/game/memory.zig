@@ -41,6 +41,7 @@ pub const Memory = struct {
             .can_move = 0x05C8,
             .current_move_total_frames = 0x05D4,
             .hit_outcome = 0x0610,
+            .invincible = 0x08F8,
             .is_a_parry_move = 0xA2C,
             .power_crushing = 0x0A70,
             .airborne_flags = 0x0D9C,
