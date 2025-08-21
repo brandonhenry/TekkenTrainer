@@ -769,6 +769,13 @@ fn drawNumberMenuItems(value: anytype) void {
             drawMenuText("character", "not printable");
         }
     }
+
+    const binary_text = std.fmt.bufPrintZ(
+        &buffer,
+        "{b:0>" ++ std.fmt.comptimePrint("{}", .{@bitSizeOf(UType)}) ++ "}",
+        .{u_value},
+    ) catch error_string;
+    drawMenuText("binary", binary_text);
 }
 
 fn bitsToText(buffer: []u8, bits_value: usize) ![:0]u8 {
@@ -946,6 +953,7 @@ test "should draw int correctly" {
             try ctx.expectItemExists("u8: 97 (0x61)");
             try ctx.expectItemExists("i8: 97 (0x61)");
             try ctx.expectItemExists("character: a");
+            try ctx.expectItemExists("binary: 01100001");
 
             value = 255;
             ctx.yield(1);
@@ -954,6 +962,7 @@ test "should draw int correctly" {
             try ctx.expectItemExists("u8: 255 (0xFF)");
             try ctx.expectItemExists("i8: -1 (0x-1)");
             try ctx.expectItemExists("character: not printable");
+            try ctx.expectItemExists("binary: 11111111");
         }
     };
     const context = try sdk.ui.getTestingContext();
@@ -987,6 +996,7 @@ test "should draw float correctly" {
             try ctx.expectItemExists("u32: 3212836864 (0xBF800000)");
             try ctx.expectItemExists("i32: -1082130432 (0x-40800000)");
             try ctx.expectItemExists("f32: -1e0");
+            try ctx.expectItemExists("binary: 10111111100000000000000000000000");
         }
     };
     const context = try sdk.ui.getTestingContext();
@@ -1024,6 +1034,7 @@ test "should draw enum correctly" {
             try ctx.expectItemExists("u8: 255 (0xFF)");
             try ctx.expectItemExists("i8: -1 (0x-1)");
             try ctx.expectItemExists("character: not printable");
+            try ctx.expectItemExists("binary: 11111111");
 
             value = @enumFromInt(97);
             ctx.yield(1);
@@ -1036,6 +1047,7 @@ test "should draw enum correctly" {
             try ctx.expectItemExists("u8: 97 (0x61)");
             try ctx.expectItemExists("i8: 97 (0x61)");
             try ctx.expectItemExists("character: a");
+            try ctx.expectItemExists("binary: 01100001");
         }
     };
     const context = try sdk.ui.getTestingContext();
@@ -1222,6 +1234,7 @@ test "should draw opaque correctly" {
             try ctx.expectItemExists("value: 1234 (0x4D2)");
             try ctx.expectItemExists("u64: 1234 (0x4D2)");
             try ctx.expectItemExists("i64: 1234 (0x4D2)");
+            try ctx.expectItemExists("binary: 0000000000000000000000000000000000000000000000000000010011010010");
         }
     };
     const context = try sdk.ui.getTestingContext();
