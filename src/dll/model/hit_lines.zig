@@ -14,7 +14,7 @@ pub const HitLineFlags = packed struct {
     is_power_crushed: bool = false,
     is_connected: bool = false,
     is_blocked: bool = false,
-    is_hitting: bool = false,
+    is_normal_hitting: bool = false,
     is_counter_hitting: bool = false,
 };
 

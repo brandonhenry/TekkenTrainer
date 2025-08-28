@@ -29,7 +29,7 @@ pub const HurtCylinderFlags = packed struct {
     is_power_crushing: bool = false,
     is_connected: bool = false,
     is_blocking: bool = false,
-    is_being_hit: bool = false,
+    is_being_normal_hit: bool = false,
     is_being_counter_hit: bool = false,
 };
 
