@@ -1,0 +1,350 @@
+const std = @import("std");
+const builtin = @import("builtin");
+const imgui = @import("imgui");
+const sdk = @import("../../sdk/root.zig");
+const model = @import("../model/root.zig");
+
+pub const Details = struct {
+    frame: model.Frame = .{},
+
+    const Self = @This();
+    const string_buffer_size = 128;
+    const empty_value_string = "---";
+    const error_string = "error";
+
+    pub fn processFrame(self: *Self, frame: *const model.Frame) void {
+        self.frame = frame.*;
+    }
+
+    pub fn draw(self: *const Self) void {
+        const table_flags = imgui.ImGuiTableFlags_RowBg |
+            imgui.ImGuiTableFlags_BordersInner |
+            imgui.ImGuiTableFlags_PadOuterX |
+            imgui.ImGuiTableFlags_Resizable |
+            imgui.ImGuiTableFlags_ScrollY;
+        var table_size: imgui.ImVec2 = undefined;
+        imgui.igGetContentRegionAvail(&table_size);
+        const render_content = imgui.igBeginTable("details_table", 3, table_flags, table_size, 0);
+        if (!render_content) return;
+        defer imgui.igEndTable();
+
+        imgui.igTableSetupScrollFreeze(0, 1);
+        imgui.igTableSetupColumn("Property", 0, 0, 0);
+        imgui.igTableSetupColumn("Left Player", 0, 0, 0);
+        imgui.igTableSetupColumn("Right Player", 0, 0, 0);
+        imgui.igTableHeadersRow();
+
+        const left = self.frame.getPlayerBySide(.left);
+        const right = self.frame.getPlayerBySide(.right);
+        drawProperty("Since Round Start", &self.frame.frames_since_round_start, &self.frame.frames_since_round_start);
+        drawProperty("Character ID", &left.character_id, &right.character_id);
+        drawProperty("Move ID", &left.current_move_id, &right.current_move_id);
+        drawProperty("Current Frame", &left.current_move_frame, &right.current_move_frame);
+        drawProperty("Total Frames", &left.current_move_total_frames, &right.current_move_total_frames);
+        drawProperty("Attack Type", &left.attack_type, &right.attack_type);
+        drawProperty("Attack Damage", &left.attack_damage, &right.attack_damage);
+        drawProperty("Hit Outcome", &left.hit_outcome, &right.hit_outcome);
+        drawProperty("Posture", &left.posture, &right.posture);
+        drawProperty("Blocking", &left.blocking, &right.blocking);
+        drawProperty("Crushing", &left.crushing, &right.crushing);
+        drawProperty("Can Move", &left.can_move, &right.can_move);
+        drawProperty("Input", &left.input, &right.input);
+        drawProperty("Health", &left.health, &right.health);
+        drawProperty("Rage", &left.rage, &right.rage);
+        drawProperty("Heat", &left.heat, &right.heat);
+    }
+
+    fn drawProperty(name: []const u8, left_value_pointer: anytype, right_value_pointer: anytype) void {
+        if (imgui.igTableNextColumn()) {
+            drawText("{s}", .{name});
+        }
+        if (imgui.igTableNextColumn()) {
+            drawValue(left_value_pointer);
+        }
+        if (imgui.igTableNextColumn()) {
+            drawValue(right_value_pointer);
+        }
+    }
+
+    fn drawValue(pointer: anytype) void {
+        const Pointer = @TypeOf(pointer);
+        const Value = switch (@typeInfo(Pointer)) {
+            .pointer => |*p| p.child,
+            else => @compileError(
+                "The drawValue function expects a pointer but provided value is of type: " ++ @typeName(Pointer),
+            ),
+        };
+        if (Value == model.AttackType) {
+            drawAttackType(pointer);
+        } else if (Value == model.HitOutcome) {
+            drawHitOutcome(pointer);
+        } else if (Value == model.Posture) {
+            drawPosture(pointer);
+        } else if (Value == model.Blocking) {
+            drawBlocking(pointer);
+        } else if (Value == model.Crushing) {
+            drawCrushing(pointer);
+        } else if (Value == model.Input) {
+            drawInput(pointer);
+        } else if (Value == model.Rage) {
+            drawRage(pointer);
+        } else if (Value == model.Heat) {
+            drawHeat(pointer);
+        } else switch (@typeInfo(Value)) {
+            .bool => drawBool(pointer),
+            .int => drawInt(pointer),
+            .float => drawFloat(pointer),
+            .optional => drawOptional(pointer),
+            else => @compileError("Unsupported type " ++ @typeName(Value) ++ " provided to the drawValue function."),
+        }
+    }
+
+    fn drawBool(pointer: *const bool) void {
+        const text = if (pointer.*) "Yes" else "No";
+        drawText("{s}", .{text});
+    }
+
+    fn drawInt(pointer: anytype) void {
+        drawText("{}", .{pointer.*});
+    }
+
+    fn drawFloat(pointer: anytype) void {
+        drawText("{d:.2}", .{pointer.*});
+    }
+
+    fn drawOptional(pointer: anytype) void {
+        if (pointer.*) |*child| {
+            drawValue(child);
+        } else {
+            drawText("{s}", .{empty_value_string});
+        }
+    }
+
+    fn drawAttackType(pointer: *const model.AttackType) void {
+        const string = switch (pointer.*) {
+            .not_attack => empty_value_string,
+            .high => "High",
+            .mid => "Mid",
+            .low => "Low",
+            .special_low => "Special Low",
+            .unblockable_high => "Unblockable High",
+            .unblockable_mid => "Unblockable Mid",
+            .unblockable_low => "Unblockable Low",
+            .throw => "Throw",
+            .projectile => "Projectile",
+            .antiair_only => "Anti-Air Only",
+        };
+        drawText("{s}", .{string});
+    }
+
+    fn drawHitOutcome(pointer: *const model.HitOutcome) void {
+        const string = switch (pointer.*) {
+            .none => empty_value_string,
+            .blocked_standing => "Blocked Standing",
+            .blocked_crouching => "Blocked Crouching",
+            .juggle => "Juggle",
+            .screw => "Screw",
+            .grounded_face_down => "Grounded Face Down",
+            .grounded_face_up => "Grounded Face Up",
+            .counter_hit_standing => "Counter Hit Standing",
+            .counter_hit_crouching => "Counter Hit Crouching",
+            .normal_hit_standing => "Normal Hit Standing",
+            .normal_hit_crouching => "Normal Hit Crouching",
+            .normal_hit_standing_left => "Normal Hit Standing Left",
+            .normal_hit_crouching_left => "Normal Hit Crouching Left",
+            .normal_hit_standing_back => "Normal Hit Standing Back",
+            .normal_hit_crouching_back => "Normal Hit Crouching Back",
+            .normal_hit_standing_right => "Normal Hit Standing Right",
+            .normal_hit_crouching_right => "Normal Hit Crouching Right",
+        };
+        drawText("{s}", .{string});
+    }
+
+    fn drawPosture(pointer: *const model.Posture) void {
+        const string = switch (pointer.*) {
+            .standing => "Standing",
+            .crouching => "Crouching",
+            .downed_face_up => "Downed Face Up",
+            .downed_face_down => "Downed Face Down",
+            .airborne => "Airborne",
+        };
+        drawText("{s}", .{string});
+    }
+
+    fn drawBlocking(pointer: *const model.Blocking) void {
+        const string = switch (pointer.*) {
+            .not_blocking => "Not",
+            .neutral_blocking_mids => "Neutral Mids",
+            .fully_blocking_mids => "Fully Mids",
+            .neutral_blocking_lows => "Neutral Lows",
+            .fully_blocking_lows => "Fully Lows",
+        };
+        drawText("{s}", .{string});
+    }
+
+    fn drawCrushing(pointer: *const model.Crushing) void {
+        const crushing = pointer.*;
+        var buffer: [string_buffer_size]u8 = undefined;
+        var stream = std.io.fixedBufferStream(&buffer);
+        var is_first = true;
+        if (crushing.invincibility) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("Everything") catch {};
+            is_first = false;
+        } else {
+            if (crushing.high_crushing) {
+                if (!is_first) {
+                    _ = stream.write(", ") catch {};
+                }
+                _ = stream.write("Highs") catch {};
+                is_first = false;
+            }
+            if (crushing.low_crushing) {
+                if (!is_first) {
+                    _ = stream.write(", ") catch {};
+                }
+                _ = stream.write("Lows") catch {};
+                is_first = false;
+            }
+            if (crushing.anti_air_only_crushing) {
+                if (!is_first) {
+                    _ = stream.write(", ") catch {};
+                }
+                _ = stream.write("Anti-Airs") catch {};
+                is_first = false;
+            }
+        }
+        if (crushing.power_crushing) {
+            if (!is_first) {
+                _ = stream.write(", ") catch {};
+            }
+            _ = stream.write("Power-Crushing") catch {};
+            is_first = false;
+        }
+        if (stream.pos == 0) {
+            drawText("{s}", .{empty_value_string});
+        } else if (stream.pos >= buffer.len) {
+            drawText("{s}", .{error_string});
+        } else {
+            drawText("{s}", .{buffer[0..stream.pos]});
+        }
+    }
+
+    fn drawInput(pointer: *const model.Input) void {
+        const input = pointer.*;
+        var buffer: [string_buffer_size]u8 = undefined;
+        var stream = std.io.fixedBufferStream(&buffer);
+        if (input.up and !input.down) {
+            _ = stream.write("u") catch {};
+        }
+        if (input.down and !input.up) {
+            _ = stream.write("d") catch {};
+        }
+        if (input.forward and !input.back) {
+            _ = stream.write("f") catch {};
+        }
+        if (input.back and !input.forward) {
+            _ = stream.write("b") catch {};
+        }
+        var is_first = true;
+        if (input.button_1) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("1") catch {};
+            is_first = false;
+        }
+        if (input.button_2) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("2") catch {};
+            is_first = false;
+        }
+        if (input.button_3) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("3") catch {};
+            is_first = false;
+        }
+        if (input.button_4) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("4") catch {};
+            is_first = false;
+        }
+        if (input.special_style) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("SS") catch {};
+            is_first = false;
+        }
+        if (input.heat) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("H") catch {};
+            is_first = false;
+        }
+        if (input.rage) {
+            if (!is_first) {
+                _ = stream.write("+") catch {};
+            }
+            _ = stream.write("R") catch {};
+            is_first = false;
+        }
+        if (stream.pos == 0) {
+            drawText("{s}", .{empty_value_string});
+        } else if (stream.pos >= buffer.len) {
+            drawText("{s}", .{error_string});
+        } else {
+            drawText("{s}", .{buffer[0..stream.pos]});
+        }
+    }
+
+    fn drawRage(pointer: *const model.Rage) void {
+        const string = switch (pointer.*) {
+            .available => "Available",
+            .activated => "Activated",
+            .used_up => "Used Up",
+        };
+        drawText("{s}", .{string});
+    }
+
+    fn drawHeat(pointer: *const model.Heat) void {
+        const string = switch (pointer.*) {
+            .available => "Available",
+            .activated => |activated| {
+                drawText("Activated: {d:.1}%", .{activated.gauge * 100});
+                return;
+            },
+            .used_up => "Used Up",
+        };
+        drawText("{s}", .{string});
+    }
+
+    fn drawText(comptime fmt: []const u8, args: anytype) void {
+        var buffer: [string_buffer_size]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&buffer, fmt, args) catch error_string;
+        imgui.igText("%s", text.ptr);
+
+        var rect: imgui.ImRect = undefined;
+        imgui.igGetItemRectMin(&rect.Min);
+        imgui.igGetItemRectMax(&rect.Max);
+        _ = imgui.igItemAdd(rect, imgui.igGetID_Str(text), null, imgui.ImGuiItemFlags_NoNav);
+
+        if (imgui.igIsItemClicked(imgui.ImGuiMouseButton_Left)) {
+            imgui.igSetClipboardText(text);
+            sdk.ui.toasts.send(.info, null, "Copied to clipboard: {s}", .{text});
+        }
+
+        if (builtin.is_test) {
+            imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(text), &rect, null);
+        }
+    }
+};

@@ -15,6 +15,7 @@ pub const MainWindow = struct {
     frame_window: ui.FrameWindow = .{},
     quadrant_layout: ui.QuadrantLayout = .{},
     view: ui.View = .{},
+    details: ui.Details = .{},
     controls: ui.Controls(.{}) = .{},
     controls_height: f32 = 0,
 
@@ -22,6 +23,7 @@ pub const MainWindow = struct {
 
     pub fn processFrame(self: *Self, frame: *const model.Frame) void {
         self.view.processFrame(frame);
+        self.details.processFrame(frame);
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
@@ -114,7 +116,7 @@ pub const MainWindow = struct {
         self.view.draw(.top);
     }
 
-    fn drawDetails(_: *Self) void {
-        imgui.igText("Details");
+    fn drawDetails(self: *Self) void {
+        self.details.draw();
     }
 };
