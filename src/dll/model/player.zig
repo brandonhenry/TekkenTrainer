@@ -53,6 +53,7 @@ pub const Player = struct {
     move_frame: ?u32 = null,
     move_first_active_frame: ?u32 = null,
     move_last_active_frame: ?u32 = null,
+    move_connected_frame: ?u32 = null,
     move_total_frames: ?u32 = null,
     move_phase: ?model.MovePhase = null,
     attack_type: ?model.AttackType = null,

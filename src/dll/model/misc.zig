@@ -2,6 +2,7 @@ pub const MovePhase = enum {
     neutral,
     start_up,
     active,
+    active_recovery,
     recovery,
 };
 

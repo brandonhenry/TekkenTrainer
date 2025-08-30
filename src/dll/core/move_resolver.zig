@@ -7,10 +7,11 @@ pub const MoveResolver = struct {
     player_2_state: PlayerState = .{},
 
     const Self = @This();
-    const PlayerState = struct {
+    pub const PlayerState = struct {
         phase: ?model.MovePhase = null,
         first_active_frame: ?u32 = null,
         last_active_frame: ?u32 = null,
+        connected_frame: ?u32 = null,
     };
 
     pub fn resolve(self: *Self, frame: *model.Frame) void {
@@ -42,25 +43,38 @@ pub const MoveResolver = struct {
                 state.* = .{ .phase = .start_up };
             }
         }
-        const phase = state.phase orelse return;
-        switch (phase) {
-            .neutral => if (!can_move) {
-                state.phase = .recovery;
-            },
-            .start_up => if (player.hit_lines.len > 0) {
-                state.phase = .active;
-                state.first_active_frame = current_frame;
-            },
-            .active => if (player.hit_lines.len == 0) {
-                state.phase = .recovery;
-                state.last_active_frame = current_frame -| 1;
-            },
-            .recovery => if (can_move) {
-                state.phase = .neutral;
-            },
+        if (state.phase) |phase| {
+            switch (phase) {
+                .neutral => if (!can_move) {
+                    state.phase = .recovery;
+                },
+                .start_up => if (player.hit_lines.len > 0) {
+                    state.phase = .active;
+                    state.first_active_frame = current_frame;
+                },
+                .active => if (player.hit_lines.len == 0) {
+                    state.phase = .recovery;
+                    state.last_active_frame = current_frame -| 1;
+                } else if (state.connected_frame != null) {
+                    state.phase = .active_recovery;
+                },
+                .active_recovery => if (player.hit_lines.len == 0) {
+                    state.phase = .recovery;
+                    state.last_active_frame = current_frame -| 1;
+                },
+                .recovery => if (can_move) {
+                    state.phase = .neutral;
+                },
+            }
+        }
+        for (player.hit_lines.asConstSlice()) |*line| {
+            if (line.flags.is_connected) {
+                state.connected_frame = current_frame;
+            }
         }
         player.move_phase = state.phase;
         player.move_first_active_frame = state.first_active_frame;
         player.move_last_active_frame = state.last_active_frame;
+        player.move_connected_frame = state.connected_frame;
     }
 };
