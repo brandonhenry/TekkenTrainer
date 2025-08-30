@@ -97,9 +97,9 @@ pub const Capturer = struct {
         updateAirborneState(state, player);
         const captured_player = model.Player{
             .character_id = player.character_id,
-            .current_move_id = player.current_move_id,
-            .current_move_frame = player.current_move_frame,
-            .current_move_total_frames = player.current_move_total_frames,
+            .move_id = player.move_id,
+            .move_frame = player.move_frame,
+            .move_total_frames = player.move_total_frames,
             .attack_type = captureAttackType(player),
             .attack_damage = player.attack_damage,
             .hit_outcome = captureHitOutcome(player),
@@ -123,10 +123,10 @@ pub const Capturer = struct {
     }
 
     fn updateAirborneState(state: *PlayerState, player: *const sdk.misc.Partial(game.Player)) void {
-        const current_move_frame: u32 = player.current_move_frame orelse return;
+        const move_frame: u32 = player.move_frame orelse return;
         const state_flags: game.StateFlags = player.state_flags orelse return;
         const airborne_flags: game.AirborneFlags = player.airborne_flags orelse return;
-        if (current_move_frame == 1) {
+        if (move_frame == 1) {
             state.airborne_state = .{};
         }
         if (!state_flags.airborne_move_or_downed or !state_flags.airborne_move_and_not_juggled) {
@@ -595,31 +595,31 @@ test "should capture character id correctly" {
 test "should capture current move id correctly" {
     var capturer = Capturer{};
     const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .current_move_id = 123 },
-        .player_2 = .{ .current_move_id = null },
+        .player_1 = .{ .move_id = 123 },
+        .player_2 = .{ .move_id = null },
     });
-    try testing.expectEqual(123, frame.getPlayerById(.player_1).current_move_id);
-    try testing.expectEqual(null, frame.getPlayerById(.player_2).current_move_id);
+    try testing.expectEqual(123, frame.getPlayerById(.player_1).move_id);
+    try testing.expectEqual(null, frame.getPlayerById(.player_2).move_id);
 }
 
 test "should capture current move frame correctly" {
     var capturer = Capturer{};
     const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .current_move_frame = 123 },
-        .player_2 = .{ .current_move_frame = null },
+        .player_1 = .{ .move_frame = 123 },
+        .player_2 = .{ .move_frame = null },
     });
-    try testing.expectEqual(123, frame.getPlayerById(.player_1).current_move_frame);
-    try testing.expectEqual(null, frame.getPlayerById(.player_2).current_move_frame);
+    try testing.expectEqual(123, frame.getPlayerById(.player_1).move_frame);
+    try testing.expectEqual(null, frame.getPlayerById(.player_2).move_frame);
 }
 
 test "should capture current move total frames correctly" {
     var capturer = Capturer{};
     const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .current_move_total_frames = 123 },
-        .player_2 = .{ .current_move_total_frames = null },
+        .player_1 = .{ .move_total_frames = 123 },
+        .player_2 = .{ .move_total_frames = null },
     });
-    try testing.expectEqual(123, frame.getPlayerById(.player_1).current_move_total_frames);
-    try testing.expectEqual(null, frame.getPlayerById(.player_2).current_move_total_frames);
+    try testing.expectEqual(123, frame.getPlayerById(.player_1).move_total_frames);
+    try testing.expectEqual(null, frame.getPlayerById(.player_2).move_total_frames);
 }
 
 test "should capture attack type correctly" {

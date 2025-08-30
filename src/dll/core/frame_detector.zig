@@ -9,7 +9,7 @@ pub const FrameDetector = struct {
     const Self = @This();
     const Player = struct {
         frames_since_round_start: ?u32 = null,
-        current_move_frame: ?u32 = null,
+        move_frame: ?u32 = null,
     };
 
     pub fn detect(
@@ -19,18 +19,18 @@ pub const FrameDetector = struct {
     ) bool {
         const is_new_frame = player_1.frames_since_round_start != self.last_player_1.frames_since_round_start or
             player_2.frames_since_round_start != self.last_player_2.frames_since_round_start or
-            player_1.current_move_frame != self.last_player_1.current_move_frame or
-            player_2.current_move_frame != self.last_player_2.current_move_frame or
+            player_1.move_frame != self.last_player_1.move_frame or
+            player_2.move_frame != self.last_player_2.move_frame or
             (player_1.frames_since_round_start == null and
                 player_2.frames_since_round_start == null and
-                player_1.current_move_frame == null and
-                player_2.current_move_frame == null and
+                player_1.move_frame == null and
+                player_2.move_frame == null and
                 !sdk.misc.areAllFieldsNull(player_1) and
                 !sdk.misc.areAllFieldsNull(player_2));
         self.last_player_1.frames_since_round_start = player_1.frames_since_round_start;
-        self.last_player_1.current_move_frame = player_1.current_move_frame;
+        self.last_player_1.move_frame = player_1.move_frame;
         self.last_player_2.frames_since_round_start = player_2.frames_since_round_start;
-        self.last_player_2.current_move_frame = player_2.current_move_frame;
+        self.last_player_2.move_frame = player_2.move_frame;
         return is_new_frame;
     }
 };
@@ -42,8 +42,8 @@ test "should detect frames only when frame values are changing or every frame va
         var frame_detector = FrameDetector{};
         fn call(frame_1: ?u32, frame_2: ?u32, frame_3: ?u32, frame_4: ?u32, id_1: ?u32, id_2: ?u32) bool {
             return frame_detector.detect(
-                &.{ .frames_since_round_start = frame_1, .current_move_frame = frame_2, .character_id = id_1 },
-                &.{ .frames_since_round_start = frame_3, .current_move_frame = frame_4, .character_id = id_2 },
+                &.{ .frames_since_round_start = frame_1, .move_frame = frame_2, .character_id = id_1 },
+                &.{ .frames_since_round_start = frame_3, .move_frame = frame_4, .character_id = id_2 },
             );
         }
     }.call;

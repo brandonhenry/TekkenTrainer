@@ -49,11 +49,11 @@ pub const PlayerRole = enum {
 
 pub const Player = struct {
     character_id: ?u32 = null,
-    current_move_id: ?u32 = null,
-    current_move_frame: ?u32 = null,
-    current_move_first_active_frame: ?u32 = null,
-    current_move_last_active_frame: ?u32 = null,
-    current_move_total_frames: ?u32 = null,
+    move_id: ?u32 = null,
+    move_frame: ?u32 = null,
+    move_first_active_frame: ?u32 = null,
+    move_last_active_frame: ?u32 = null,
+    move_total_frames: ?u32 = null,
     move_phase: ?model.MovePhase = null,
     attack_type: ?model.AttackType = null,
     attack_damage: ?i32 = null,

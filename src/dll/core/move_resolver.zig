@@ -19,7 +19,7 @@ pub const MoveResolver = struct {
     }
 
     fn resolveSide(state: *PlayerState, player: *model.Player) void {
-        const current_frame = player.current_move_frame orelse {
+        const current_frame = player.move_frame orelse {
             state.* = .{};
             return;
         };
@@ -60,7 +60,7 @@ pub const MoveResolver = struct {
             },
         }
         player.move_phase = state.phase;
-        player.current_move_first_active_frame = state.first_active_frame;
-        player.current_move_last_active_frame = state.last_active_frame;
+        player.move_first_active_frame = state.first_active_frame;
+        player.move_last_active_frame = state.last_active_frame;
     }
 };

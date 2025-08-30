@@ -38,9 +38,9 @@ pub const Details = struct {
         const right = self.frame.getPlayerBySide(.right);
         drawProperty("Since Round Start", &self.frame.frames_since_round_start, &self.frame.frames_since_round_start);
         drawProperty("Character ID", &left.character_id, &right.character_id);
-        drawProperty("Move ID", &left.current_move_id, &right.current_move_id);
-        drawProperty("Current Frame", &left.current_move_frame, &right.current_move_frame);
-        drawProperty("Total Frames", &left.current_move_total_frames, &right.current_move_total_frames);
+        drawProperty("Move ID", &left.move_id, &right.move_id);
+        drawProperty("Current Frame", &left.move_frame, &right.move_frame);
+        drawProperty("Total Frames", &left.move_total_frames, &right.move_total_frames);
         drawProperty("Attack Type", &left.attack_type, &right.attack_type);
         drawProperty("Attack Damage", &left.attack_damage, &right.attack_damage);
         drawProperty("Hit Outcome", &left.hit_outcome, &right.hit_outcome);

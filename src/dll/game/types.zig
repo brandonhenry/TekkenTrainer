@@ -414,13 +414,13 @@ pub const Player = struct {
         game.u16ToRadians,
         game.u16FromRadians,
     ), // 0x376
-    current_move_frame: u32, // 0x0390
+    move_frame: u32, // 0x0390
     state_flags: StateFlags, //0x043C
     attack_damage: i32, // 0x0504
     attack_type: AttackType, // 0x0510
-    current_move_id: u32, // 0x0548
+    move_id: u32, // 0x0548
     can_move: Boolean(.{}), // 0x05C8
-    current_move_total_frames: u32, // 0x05D4
+    move_total_frames: u32, // 0x05D4
     hit_outcome: HitOutcome, // 0x0610
     invincible: Boolean(.{}), // 0x08F8
     is_a_parry_move: Boolean(.{ .true_value = 2 }), // 0xA2C
