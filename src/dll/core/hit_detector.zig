@@ -9,11 +9,11 @@ pub const HitDetector = struct {
     const Self = @This();
 
     pub fn detect(self: *Self, frame: *model.Frame) void {
-        detectHits(&frame.players[0], &frame.players[1], &self.player_1_move_already_connected);
-        detectHits(&frame.players[1], &frame.players[0], &self.player_2_move_already_connected);
+        detectSide(&frame.players[0], &frame.players[1], &self.player_1_move_already_connected);
+        detectSide(&frame.players[1], &frame.players[0], &self.player_2_move_already_connected);
     }
 
-    fn detectHits(attacker: *model.Player, defender: *model.Player, already_connected: *bool) void {
+    fn detectSide(attacker: *model.Player, defender: *model.Player, already_connected: *bool) void {
         if (attacker.current_move_frame == 1) {
             already_connected.* = false;
         }

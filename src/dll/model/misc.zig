@@ -1,3 +1,10 @@
+pub const MovePhase = enum {
+    neutral,
+    start_up,
+    active,
+    recovery,
+};
+
 pub const AttackType = enum {
     not_attack,
     high,
@@ -10,13 +17,6 @@ pub const AttackType = enum {
     throw,
     projectile,
     antiair_only,
-};
-
-pub const AttackPhase = enum {
-    not_attack,
-    start_up,
-    active,
-    recovery,
 };
 
 pub const HitOutcome = enum {
