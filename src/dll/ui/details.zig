@@ -54,9 +54,9 @@ pub const Details = struct {
         drawProperty("Heat", &left.heat, &right.heat);
     }
 
-    fn drawProperty(name: []const u8, left_value_pointer: anytype, right_value_pointer: anytype) void {
+    fn drawProperty(name: [:0]const u8, left_value_pointer: anytype, right_value_pointer: anytype) void {
         if (imgui.igTableNextColumn()) {
-            drawText("{s}", .{name});
+            drawText(name);
         }
         if (imgui.igTableNextColumn()) {
             drawValue(left_value_pointer);
@@ -101,27 +101,31 @@ pub const Details = struct {
 
     fn drawBool(pointer: *const bool) void {
         const text = if (pointer.*) "Yes" else "No";
-        drawText("{s}", .{text});
+        drawText(text);
     }
 
     fn drawInt(pointer: anytype) void {
-        drawText("{}", .{pointer.*});
+        var buffer: [string_buffer_size]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&buffer, "{}", .{pointer.*}) catch error_string;
+        drawText(text);
     }
 
     fn drawFloat(pointer: anytype) void {
-        drawText("{d:.2}", .{pointer.*});
+        var buffer: [string_buffer_size]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&buffer, "{d:.2}", .{pointer.*}) catch error_string;
+        drawText(text);
     }
 
     fn drawOptional(pointer: anytype) void {
         if (pointer.*) |*child| {
             drawValue(child);
         } else {
-            drawText("{s}", .{empty_value_string});
+            drawText(empty_value_string);
         }
     }
 
     fn drawAttackType(pointer: *const model.AttackType) void {
-        const string = switch (pointer.*) {
+        const text = switch (pointer.*) {
             .not_attack => empty_value_string,
             .high => "High",
             .mid => "Mid",
@@ -134,11 +138,11 @@ pub const Details = struct {
             .projectile => "Projectile",
             .antiair_only => "Anti-Air Only",
         };
-        drawText("{s}", .{string});
+        drawText(text);
     }
 
     fn drawHitOutcome(pointer: *const model.HitOutcome) void {
-        const string = switch (pointer.*) {
+        const text = switch (pointer.*) {
             .none => empty_value_string,
             .blocked_standing => "Blocked Standing",
             .blocked_crouching => "Blocked Crouching",
@@ -157,34 +161,34 @@ pub const Details = struct {
             .normal_hit_standing_right => "Normal Hit Standing Right",
             .normal_hit_crouching_right => "Normal Hit Crouching Right",
         };
-        drawText("{s}", .{string});
+        drawText(text);
     }
 
     fn drawPosture(pointer: *const model.Posture) void {
-        const string = switch (pointer.*) {
+        const text = switch (pointer.*) {
             .standing => "Standing",
             .crouching => "Crouching",
             .downed_face_up => "Downed Face Up",
             .downed_face_down => "Downed Face Down",
             .airborne => "Airborne",
         };
-        drawText("{s}", .{string});
+        drawText(text);
     }
 
     fn drawBlocking(pointer: *const model.Blocking) void {
-        const string = switch (pointer.*) {
+        const text = switch (pointer.*) {
             .not_blocking => "Not",
             .neutral_blocking_mids => "Neutral Mids",
             .fully_blocking_mids => "Fully Mids",
             .neutral_blocking_lows => "Neutral Lows",
             .fully_blocking_lows => "Fully Lows",
         };
-        drawText("{s}", .{string});
+        drawText(text);
     }
 
     fn drawCrushing(pointer: *const model.Crushing) void {
         const crushing = pointer.*;
-        var buffer: [string_buffer_size]u8 = undefined;
+        var buffer: [string_buffer_size]u8 = [1]u8{0} ** string_buffer_size;
         var stream = std.io.fixedBufferStream(&buffer);
         var is_first = true;
         if (crushing.invincibility) {
@@ -224,17 +228,17 @@ pub const Details = struct {
             is_first = false;
         }
         if (stream.pos == 0) {
-            drawText("{s}", .{empty_value_string});
-        } else if (stream.pos >= buffer.len) {
-            drawText("{s}", .{error_string});
+            drawText(empty_value_string);
+        } else if (stream.pos >= buffer.len - 1) {
+            drawText(error_string);
         } else {
-            drawText("{s}", .{buffer[0..stream.pos]});
+            drawText(buffer[0..stream.pos :0]);
         }
     }
 
     fn drawInput(pointer: *const model.Input) void {
         const input = pointer.*;
-        var buffer: [string_buffer_size]u8 = undefined;
+        var buffer: [string_buffer_size]u8 = [1]u8{0} ** string_buffer_size;
         var stream = std.io.fixedBufferStream(&buffer);
         if (input.up and !input.down) {
             _ = stream.write("u") catch {};
@@ -299,38 +303,39 @@ pub const Details = struct {
             is_first = false;
         }
         if (stream.pos == 0) {
-            drawText("{s}", .{empty_value_string});
-        } else if (stream.pos >= buffer.len) {
-            drawText("{s}", .{error_string});
+            drawText(empty_value_string);
+        } else if (stream.pos >= buffer.len - 1) {
+            drawText(error_string);
         } else {
-            drawText("{s}", .{buffer[0..stream.pos]});
+            drawText(buffer[0..stream.pos :0]);
         }
     }
 
     fn drawRage(pointer: *const model.Rage) void {
-        const string = switch (pointer.*) {
+        const text = switch (pointer.*) {
             .available => "Available",
             .activated => "Activated",
             .used_up => "Used Up",
         };
-        drawText("{s}", .{string});
+        drawText(text);
     }
 
     fn drawHeat(pointer: *const model.Heat) void {
-        const string = switch (pointer.*) {
+        const text = switch (pointer.*) {
             .available => "Available",
             .activated => |activated| {
-                drawText("Activated: {d:.1}%", .{activated.gauge * 100});
+                const percent = activated.gauge * 100;
+                var buffer: [string_buffer_size]u8 = undefined;
+                const text = std.fmt.bufPrintZ(&buffer, "Activated: {d:.1}%", .{percent}) catch error_string;
+                drawText(text);
                 return;
             },
             .used_up => "Used Up",
         };
-        drawText("{s}", .{string});
+        drawText(text);
     }
 
-    fn drawText(comptime fmt: []const u8, args: anytype) void {
-        var buffer: [string_buffer_size]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&buffer, fmt, args) catch error_string;
+    fn drawText(text: [:0]const u8) void {
         imgui.igText("%s", text.ptr);
 
         var rect: imgui.ImRect = undefined;
