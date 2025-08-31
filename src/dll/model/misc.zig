@@ -1,3 +1,20 @@
+pub const U32ActualMax = struct {
+    actual: ?u32,
+    max: ?u32,
+};
+
+pub const U32ActualMinMax = struct {
+    actual: ?u32,
+    min: ?u32,
+    max: ?u32,
+};
+
+pub const I32ActualMinMax = struct {
+    actual: ?i32,
+    min: ?i32,
+    max: ?i32,
+};
+
 pub const MovePhase = enum {
     neutral,
     start_up,

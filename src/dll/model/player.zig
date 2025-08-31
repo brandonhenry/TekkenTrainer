@@ -73,6 +73,65 @@ pub const Player = struct {
     hurt_cylinders: ?model.HurtCylinders = null,
     collision_spheres: ?model.CollisionSpheres = null,
     hit_lines: model.HitLines = .{},
+
+    const Self = @This();
+
+    pub fn getStartupFrames(self: *const Self) model.U32ActualMinMax {
+        return .{
+            .actual = self.move_connected_frame,
+            .min = self.move_first_active_frame,
+            .max = self.move_last_active_frame,
+        };
+    }
+
+    pub fn getActiveFrames(self: *const Self) model.U32ActualMax {
+        const first_active_frame = self.move_first_active_frame orelse return .{
+            .actual = null,
+            .max = null,
+        };
+        const connected_or_whiffed_frame = self.move_connected_frame orelse self.move_last_active_frame;
+        return .{
+            .actual = if (connected_or_whiffed_frame) |frame| 1 + frame -| first_active_frame else null,
+            .max = if (self.move_last_active_frame) |frame| 1 + frame -| first_active_frame else null,
+        };
+    }
+
+    pub fn getRecoveryFrames(self: *const Self) model.U32ActualMinMax {
+        const total = self.move_total_frames orelse return .{
+            .actual = null,
+            .min = null,
+            .max = null,
+        };
+        if (self.move_phase == .recovery and self.attack_type == .not_attack) {
+            return .{
+                .actual = total,
+                .min = total,
+                .max = total,
+            };
+        }
+        const connected_or_whiffed_frame = self.move_connected_frame orelse self.move_last_active_frame;
+        return .{
+            .actual = if (connected_or_whiffed_frame) |frame| total -| frame else null,
+            .min = if (self.move_last_active_frame) |frame| total -| frame else null,
+            .max = if (self.move_first_active_frame) |frame| total -| frame else null,
+        };
+    }
+
+    pub fn getFrameAdvantage(self: *const Self, other: *const Self) model.I32ActualMinMax {
+        const self_recovery = self.getRecoveryFrames();
+        const other_recovery = other.getRecoveryFrames();
+        return .{
+            .actual = if (other_recovery.actual != null and self_recovery.actual != null) block: {
+                break :block @as(i32, @intCast(other_recovery.actual.?)) -| @as(i32, @intCast(self_recovery.actual.?));
+            } else null,
+            .min = if (other_recovery.min != null and self_recovery.max != null) block: {
+                break :block @as(i32, @intCast(other_recovery.min.?)) -| @as(i32, @intCast(self_recovery.max.?));
+            } else null,
+            .max = if (other_recovery.max != null and self_recovery.min != null) block: {
+                break :block @as(i32, @intCast(other_recovery.max.?)) -| @as(i32, @intCast(self_recovery.min.?));
+            } else null,
+        };
+    }
 };
 
 const testing = std.testing;
@@ -91,3 +150,5 @@ test "PlayerRole.getOther should return correct value" {
     try testing.expectEqual(PlayerRole.secondary, PlayerRole.main.getOther());
     try testing.expectEqual(PlayerRole.main, PlayerRole.secondary.getOther());
 }
+
+// TODO test Player get functions.
