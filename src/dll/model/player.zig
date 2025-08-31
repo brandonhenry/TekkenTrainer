@@ -151,4 +151,126 @@ test "PlayerRole.getOther should return correct value" {
     try testing.expectEqual(PlayerRole.main, PlayerRole.secondary.getOther());
 }
 
-// TODO test Player get functions.
+test "Player.getStartupFrames should return correct value" {
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 2, .min = 1, .max = 3 }, (Player{
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+    }).getStartupFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 2, .min = null, .max = 3 }, (Player{
+        .move_first_active_frame = null,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+    }).getStartupFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = null, .min = 1, .max = 3 }, (Player{
+        .move_first_active_frame = 1,
+        .move_connected_frame = null,
+        .move_last_active_frame = 3,
+    }).getStartupFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 2, .min = 1, .max = null }, (Player{
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = null,
+    }).getStartupFrames());
+}
+
+test "Player.getActiveFrames should return correct value" {
+    try testing.expectEqual(model.U32ActualMax{ .actual = 2, .max = 3 }, (Player{
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+    }).getActiveFrames());
+    try testing.expectEqual(model.U32ActualMax{ .actual = null, .max = null }, (Player{
+        .move_first_active_frame = null,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+    }).getActiveFrames());
+    try testing.expectEqual(model.U32ActualMax{ .actual = 3, .max = 3 }, (Player{
+        .move_first_active_frame = 1,
+        .move_connected_frame = null,
+        .move_last_active_frame = 3,
+    }).getActiveFrames());
+    try testing.expectEqual(model.U32ActualMax{ .actual = 2, .max = null }, (Player{
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = null,
+    }).getActiveFrames());
+}
+
+test "Player.getRecoveryFrames should return correct value" {
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 3, .min = 2, .max = 4 }, (Player{
+        .move_phase = .recovery,
+        .attack_type = .mid,
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+        .move_total_frames = 5,
+    }).getRecoveryFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 3, .min = 2, .max = null }, (Player{
+        .move_phase = .recovery,
+        .attack_type = .mid,
+        .move_first_active_frame = null,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+        .move_total_frames = 5,
+    }).getRecoveryFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 2, .min = 2, .max = 4 }, (Player{
+        .move_phase = .recovery,
+        .attack_type = .mid,
+        .move_first_active_frame = 1,
+        .move_connected_frame = null,
+        .move_last_active_frame = 3,
+        .move_total_frames = 5,
+    }).getRecoveryFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 3, .min = null, .max = 4 }, (Player{
+        .move_phase = .recovery,
+        .attack_type = .mid,
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = null,
+        .move_total_frames = 5,
+    }).getRecoveryFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = null, .min = null, .max = null }, (Player{
+        .move_phase = .recovery,
+        .attack_type = .mid,
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+        .move_total_frames = null,
+    }).getRecoveryFrames());
+    try testing.expectEqual(model.U32ActualMinMax{ .actual = 5, .min = 5, .max = 5 }, (Player{
+        .move_phase = .recovery,
+        .attack_type = .not_attack,
+        .move_first_active_frame = null,
+        .move_connected_frame = null,
+        .move_last_active_frame = null,
+        .move_total_frames = 5,
+    }).getRecoveryFrames());
+}
+
+test "Player.getFrameAdvantage should return correct value" {
+    const player_1 = Player{
+        .move_phase = .recovery,
+        .attack_type = .mid,
+        .move_first_active_frame = 1,
+        .move_connected_frame = 2,
+        .move_last_active_frame = 3,
+        .move_total_frames = 5,
+    };
+    const player_2 = Player{
+        .move_phase = .recovery,
+        .attack_type = .not_attack,
+        .move_first_active_frame = null,
+        .move_connected_frame = null,
+        .move_last_active_frame = null,
+        .move_total_frames = 5,
+    };
+    try testing.expectEqual(
+        model.I32ActualMinMax{ .actual = 2, .min = 1, .max = 3 },
+        player_1.getFrameAdvantage(&player_2),
+    );
+    try testing.expectEqual(
+        model.I32ActualMinMax{ .actual = -2, .min = -3, .max = -1 },
+        player_2.getFrameAdvantage(&player_1),
+    );
+}
