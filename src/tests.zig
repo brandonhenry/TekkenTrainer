@@ -69,7 +69,7 @@ test {
     _ = @import("dll/core/core.zig");
     _ = @import("dll/core/frame_detector.zig");
     _ = @import("dll/core/hit_detector.zig");
-    _ = @import("dll/core/move_resolver.zig");
+    _ = @import("dll/core/move_phase_detector.zig");
     _ = @import("dll/core/pause_detector.zig");
 
     _ = @import("dll/game/conversions.zig");

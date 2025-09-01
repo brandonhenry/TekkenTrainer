@@ -8,7 +8,7 @@ pub const Core = struct {
     pause_detector: core.PauseDetector(.{}),
     capturer: core.Capturer,
     hit_detector: core.HitDetector,
-    move_resolver: core.MoveResolver,
+    move_phase_detector: core.MovePhaseDetector,
     controller: core.Controller,
 
     const Self = @This();
@@ -19,7 +19,7 @@ pub const Core = struct {
             .pause_detector = .{},
             .capturer = .{},
             .hit_detector = .{},
-            .move_resolver = .{},
+            .move_phase_detector = .{},
             .controller = core.Controller.init(allocator),
         };
     }
@@ -42,7 +42,7 @@ pub const Core = struct {
         self.pause_detector.update();
         var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2 });
         self.hit_detector.detect(&frame);
-        self.move_resolver.resolve(&frame);
+        self.move_phase_detector.detect(&frame);
         self.controller.processFrame(&frame, context, processFrame);
     }
 

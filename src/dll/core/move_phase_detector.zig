@@ -2,7 +2,7 @@ const std = @import("std");
 const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 
-pub const MoveResolver = struct {
+pub const MovePhaseDetector = struct {
     player_1_state: PlayerState = .{},
     player_2_state: PlayerState = .{},
 
@@ -14,12 +14,12 @@ pub const MoveResolver = struct {
         connected_frame: ?u32 = null,
     };
 
-    pub fn resolve(self: *Self, frame: *model.Frame) void {
-        resolveSide(&self.player_1_state, &frame.players[0], &frame.players[1]);
-        resolveSide(&self.player_2_state, &frame.players[1], &frame.players[0]);
+    pub fn detect(self: *Self, frame: *model.Frame) void {
+        detectSide(&self.player_1_state, &frame.players[0], &frame.players[1]);
+        detectSide(&self.player_2_state, &frame.players[1], &frame.players[0]);
     }
 
-    fn resolveSide(state: *PlayerState, player: *model.Player, other_player: *model.Player) void {
+    fn detectSide(state: *PlayerState, player: *model.Player, other_player: *model.Player) void {
         const current_frame = player.move_frame orelse {
             state.* = .{};
             return;
