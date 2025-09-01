@@ -9,6 +9,7 @@ pub const Core = struct {
     capturer: core.Capturer,
     hit_detector: core.HitDetector,
     move_phase_detector: core.MovePhaseDetector,
+    move_measurer: core.MoveMeasurer,
     controller: core.Controller,
 
     const Self = @This();
@@ -20,6 +21,7 @@ pub const Core = struct {
             .capturer = .{},
             .hit_detector = .{},
             .move_phase_detector = .{},
+            .move_measurer = .{},
             .controller = core.Controller.init(allocator),
         };
     }
@@ -43,6 +45,7 @@ pub const Core = struct {
         var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2 });
         self.hit_detector.detect(&frame);
         self.move_phase_detector.detect(&frame);
+        self.move_measurer.measure(&frame);
         self.controller.processFrame(&frame, context, processFrame);
     }
 

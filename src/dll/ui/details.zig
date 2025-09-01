@@ -35,9 +35,10 @@ pub const Details = struct {
         imgui.igTableSetupColumn("Right Player", 0, 0, 0);
         imgui.igTableHeadersRow();
 
+        const frame = &self.frame;
         const left = self.frame.getPlayerBySide(.left);
         const right = self.frame.getPlayerBySide(.right);
-        drawProperty("Since Round Start", &self.frame.frames_since_round_start, &self.frame.frames_since_round_start);
+        drawProperty("Since Round Start", &frame.frames_since_round_start, &frame.frames_since_round_start);
         drawProperty("Character ID", &left.character_id, &right.character_id);
         drawProperty("Move ID", &left.move_id, &right.move_id);
         drawProperty("Current Frame", &left.move_frame, &right.move_frame);
@@ -48,6 +49,12 @@ pub const Details = struct {
         drawProperty("Frame Advantage", &left.getFrameAdvantage(right), &right.getFrameAdvantage(left));
         drawProperty("Move Phase", &left.move_phase, &right.move_phase);
         drawProperty("Attack Type", &left.attack_type, &right.attack_type);
+        drawProperty(
+            "Attack Range [m]",
+            &(if (left.attack_range) |distance| @as(?f32, 0.01 * distance) else @as(?f32, null)),
+            &(if (right.attack_range) |distance| @as(?f32, 0.01 * distance) else @as(?f32, null)),
+        );
+        drawProperty("Attack Height [cm]", &left.getAttackHeight(frame.floor_z), &right.getAttackHeight(frame.floor_z));
         drawProperty("Attack Damage", &left.attack_damage, &right.attack_damage);
         drawProperty("Hit Outcome", &left.hit_outcome, &right.hit_outcome);
         drawProperty("Posture", &left.posture, &right.posture);
@@ -59,24 +66,24 @@ pub const Details = struct {
         drawProperty("Rage", &left.rage, &right.rage);
         drawProperty("Heat", &left.heat, &right.heat);
         drawProperty(
-            "Distance [m]",
+            "Distance To Opponent [m]",
             &(if (left.getDistanceTo(right)) |distance| @as(?f32, 0.01 * distance) else @as(?f32, null)),
             &(if (right.getDistanceTo(left)) |distance| @as(?f32, 0.01 * distance) else @as(?f32, null)),
         );
         drawProperty(
-            "Angle [°]",
+            "Angle To Opponent [°]",
             &(if (left.getAngleTo(right)) |angle| @as(?f32, std.math.radiansToDegrees(angle)) else @as(?f32, null)),
             &(if (right.getAngleTo(left)) |angle| @as(?f32, std.math.radiansToDegrees(angle)) else @as(?f32, null)),
         );
         drawProperty(
             "Hit Lines Height [cm]",
-            &left.getHitLinesHeight(self.frame.floor_z),
-            &right.getHitLinesHeight(self.frame.floor_z),
+            &left.getHitLinesHeight(frame.floor_z),
+            &right.getHitLinesHeight(frame.floor_z),
         );
         drawProperty(
             "Hurt Cylinders Height [cm]",
-            &left.getHurtCylindersHeight(self.frame.floor_z),
-            &right.getHurtCylindersHeight(self.frame.floor_z),
+            &left.getHurtCylindersHeight(frame.floor_z),
+            &right.getHurtCylindersHeight(frame.floor_z),
         );
     }
 

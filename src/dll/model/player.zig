@@ -57,6 +57,10 @@ pub const Player = struct {
     move_total_frames: ?u32 = null,
     move_phase: ?model.MovePhase = null,
     attack_type: ?model.AttackType = null,
+    min_hit_lines_z: ?f32 = null,
+    max_hit_lines_z: ?f32 = null,
+    attack_range: ?f32 = null,
+    recovery_distance: ?f32 = null,
     attack_damage: ?i32 = null,
     hit_outcome: ?model.HitOutcome = null,
     posture: ?model.Posture = null,
@@ -211,6 +215,17 @@ pub const Player = struct {
         }
         return .{ .min = @max(min - floor_height, 0), .max = max - floor_height };
     }
+
+    pub fn getAttackHeight(self: *const Self, floor_z: ?f32) model.F32MinMax {
+        const floor_height = floor_z orelse return .{ .min = null, .max = null };
+        if (self.move_phase == .active or self.move_phase == .active_recovery) {
+            return .{ .min = null, .max = null };
+        }
+        return .{
+            .min = if (self.min_hit_lines_z) |z| @max(z - floor_height, 0) else null,
+            .max = if (self.max_hit_lines_z) |z| @max(z - floor_height, 0) else null,
+        };
+    }
 };
 
 const testing = std.testing;
@@ -354,4 +369,4 @@ test "Player.getFrameAdvantage should return correct value" {
     );
 }
 
-// TODO test getDistanceTo, getAngleTo, getHurtCylindersHeight, getHitLinesHeight
+// TODO test getDistanceTo, getAngleTo, getHurtCylindersHeight, getHitLinesHeight, getAttackHeight
