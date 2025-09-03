@@ -11,8 +11,8 @@ pub const MoveMeasurer = struct {
         previous_frame_hurt_cylinders: ?model.HurtCylinders = null,
         range_reference_point: ?sdk.math.Vec2 = null,
         range_reference_rotation: ?f32 = null,
-        min_hit_lines_z: ?f32 = null,
-        max_hit_lines_z: ?f32 = null,
+        min_attack_z: ?f32 = null,
+        max_attack_z: ?f32 = null,
         attack_range: ?f32 = null,
         recovery_range: ?f32 = null,
     };
@@ -26,8 +26,8 @@ pub const MoveMeasurer = struct {
         updateReferenceState(state, player);
         updateMoveState(state, player);
         updatePreviousFrameState(state, player);
-        player.min_hit_lines_z = state.min_hit_lines_z;
-        player.max_hit_lines_z = state.max_hit_lines_z;
+        player.min_attack_z = state.min_attack_z;
+        player.max_attack_z = state.max_attack_z;
         player.attack_range = state.attack_range;
         player.recovery_range = state.recovery_range;
     }
@@ -59,16 +59,16 @@ pub const MoveMeasurer = struct {
             }
             const line = &hit_line.line;
             const line_min_z = @min(line.point_1.z(), line.point_2.z());
-            if (state.min_hit_lines_z) |state_z| {
-                state.min_hit_lines_z = @min(state_z, line_min_z);
+            if (state.min_attack_z) |state_z| {
+                state.min_attack_z = @min(state_z, line_min_z);
             } else {
-                state.min_hit_lines_z = line_min_z;
+                state.min_attack_z = line_min_z;
             }
             const line_max_z = @max(line.point_1.z(), line.point_2.z());
-            if (state.max_hit_lines_z) |state_z| {
-                state.max_hit_lines_z = @max(state_z, line_max_z);
+            if (state.max_attack_z) |state_z| {
+                state.max_attack_z = @max(state_z, line_max_z);
             } else {
-                state.max_hit_lines_z = line_max_z;
+                state.max_attack_z = line_max_z;
             }
         }
         if (player.move_frame != null and player.move_frame == player.move_total_frames) {

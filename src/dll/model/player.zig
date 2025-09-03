@@ -57,8 +57,8 @@ pub const Player = struct {
     move_total_frames: ?u32 = null,
     move_phase: ?model.MovePhase = null,
     attack_type: ?model.AttackType = null,
-    min_hit_lines_z: ?f32 = null,
-    max_hit_lines_z: ?f32 = null,
+    min_attack_z: ?f32 = null,
+    max_attack_z: ?f32 = null,
     attack_range: ?f32 = null,
     recovery_range: ?f32 = null,
     attack_damage: ?i32 = null,
@@ -220,8 +220,8 @@ pub const Player = struct {
             return .{ .min = null, .max = null };
         }
         return .{
-            .min = if (self.min_hit_lines_z) |z| @max(z - floor_height, 0) else null,
-            .max = if (self.max_hit_lines_z) |z| @max(z - floor_height, 0) else null,
+            .min = if (self.min_attack_z) |z| @max(z - floor_height, 0) else null,
+            .max = if (self.max_attack_z) |z| @max(z - floor_height, 0) else null,
         };
     }
 };
@@ -501,12 +501,12 @@ test "Player.getHitLinesHeight should return correct value" {
 }
 
 test "Player.getAttackHeight should return correct value" {
-    const player = Player{ .min_hit_lines_z = 1, .max_hit_lines_z = 3 };
+    const player = Player{ .min_attack_z = 1, .max_attack_z = 3 };
     try testing.expectEqual(model.F32MinMax{ .min = 1, .max = 3 }, player.getAttackHeight(0));
     try testing.expectEqual(model.F32MinMax{ .min = 11, .max = 13 }, player.getAttackHeight(-10));
     try testing.expectEqual(model.F32MinMax{ .min = 0, .max = 1 }, player.getAttackHeight(2));
     try testing.expectEqual(model.F32MinMax{ .min = 0, .max = 0 }, player.getAttackHeight(10));
     try testing.expectEqual(model.F32MinMax{ .min = null, .max = null }, player.getAttackHeight(null));
-    const no_lines_player = Player{ .min_hit_lines_z = null, .max_hit_lines_z = null };
+    const no_lines_player = Player{ .min_attack_z = null, .max_attack_z = null };
     try testing.expectEqual(model.F32MinMax{ .min = null, .max = null }, no_lines_player.getAttackHeight(0));
 }
