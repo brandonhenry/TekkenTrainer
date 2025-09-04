@@ -124,7 +124,7 @@ pub const MoveMeasurer = struct {
 
 const testing = std.testing;
 
-test "should set min_attack_z, max_attack_z, attack_range, recovery_range to correct value at correct time" {
+test "should set min_attack_z, max_attack_z, attack_range, recovery_range to correct value at correct frame" {
     const hurtCylinders = struct {
         fn call(y: f32) model.HurtCylinders {
             return model.HurtCylinders.init(.{
