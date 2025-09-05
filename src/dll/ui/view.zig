@@ -23,11 +23,6 @@ pub const View = struct {
             .color = sdk.math.Vec4.fromArray(.{ 0.0, 1.0, 0.0, 1.0 }),
             .thickness = 1.0,
         },
-        .look_direction = .{
-            .color = sdk.math.Vec4.fromArray(.{ 1.0, 0.0, 1.0, 1.0 }),
-            .length = 100.0,
-            .thickness = 1.0,
-        },
     };
 
     pub fn processFrame(self: *Self, frame: *const model.Frame) void {
@@ -50,27 +45,8 @@ pub const View = struct {
         if (self.frame.floor_z) |floor_z| {
             ui.drawFloor(floor_z, config.floor.color, config.floor.thickness, direction, matrix);
         }
-        self.drawLookAtLines(direction, matrix);
+        ui.drawForwardDirections(&self.frame, direction, matrix);
         ui.drawSkeletons(&self.frame, matrix);
         self.hit_lines.draw(&self.frame, matrix);
-    }
-
-    fn drawLookAtLines(self: *const Self, direction: ViewDirection, matrix: sdk.math.Mat4) void {
-        if (direction != .top) {
-            return;
-        }
-        for (&self.frame.players) |*player| {
-            const position = player.position orelse continue;
-            const rotation = player.rotation orelse continue;
-            const length = config.look_direction.length;
-            const delta = sdk.math.Vec3.plus_x.scale(length).rotateZ(rotation);
-            const line = sdk.math.LineSegment3{
-                .point_1 = position,
-                .point_2 = position.add(delta),
-            };
-            const color = config.look_direction.color;
-            const thickness = config.look_direction.thickness;
-            ui.drawLine(line, color, thickness, matrix);
-        }
     }
 };

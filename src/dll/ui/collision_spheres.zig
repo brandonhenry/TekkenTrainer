@@ -1,4 +1,3 @@
-const std = @import("std");
 const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 const ui = @import("../ui/root.zig");

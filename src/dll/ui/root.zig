@@ -4,6 +4,7 @@ pub const ControlsConfig = @import("controls.zig").ControlsConfig;
 pub const Controls = @import("controls.zig").Controls;
 pub const drawData = @import("data.zig").drawData;
 pub const Details = @import("details.zig").Details;
+pub const drawForwardDirections = @import("forward_directions.zig").drawForwardDirections;
 pub const FrameWindow = @import("frame_window.zig").FrameWindow;
 pub const GameMemoryWindow = @import("game_memory_window.zig").GameMemoryWindow;
 pub const HitLines = @import("hit_lines.zig").HitLines;
