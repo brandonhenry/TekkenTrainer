@@ -1,4 +1,5 @@
 pub const Camera = @import("camera.zig").Camera;
+pub const drawCollisionSpheres = @import("collision_spheres.zig").drawCollisionSpheres;
 pub const ControlsConfig = @import("controls.zig").ControlsConfig;
 pub const Controls = @import("controls.zig").Controls;
 pub const drawData = @import("data.zig").drawData;

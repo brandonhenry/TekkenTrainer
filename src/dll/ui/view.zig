@@ -39,10 +39,6 @@ pub const View = struct {
             .color = sdk.math.Vec4.fromArray(.{ 0.0, 1.0, 0.0, 1.0 }),
             .thickness = 1.0,
         },
-        .collision_spheres = .{
-            .color = sdk.math.Vec4.fromArray(.{ 0.0, 0.0, 1.0, 0.5 }),
-            .thickness = 1.0,
-        },
         .skeleton = .{
             .colors = std.EnumArray(model.Blocking, sdk.math.Vec4).init(.{
                 .not_blocking = .fromArray(.{ 1.0, 1.0, 1.0, 1.0 }),
@@ -260,7 +256,7 @@ pub const View = struct {
         self.camera.updateWindowState(direction);
         const matrix = self.camera.calculateMatrix(&self.frame, direction) orelse return;
         const inverse_matrix = matrix.inverse() orelse sdk.math.Mat4.identity;
-        self.drawCollisionSpheres(matrix, inverse_matrix);
+        ui.drawCollisionSpheres(&self.frame, matrix, inverse_matrix);
         self.drawLingeringHurtCylinders(direction, matrix, inverse_matrix);
         self.drawHurtCylinders(direction, matrix, inverse_matrix);
         if (self.frame.floor_z) |floor_z| {
@@ -270,17 +266,6 @@ pub const View = struct {
         self.drawSkeletons(matrix);
         self.drawLingeringHitLines(matrix);
         self.drawHitLines(matrix);
-    }
-
-    fn drawCollisionSpheres(self: *const Self, matrix: sdk.math.Mat4, inverse_matrix: sdk.math.Mat4) void {
-        for (&self.frame.players) |*player| {
-            const spheres: *const model.CollisionSpheres = if (player.collision_spheres) |*s| s else continue;
-            for (spheres.values) |sphere| {
-                const color = config.collision_spheres.color;
-                const thickness = config.collision_spheres.thickness;
-                ui.drawSphere(sphere, color, thickness, matrix, inverse_matrix);
-            }
-        }
     }
 
     fn drawHurtCylinders(
