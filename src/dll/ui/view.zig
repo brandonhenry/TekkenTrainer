@@ -18,13 +18,6 @@ pub const View = struct {
 
     const Self = @This();
 
-    const config = .{
-        .floor = .{
-            .color = sdk.math.Vec4.fromArray(.{ 0.0, 1.0, 0.0, 1.0 }),
-            .thickness = 1.0,
-        },
-    };
-
     pub fn processFrame(self: *Self, frame: *const model.Frame) void {
         self.hurt_cylinders.processFrame(frame);
         self.hit_lines.processFrame(frame);
@@ -40,11 +33,10 @@ pub const View = struct {
         self.camera.updateWindowState(direction);
         const matrix = self.camera.calculateMatrix(&self.frame, direction) orelse return;
         const inverse_matrix = matrix.inverse() orelse sdk.math.Mat4.identity;
+
         ui.drawCollisionSpheres(&self.frame, matrix, inverse_matrix);
         self.hurt_cylinders.draw(&self.frame, direction, matrix, inverse_matrix);
-        if (self.frame.floor_z) |floor_z| {
-            ui.drawFloor(floor_z, config.floor.color, config.floor.thickness, direction, matrix);
-        }
+        ui.drawFloor(&self.frame, direction, matrix);
         ui.drawForwardDirections(&self.frame, direction, matrix);
         ui.drawSkeletons(&self.frame, matrix);
         self.hit_lines.draw(&self.frame, matrix);
