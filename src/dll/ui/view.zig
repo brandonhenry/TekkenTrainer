@@ -11,12 +11,9 @@ pub const ViewDirection = enum {
 };
 
 pub const View = struct {
-    camera: ui.Camera = .{},
     frame: model.Frame = .{},
-    hit_hurt_cylinder_life_time: std.EnumArray(model.PlayerId, std.EnumArray(model.HurtCylinderId, f32)) = .initFill(
-        .initFill(std.math.inf(f32)),
-    ),
-    lingering_hurt_cylinders: sdk.misc.CircularBuffer(32, LingeringCylinder) = .{},
+    camera: ui.Camera = .{},
+    hurt_cylinders: ui.HurtCylinders = .{},
     lingering_hit_lines: sdk.misc.CircularBuffer(128, LingeringLine) = .{},
 
     const Self = @This();
@@ -27,11 +24,6 @@ pub const View = struct {
         life_time: f32,
         attack_type: ?model.AttackType,
         inactive_or_crushed: bool,
-    };
-    const LingeringCylinder = struct {
-        cylinder: sdk.math.Cylinder,
-        player_id: model.PlayerId,
-        life_time: f32,
     };
 
     const config = .{
@@ -121,52 +113,6 @@ pub const View = struct {
             },
             .duration = 1.0,
         },
-        .hurt_cylinders = .{
-            .normal = .{
-                .color = sdk.math.Vec4.fromArray(.{ 0.5, 0.5, 0.5, 0.5 }),
-                .thickness = 1.0,
-            },
-            .high_crushing = .{
-                .color = sdk.math.Vec4.fromArray(.{ 0.75, 0.0, 0.0, 0.5 }),
-                .thickness = 1.0,
-            },
-            .low_crushing = .{
-                .color = sdk.math.Vec4.fromArray(.{ 0.0, 0.375, 0.75, 0.5 }),
-                .thickness = 1.0,
-            },
-            .invincible = .{
-                .color = sdk.math.Vec4.fromArray(.{ 0.75, 0.0, 0.75, 0.5 }),
-                .thickness = 1.0,
-            },
-            .power_crushing = .{
-                .normal = .{
-                    .color = sdk.math.Vec4.fromArray(.{ 1.0, 1.0, 1.0, 1.0 }),
-                    .thickness = 1.0,
-                },
-                .high_crushing = .{
-                    .color = sdk.math.Vec4.fromArray(.{ 1.0, 0.25, 0.25, 1.0 }),
-                    .thickness = 1.0,
-                },
-                .low_crushing = .{
-                    .color = sdk.math.Vec4.fromArray(.{ 0.0, 0.25, 1.0, 1.0 }),
-                    .thickness = 1.0,
-                },
-                .invincible = .{
-                    .color = sdk.math.Vec4.fromArray(.{ 1.0, 0.0, 1.0, 1.0 }),
-                    .thickness = 1.0,
-                },
-            },
-            .hit = .{
-                .color = sdk.math.Vec4.fromArray(.{ 1.0, 0.75, 0.25, 0.5 }),
-                .thickness = 1.0,
-                .duration = 1.0,
-            },
-            .lingering = .{
-                .color = sdk.math.Vec4.fromArray(.{ 0.0, 0.75, 0.75, 0.5 }),
-                .thickness = 1.0,
-                .duration = 1.0,
-            },
-        },
         .look_direction = .{
             .color = sdk.math.Vec4.fromArray(.{ 1.0, 0.0, 1.0, 1.0 }),
             .length = 100.0,
@@ -175,28 +121,10 @@ pub const View = struct {
     };
 
     pub fn processFrame(self: *Self, frame: *const model.Frame) void {
-        self.processHurtCylinders(.player_1, frame);
-        self.processHurtCylinders(.player_2, frame);
+        self.hurt_cylinders.processFrame(frame);
         self.processHitLines(.player_1, frame);
         self.processHitLines(.player_2, frame);
         self.frame = frame.*;
-    }
-
-    fn processHurtCylinders(self: *Self, player_id: model.PlayerId, frame: *const model.Frame) void {
-        const player = frame.getPlayerById(player_id);
-        const cylinders: *const model.HurtCylinders = if (player.hurt_cylinders) |*c| c else return;
-        for (&cylinders.values, 0..) |*hurt_cylinder, index| {
-            if (!hurt_cylinder.flags.is_connected) {
-                continue;
-            }
-            const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
-            self.hit_hurt_cylinder_life_time.getPtr(player_id).getPtr(cylinder_id).* = 0;
-            _ = self.lingering_hurt_cylinders.addToBack(.{
-                .cylinder = hurt_cylinder.cylinder,
-                .player_id = player_id,
-                .life_time = 0,
-            });
-        }
     }
 
     fn processHitLines(self: *Self, player_id: model.PlayerId, frame: *const model.Frame) void {
@@ -213,30 +141,8 @@ pub const View = struct {
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
-        self.updateHitHurtCylinders(delta_time);
-        self.updateLingeringHurtCylinders(delta_time);
+        self.hurt_cylinders.update(delta_time);
         self.updateLingeringHitLines(delta_time);
-    }
-
-    fn updateHitHurtCylinders(self: *Self, delta_time: f32) void {
-        for (&self.hit_hurt_cylinder_life_time.values) |*player_cylinders| {
-            for (&player_cylinders.values) |*life_time| {
-                life_time.* += delta_time;
-            }
-        }
-    }
-
-    fn updateLingeringHurtCylinders(self: *Self, delta_time: f32) void {
-        for (0..self.lingering_hurt_cylinders.len) |index| {
-            const line = self.lingering_hurt_cylinders.getMut(index) catch unreachable;
-            line.life_time += delta_time;
-        }
-        while (self.lingering_hurt_cylinders.getFirst() catch null) |line| {
-            if (line.life_time <= config.hurt_cylinders.lingering.duration) {
-                break;
-            }
-            _ = self.lingering_hurt_cylinders.removeFirst() catch unreachable;
-        }
     }
 
     fn updateLingeringHitLines(self: *Self, delta_time: f32) void {
@@ -257,8 +163,7 @@ pub const View = struct {
         const matrix = self.camera.calculateMatrix(&self.frame, direction) orelse return;
         const inverse_matrix = matrix.inverse() orelse sdk.math.Mat4.identity;
         ui.drawCollisionSpheres(&self.frame, matrix, inverse_matrix);
-        self.drawLingeringHurtCylinders(direction, matrix, inverse_matrix);
-        self.drawHurtCylinders(direction, matrix, inverse_matrix);
+        self.hurt_cylinders.draw(&self.frame, direction, matrix, inverse_matrix);
         if (self.frame.floor_z) |floor_z| {
             ui.drawFloor(floor_z, config.floor.color, config.floor.thickness, direction, matrix);
         }
@@ -266,103 +171,6 @@ pub const View = struct {
         self.drawSkeletons(matrix);
         self.drawLingeringHitLines(matrix);
         self.drawHitLines(matrix);
-    }
-
-    fn drawHurtCylinders(
-        self: *const Self,
-        direction: ViewDirection,
-        matrix: sdk.math.Mat4,
-        inverse_matrix: sdk.math.Mat4,
-    ) void {
-        for (model.PlayerId.all) |player_id| {
-            const player = self.frame.getPlayerById(player_id);
-
-            const crushing = player.crushing orelse model.Crushing{};
-            const base_color: sdk.math.Vec4, const base_thickness: f32 = if (crushing.power_crushing) block: {
-                if (crushing.invincibility) {
-                    break :block .{
-                        config.hurt_cylinders.power_crushing.invincible.color,
-                        config.hurt_cylinders.power_crushing.invincible.thickness,
-                    };
-                } else if (crushing.high_crushing) {
-                    break :block .{
-                        config.hurt_cylinders.power_crushing.high_crushing.color,
-                        config.hurt_cylinders.power_crushing.high_crushing.thickness,
-                    };
-                } else if (crushing.low_crushing) {
-                    break :block .{
-                        config.hurt_cylinders.power_crushing.low_crushing.color,
-                        config.hurt_cylinders.power_crushing.low_crushing.thickness,
-                    };
-                } else {
-                    break :block .{
-                        config.hurt_cylinders.power_crushing.normal.color,
-                        config.hurt_cylinders.power_crushing.normal.thickness,
-                    };
-                }
-            } else block: {
-                if (crushing.invincibility) {
-                    break :block .{
-                        config.hurt_cylinders.invincible.color,
-                        config.hurt_cylinders.invincible.thickness,
-                    };
-                } else if (crushing.high_crushing) {
-                    break :block .{
-                        config.hurt_cylinders.high_crushing.color,
-                        config.hurt_cylinders.high_crushing.thickness,
-                    };
-                } else if (crushing.low_crushing) {
-                    break :block .{
-                        config.hurt_cylinders.low_crushing.color,
-                        config.hurt_cylinders.low_crushing.thickness,
-                    };
-                } else {
-                    break :block .{
-                        config.hurt_cylinders.normal.color,
-                        config.hurt_cylinders.normal.thickness,
-                    };
-                }
-            };
-
-            const cylinders: *const model.HurtCylinders = if (player.hurt_cylinders) |*c| c else continue;
-            for (cylinders.values, 0..) |hurt_cylinder, index| {
-                const cylinder = hurt_cylinder.cylinder;
-                const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
-
-                const life_time = self.hit_hurt_cylinder_life_time.getPtrConst(player_id).get(cylinder_id);
-                const duration = config.hurt_cylinders.hit.duration;
-                const completion: f32 = if (hurt_cylinder.flags.is_connected) 0.0 else block: {
-                    break :block std.math.clamp(life_time / duration, 0.0, 1.0);
-                };
-                const t = completion * completion * completion * completion;
-                const hit_color = config.hurt_cylinders.hit.color;
-                const color = sdk.math.Vec4.lerpElements(hit_color, base_color, t);
-                const hit_thickness = config.hurt_cylinders.hit.thickness;
-                const thickness = std.math.lerp(hit_thickness, base_thickness, t);
-
-                ui.drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
-            }
-        }
-    }
-
-    fn drawLingeringHurtCylinders(
-        self: *const Self,
-        direction: ViewDirection,
-        matrix: sdk.math.Mat4,
-        inverse_matrix: sdk.math.Mat4,
-    ) void {
-        for (0..self.lingering_hurt_cylinders.len) |index| {
-            const hurt_cylinder = self.lingering_hurt_cylinders.get(index) catch unreachable;
-            const cylinder = hurt_cylinder.cylinder;
-
-            const duration = config.hurt_cylinders.lingering.duration;
-            const completion = hurt_cylinder.life_time / duration;
-            var color = config.hurt_cylinders.lingering.color;
-            color.asColor().a *= 1.0 - (completion * completion * completion * completion);
-            const thickness = config.hurt_cylinders.lingering.thickness;
-
-            ui.drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
-        }
     }
 
     fn drawSkeletons(self: *const Self, matrix: sdk.math.Mat4) void {
