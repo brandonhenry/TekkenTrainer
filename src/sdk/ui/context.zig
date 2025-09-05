@@ -52,6 +52,9 @@ pub const Context = struct {
 
         imgui.igStyleColorsDark(null);
 
+        imgui.igGetIO_Nil().*.ConfigInputTrickleEventQueue = false;
+        errdefer imgui.igGetIO_Nil().*.ConfigInputTrickleEventQueue = true;
+
         const font_config = imgui.ImFontConfig_ImFontConfig();
         defer imgui.ImFontConfig_destroy(font_config);
         font_config.*.FontDataOwnedByAtlas = false;
@@ -135,6 +138,7 @@ pub const Context = struct {
         imgui.igSetCurrentContext(self.imgui_context);
         ui.backend.ImGui_ImplDX12_Shutdown();
         ui.backend.ImGui_ImplWin32_Shutdown();
+        imgui.igGetIO_Nil().*.ConfigInputTrickleEventQueue = true;
         imgui.igGetIO_Nil().*.IniFilename = null;
         if (self.ini_file_path) |path| {
             self.allocator.free(path);
