@@ -90,10 +90,12 @@ test {
     _ = @import("dll/ui/details.zig");
     _ = @import("dll/ui/frame_window.zig");
     _ = @import("dll/ui/game_memory_window.zig");
+    _ = @import("dll/ui/logs_window.zig");
     _ = @import("dll/ui/main_window.zig");
     _ = @import("dll/ui/message_window.zig");
     _ = @import("dll/ui/quadrant-layout.zig");
-    _ = @import("dll/ui/logs_window.zig");
+    _ = @import("dll/ui/view.zig");
+    _ = @import("dll/ui/view-camera.zig");
 
     _ = struct {
         test "should have no memory leaks after de-initializing UI testing context" {

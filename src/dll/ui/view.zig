@@ -2,9 +2,16 @@ const std = @import("std");
 const imgui = @import("imgui");
 const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
+const ui = @import("../ui/root.zig");
+
+pub const ViewDirection = enum {
+    front,
+    side,
+    top,
+};
 
 pub const View = struct {
-    window_size: std.EnumArray(Direction, sdk.math.Vec2) = .initFill(sdk.math.Vec2.zero),
+    camera: ui.ViewCamera = .{},
     frame: model.Frame = .{},
     hit_hurt_cylinder_life_time: std.EnumArray(model.PlayerId, std.EnumArray(model.HurtCylinderId, f32)) = .initFill(
         .initFill(std.math.inf(f32)),
@@ -13,11 +20,7 @@ pub const View = struct {
     lingering_hit_lines: sdk.misc.CircularBuffer(128, LingeringLine) = .{},
 
     const Self = @This();
-    pub const Direction = enum {
-        front,
-        side,
-        top,
-    };
+
     const LingeringLine = struct {
         line: sdk.math.LineSegment3,
         player_id: model.PlayerId,
@@ -253,9 +256,9 @@ pub const View = struct {
         }
     }
 
-    pub fn draw(self: *Self, direction: Direction) void {
-        self.updateWindowSize(direction);
-        const matrix = self.calculateFinalMatrix(direction) orelse return;
+    pub fn draw(self: *Self, direction: ViewDirection) void {
+        self.camera.updateWindowState(direction);
+        const matrix = self.camera.calculateMatrix(&self.frame, direction) orelse return;
         const inverse_matrix = matrix.inverse() orelse sdk.math.Mat4.identity;
         self.drawCollisionSpheres(matrix, inverse_matrix);
         self.drawLingeringHurtCylinders(direction, matrix, inverse_matrix);
@@ -265,110 +268,6 @@ pub const View = struct {
         self.drawSkeletons(matrix);
         self.drawLingeringHitLines(matrix);
         self.drawHitLines(matrix);
-    }
-
-    fn updateWindowSize(self: *Self, direction: Direction) void {
-        var window_size: sdk.math.Vec2 = undefined;
-        imgui.igGetContentRegionAvail(window_size.asImVec());
-        self.window_size.set(direction, window_size);
-    }
-
-    fn calculateFinalMatrix(self: *const Self, direction: Direction) ?sdk.math.Mat4 {
-        const look_at_matrix = self.calculateLookAtMatrix(direction) orelse return null;
-        const orthographic_matrix = self.calculateOrthographicMatrix(direction, look_at_matrix) orelse return null;
-        const window_matrix = calculateWindowMatrix();
-        return look_at_matrix.multiply(orthographic_matrix).multiply(window_matrix);
-    }
-
-    fn calculateLookAtMatrix(self: *const Self, direction: Direction) ?sdk.math.Mat4 {
-        const left_player = self.frame.getPlayerBySide(.left).position orelse return null;
-        const right_player = self.frame.getPlayerBySide(.right).position orelse return null;
-        const eye = left_player.add(right_player).scale(0.5);
-        const difference_2d = right_player.swizzle("xy").subtract(left_player.swizzle("xy"));
-        const player_dir = if (!difference_2d.isZero(0)) difference_2d.normalize().extend(0) else sdk.math.Vec3.plus_x;
-        const look_direction = switch (direction) {
-            .front => player_dir.cross(sdk.math.Vec3.minus_z),
-            .side => player_dir.negate(),
-            .top => sdk.math.Vec3.plus_z,
-        };
-        const target = eye.add(look_direction);
-        const up = switch (direction) {
-            .front, .side => sdk.math.Vec3.plus_z,
-            .top => player_dir.cross(sdk.math.Vec3.plus_z),
-        };
-        return sdk.math.Mat4.fromLookAt(eye, target, up);
-    }
-
-    fn calculateOrthographicMatrix(
-        self: *const Self,
-        direction: Direction,
-        look_at_matrix: sdk.math.Mat4,
-    ) ?sdk.math.Mat4 {
-        var min = sdk.math.Vec3.fill(std.math.inf(f32));
-        var max = sdk.math.Vec3.fill(-std.math.inf(f32));
-        for (&self.frame.players) |*player| {
-            if (player.collision_spheres) |*spheres| {
-                for (&spheres.values) |*sphere| {
-                    const pos = sphere.center.pointTransform(look_at_matrix);
-                    const half_size = sdk.math.Vec3.fill(sphere.radius);
-                    min = sdk.math.Vec3.minElements(min, pos.subtract(half_size));
-                    max = sdk.math.Vec3.maxElements(max, pos.add(half_size));
-                }
-            }
-            if (player.hurt_cylinders) |*cylinders| {
-                for (&cylinders.values) |*hurt_cylinder| {
-                    const cylinder = &hurt_cylinder.cylinder;
-                    const pos = cylinder.center.pointTransform(look_at_matrix);
-                    const half_size = sdk.math.Vec3.fromArray(.{
-                        cylinder.radius,
-                        cylinder.radius,
-                        cylinder.half_height,
-                    });
-                    min = sdk.math.Vec3.minElements(min, pos.subtract(half_size));
-                    max = sdk.math.Vec3.maxElements(max, pos.add(half_size));
-                }
-            }
-        }
-        const padding = sdk.math.Vec3.fill(50);
-        const world_box = sdk.math.Vec3.maxElements(min.negate(), max).add(padding).scale(2);
-        const screen_box = switch (direction) {
-            .front => sdk.math.Vec3.fromArray(.{
-                @min(self.window_size.get(.front).x(), self.window_size.get(.top).x()),
-                @min(self.window_size.get(.front).y(), self.window_size.get(.side).y()),
-                @min(self.window_size.get(.top).y(), self.window_size.get(.side).x()),
-            }),
-            .side => sdk.math.Vec3.fromArray(.{
-                @min(self.window_size.get(.side).x(), self.window_size.get(.top).y()),
-                @min(self.window_size.get(.side).y(), self.window_size.get(.front).y()),
-                @min(self.window_size.get(.front).x(), self.window_size.get(.top).x()),
-            }),
-            .top => sdk.math.Vec3.fromArray(.{
-                @min(self.window_size.get(.top).x(), self.window_size.get(.front).x()),
-                @min(self.window_size.get(.top).y(), self.window_size.get(.side).x()),
-                @min(self.window_size.get(.front).y(), self.window_size.get(.side).y()),
-            }),
-        };
-        const scale_factors = world_box.divideElements(screen_box);
-        const max_factor = @max(scale_factors.x(), scale_factors.y(), scale_factors.z());
-        const viewport_size = self.window_size.get(direction).extend(screen_box.z()).scale(max_factor);
-        return sdk.math.Mat4.fromOrthographic(
-            -0.5 * viewport_size.x(),
-            0.5 * viewport_size.x(),
-            -0.5 * viewport_size.y(),
-            0.5 * viewport_size.y(),
-            -0.5 * viewport_size.z(),
-            0.5 * viewport_size.z(),
-        );
-    }
-
-    fn calculateWindowMatrix() sdk.math.Mat4 {
-        var window_pos: sdk.math.Vec2 = undefined;
-        imgui.igGetCursorScreenPos(window_pos.asImVec());
-        var window_size: sdk.math.Vec2 = undefined;
-        imgui.igGetContentRegionAvail(window_size.asImVec());
-        return sdk.math.Mat4.identity
-            .scale(sdk.math.Vec3.fromArray(.{ 0.5 * window_size.x(), -0.5 * window_size.y(), 1 }))
-            .translate(window_size.scale(0.5).add(window_pos).extend(0));
     }
 
     fn drawCollisionSpheres(self: *const Self, matrix: sdk.math.Mat4, inverse_matrix: sdk.math.Mat4) void {
@@ -384,7 +283,7 @@ pub const View = struct {
 
     fn drawHurtCylinders(
         self: *const Self,
-        direction: Direction,
+        direction: ViewDirection,
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {
@@ -461,7 +360,7 @@ pub const View = struct {
 
     fn drawLingeringHurtCylinders(
         self: *const Self,
-        direction: Direction,
+        direction: ViewDirection,
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {
@@ -605,7 +504,7 @@ pub const View = struct {
         }
     }
 
-    fn drawLookAtLines(self: *const Self, direction: Direction, matrix: sdk.math.Mat4) void {
+    fn drawLookAtLines(self: *const Self, direction: ViewDirection, matrix: sdk.math.Mat4) void {
         if (direction != .top) {
             return;
         }
@@ -624,7 +523,7 @@ pub const View = struct {
         }
     }
 
-    fn drawFloor(self: *const Self, direction: Direction, matrix: sdk.math.Mat4) void {
+    fn drawFloor(self: *const Self, direction: ViewDirection, matrix: sdk.math.Mat4) void {
         if (direction == .top) {
             return;
         }
@@ -671,7 +570,7 @@ pub const View = struct {
         cylinder: sdk.math.Cylinder,
         color: sdk.math.Vec4,
         thickness: f32,
-        direction: Direction,
+        direction: ViewDirection,
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {

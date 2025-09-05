@@ -9,4 +9,6 @@ pub const MainWindow = @import("main_window.zig").MainWindow;
 pub const MessageWindowPlacement = @import("message_window.zig").MessageWindowPlacement;
 pub const drawMessageWindow = @import("message_window.zig").drawMessageWindow;
 pub const QuadrantLayout = @import("quadrant-layout.zig").QuadrantLayout;
+pub const ViewDirection = @import("view.zig").ViewDirection;
 pub const View = @import("view.zig").View;
+pub const ViewCamera = @import("view-camera.zig").ViewCamera;
