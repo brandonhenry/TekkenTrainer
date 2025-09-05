@@ -263,7 +263,9 @@ pub const View = struct {
         self.drawCollisionSpheres(matrix, inverse_matrix);
         self.drawLingeringHurtCylinders(direction, matrix, inverse_matrix);
         self.drawHurtCylinders(direction, matrix, inverse_matrix);
-        self.drawFloor(direction, matrix);
+        if (self.frame.floor_z) |floor_z| {
+            ui.drawFloor(floor_z, config.floor.color, config.floor.thickness, direction, matrix);
+        }
         self.drawLookAtLines(direction, matrix);
         self.drawSkeletons(matrix);
         self.drawLingeringHitLines(matrix);
@@ -276,7 +278,7 @@ pub const View = struct {
             for (spheres.values) |sphere| {
                 const color = config.collision_spheres.color;
                 const thickness = config.collision_spheres.thickness;
-                drawSphere(sphere, color, thickness, matrix, inverse_matrix);
+                ui.drawSphere(sphere, color, thickness, matrix, inverse_matrix);
             }
         }
     }
@@ -353,7 +355,7 @@ pub const View = struct {
                 const hit_thickness = config.hurt_cylinders.hit.thickness;
                 const thickness = std.math.lerp(hit_thickness, base_thickness, t);
 
-                drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
+                ui.drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
             }
         }
     }
@@ -374,7 +376,7 @@ pub const View = struct {
             color.asColor().a *= 1.0 - (completion * completion * completion * completion);
             const thickness = config.hurt_cylinders.lingering.thickness;
 
-            drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
+            ui.drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
         }
     }
 
@@ -397,7 +399,7 @@ pub const View = struct {
                     color.asColor().a *= config.skeleton.cant_move_alpha;
                 }
                 const thickness = config.skeleton.thickness;
-                drawLine(line, color, thickness, mat);
+                ui.drawLine(line, color, thickness, mat);
             }
         }.call;
         for (&self.frame.players) |*player| {
@@ -438,7 +440,7 @@ pub const View = struct {
                         2.0 * config.hit_lines.normal.outline.thickness;
                 };
                 const line = hit_line.line;
-                drawLine(line, color, thickness, matrix);
+                ui.drawLine(line, color, thickness, matrix);
             }
         }
         for (&self.frame.players) |*player| {
@@ -454,7 +456,7 @@ pub const View = struct {
                     break :block config.hit_lines.normal.fill.thickness;
                 };
                 const line = hit_line.line;
-                drawLine(line, color, thickness, matrix);
+                ui.drawLine(line, color, thickness, matrix);
             }
         }
     }
@@ -480,7 +482,7 @@ pub const View = struct {
                     2.0 * config.hit_lines.normal.outline.thickness;
             };
 
-            drawLine(line, color, thickness, matrix);
+            ui.drawLine(line, color, thickness, matrix);
         }
         for (0..self.lingering_hit_lines.len) |index| {
             const hit_line = self.lingering_hit_lines.get(index) catch unreachable;
@@ -500,7 +502,7 @@ pub const View = struct {
                 break :block config.hit_lines.normal.fill.thickness;
             };
 
-            drawLine(line, color, thickness, matrix);
+            ui.drawLine(line, color, thickness, matrix);
         }
     }
 
@@ -519,102 +521,7 @@ pub const View = struct {
             };
             const color = config.look_direction.color;
             const thickness = config.look_direction.thickness;
-            drawLine(line, color, thickness, matrix);
+            ui.drawLine(line, color, thickness, matrix);
         }
-    }
-
-    fn drawFloor(self: *const Self, direction: ViewDirection, matrix: sdk.math.Mat4) void {
-        if (direction == .top) {
-            return;
-        }
-
-        var window_pos: sdk.math.Vec2 = undefined;
-        imgui.igGetCursorScreenPos(window_pos.asImVec());
-        var window_size: sdk.math.Vec2 = undefined;
-        imgui.igGetContentRegionAvail(window_size.asImVec());
-        const world_z = self.frame.floor_z orelse return;
-
-        const screen_x = window_pos.toCoords().x;
-        const screen_w = window_size.toCoords().x;
-        const screen_y = sdk.math.Vec3.plus_z.scale(world_z).pointTransform(matrix).toCoords().y;
-
-        const draw_list = imgui.igGetWindowDrawList();
-        const point_1 = sdk.math.Vec2.fromArray(.{ screen_x, screen_y }).toImVec();
-        const point_2 = sdk.math.Vec2.fromArray(.{ screen_x + screen_w, screen_y }).toImVec();
-        const color = config.floor.color;
-        const u32_color = imgui.igGetColorU32_Vec4(color.toImVec());
-        const thickness = config.floor.thickness;
-
-        imgui.ImDrawList_AddLine(draw_list, point_1, point_2, u32_color, thickness);
-    }
-
-    fn drawSphere(
-        sphere: sdk.math.Sphere,
-        color: sdk.math.Vec4,
-        thickness: f32,
-        matrix: sdk.math.Mat4,
-        inverse_matrix: sdk.math.Mat4,
-    ) void {
-        const world_right = sdk.math.Vec3.plus_x.directionTransform(inverse_matrix).normalize();
-        const world_up = sdk.math.Vec3.plus_y.directionTransform(inverse_matrix).normalize();
-
-        const draw_list = imgui.igGetWindowDrawList();
-        const center = sphere.center.pointTransform(matrix).swizzle("xy").toImVec();
-        const radius = world_up.add(world_right).scale(sphere.radius).directionTransform(matrix).swizzle("xy").toImVec();
-        const u32_color = imgui.igGetColorU32_Vec4(color.toImVec());
-
-        imgui.ImDrawList_AddEllipse(draw_list, center, radius, u32_color, 0, 32, thickness);
-    }
-
-    fn drawCylinder(
-        cylinder: sdk.math.Cylinder,
-        color: sdk.math.Vec4,
-        thickness: f32,
-        direction: ViewDirection,
-        matrix: sdk.math.Mat4,
-        inverse_matrix: sdk.math.Mat4,
-    ) void {
-        const world_right = sdk.math.Vec3.plus_x.directionTransform(inverse_matrix).normalize();
-        const world_up = sdk.math.Vec3.plus_y.directionTransform(inverse_matrix).normalize();
-
-        const draw_list = imgui.igGetWindowDrawList();
-        const center = cylinder.center.pointTransform(matrix).swizzle("xy");
-        const u32_color = imgui.igGetColorU32_Vec4(color.toImVec());
-
-        switch (direction) {
-            .front, .side => {
-                const half_size = world_up.scale(cylinder.half_height)
-                    .add(world_right.scale(cylinder.radius))
-                    .directionTransform(matrix)
-                    .swizzle("xy");
-                const min = center.subtract(half_size).toImVec();
-                const max = center.add(half_size).toImVec();
-                imgui.ImDrawList_AddRect(draw_list, min, max, u32_color, 0, 0, thickness);
-            },
-            .top => {
-                const im_center = center.toImVec();
-                const radius = world_up
-                    .add(world_right)
-                    .scale(cylinder.radius)
-                    .directionTransform(matrix)
-                    .swizzle("xy")
-                    .toImVec();
-                imgui.ImDrawList_AddEllipse(draw_list, im_center, radius, u32_color, 0, 32, thickness);
-            },
-        }
-    }
-
-    fn drawLine(
-        line: sdk.math.LineSegment3,
-        color: sdk.math.Vec4,
-        thickness: f32,
-        matrix: sdk.math.Mat4,
-    ) void {
-        const draw_list = imgui.igGetWindowDrawList();
-        const point_1 = line.point_1.pointTransform(matrix).swizzle("xy").toImVec();
-        const point_2 = line.point_2.pointTransform(matrix).swizzle("xy").toImVec();
-        const u32_color = imgui.igGetColorU32_Vec4(color.toImVec());
-
-        imgui.ImDrawList_AddLine(draw_list, point_1, point_2, u32_color, thickness);
     }
 };

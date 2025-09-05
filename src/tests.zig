@@ -96,6 +96,7 @@ test {
     _ = @import("dll/ui/quadrant-layout.zig");
     _ = @import("dll/ui/view.zig");
     _ = @import("dll/ui/view-camera.zig");
+    _ = @import("dll/ui/view-shapes.zig");
 
     _ = struct {
         test "should have no memory leaks after de-initializing UI testing context" {
