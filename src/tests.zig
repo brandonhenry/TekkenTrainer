@@ -85,6 +85,7 @@ test {
     _ = @import("dll/model/player.zig");
     _ = @import("dll/model/skeleton.zig");
 
+    _ = @import("dll/ui/camera.zig");
     _ = @import("dll/ui/controls.zig");
     _ = @import("dll/ui/data.zig");
     _ = @import("dll/ui/details.zig");
@@ -94,9 +95,8 @@ test {
     _ = @import("dll/ui/main_window.zig");
     _ = @import("dll/ui/message_window.zig");
     _ = @import("dll/ui/quadrant-layout.zig");
+    _ = @import("dll/ui/shapes.zig");
     _ = @import("dll/ui/view.zig");
-    _ = @import("dll/ui/view-camera.zig");
-    _ = @import("dll/ui/view-shapes.zig");
 
     _ = struct {
         test "should have no memory leaks after de-initializing UI testing context" {

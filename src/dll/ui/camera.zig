@@ -4,7 +4,7 @@ const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 const ui = @import("../ui/root.zig");
 
-pub const ViewCamera = struct {
+pub const Camera = struct {
     windows: std.EnumArray(ui.ViewDirection, Window) = .initFill(.{}),
 
     const Self = @This();

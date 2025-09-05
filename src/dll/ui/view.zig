@@ -11,7 +11,7 @@ pub const ViewDirection = enum {
 };
 
 pub const View = struct {
-    camera: ui.ViewCamera = .{},
+    camera: ui.Camera = .{},
     frame: model.Frame = .{},
     hit_hurt_cylinder_life_time: std.EnumArray(model.PlayerId, std.EnumArray(model.HurtCylinderId, f32)) = .initFill(
         .initFill(std.math.inf(f32)),

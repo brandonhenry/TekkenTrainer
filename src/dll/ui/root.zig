@@ -1,3 +1,4 @@
+pub const Camera = @import("camera.zig").Camera;
 pub const ControlsConfig = @import("controls.zig").ControlsConfig;
 pub const Controls = @import("controls.zig").Controls;
 pub const drawData = @import("data.zig").drawData;
@@ -11,8 +12,7 @@ pub const drawMessageWindow = @import("message_window.zig").drawMessageWindow;
 pub const QuadrantLayout = @import("quadrant-layout.zig").QuadrantLayout;
 pub const ViewDirection = @import("view.zig").ViewDirection;
 pub const View = @import("view.zig").View;
-pub const ViewCamera = @import("view-camera.zig").ViewCamera;
-pub const drawLine = @import("view-shapes.zig").drawLine;
-pub const drawSphere = @import("view-shapes.zig").drawSphere;
-pub const drawCylinder = @import("view-shapes.zig").drawCylinder;
-pub const drawFloor = @import("view-shapes.zig").drawFloor;
+pub const drawLine = @import("shapes.zig").drawLine;
+pub const drawSphere = @import("shapes.zig").drawSphere;
+pub const drawCylinder = @import("shapes.zig").drawCylinder;
+pub const drawFloor = @import("shapes.zig").drawFloor;
