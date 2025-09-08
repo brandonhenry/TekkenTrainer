@@ -52,9 +52,9 @@ pub const MainWindow = struct {
                 .frame = controller.getCurrentFrame(),
             };
             self.quadrant_layout.draw(context, &.{
-                .top_left = .{ .id = "front", .content = drawFrontView },
-                .top_right = .{ .id = "side", .content = drawSideView },
-                .bottom_left = .{ .id = "top", .content = drawTopView },
+                .top_left = .{ .id = "front", .content = drawFrontView, .window_flags = imgui.ImGuiWindowFlags_NoMove },
+                .top_right = .{ .id = "side", .content = drawSideView, .window_flags = imgui.ImGuiWindowFlags_NoMove },
+                .bottom_left = .{ .id = "top", .content = drawTopView, .window_flags = imgui.ImGuiWindowFlags_NoMove },
                 .bottom_right = .{ .id = "details", .content = drawDetails },
             });
         }

@@ -10,6 +10,8 @@ pub const QuadrantLayout = struct {
         return struct {
             id: [:0]const u8,
             content: *const fn (context: Context) void,
+            child_flags: imgui.ImGuiChildFlags = 0,
+            window_flags: imgui.ImGuiWindowFlags = 0,
         };
     }
     pub fn Quadrants(comptime Context: type) type {
@@ -52,7 +54,12 @@ pub const QuadrantLayout = struct {
 
         if (self.division.x > 0.0001 and self.division.y > 0.0001) {
             imgui.igSetCursorPos(.{ .x = border_size, .y = border_size });
-            if (imgui.igBeginChild_Str(quadrants.top_left.id, size_1, 0, 0)) {
+            if (imgui.igBeginChild_Str(
+                quadrants.top_left.id,
+                size_1,
+                quadrants.top_left.child_flags,
+                quadrants.top_left.window_flags,
+            )) {
                 quadrants.top_left.content(context);
             }
             imgui.igEndChild();
@@ -60,7 +67,12 @@ pub const QuadrantLayout = struct {
 
         if (self.division.x < 0.9999 and self.division.y > 0.0001) {
             imgui.igSetCursorPos(.{ .x = size_1.x + (2.0 * border_size), .y = border_size });
-            if (imgui.igBeginChild_Str(quadrants.top_right.id, .{ .x = size_2.x, .y = size_1.y }, 0, 0)) {
+            if (imgui.igBeginChild_Str(
+                quadrants.top_right.id,
+                .{ .x = size_2.x, .y = size_1.y },
+                quadrants.top_right.child_flags,
+                quadrants.top_right.window_flags,
+            )) {
                 quadrants.top_right.content(context);
             }
             imgui.igEndChild();
@@ -68,7 +80,12 @@ pub const QuadrantLayout = struct {
 
         if (self.division.x > 0.0001 and self.division.y < 0.9999) {
             imgui.igSetCursorPos(.{ .x = border_size, .y = size_1.y + (2.0 * border_size) });
-            if (imgui.igBeginChild_Str(quadrants.bottom_left.id, .{ .x = size_1.x, .y = size_2.y }, 0, 0)) {
+            if (imgui.igBeginChild_Str(
+                quadrants.bottom_left.id,
+                .{ .x = size_1.x, .y = size_2.y },
+                quadrants.bottom_left.child_flags,
+                quadrants.bottom_left.window_flags,
+            )) {
                 quadrants.bottom_left.content(context);
             }
             imgui.igEndChild();
@@ -76,7 +93,12 @@ pub const QuadrantLayout = struct {
 
         if (self.division.x < 0.9999 and self.division.y < 0.9999) {
             imgui.igSetCursorPos(.{ .x = size_1.x + (2.0 * border_size), .y = size_1.y + (2.0 * border_size) });
-            if (imgui.igBeginChild_Str(quadrants.bottom_right.id, size_2, 0, 0)) {
+            if (imgui.igBeginChild_Str(
+                quadrants.bottom_right.id,
+                size_2,
+                quadrants.bottom_right.child_flags,
+                quadrants.bottom_right.window_flags,
+            )) {
                 quadrants.bottom_right.content(context);
             }
             imgui.igEndChild();

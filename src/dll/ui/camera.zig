@@ -6,11 +6,17 @@ const ui = @import("../ui/root.zig");
 
 pub const Camera = struct {
     windows: std.EnumArray(ui.ViewDirection, Window) = .initFill(.{}),
+    transform: Transform = .{},
 
     const Self = @This();
     pub const Window = struct {
         position: sdk.math.Vec2 = .zero,
         size: sdk.math.Vec2 = .zero,
+    };
+    pub const Transform = struct {
+        translation: sdk.math.Vec3 = .zero,
+        scale: f32 = 1.0,
+        rotation: f32 = 0.0,
     };
 
     pub fn updateWindowState(self: *Self, direction: ui.ViewDirection) void {
@@ -20,17 +26,88 @@ pub const Camera = struct {
         self.windows.set(direction, window);
     }
 
-    pub fn calculateMatrix(self: *const Self, frame: *const model.Frame, direction: ui.ViewDirection) ?sdk.math.Mat4 {
-        const look_at_matrix = calculateLookAtMatrix(frame, direction) orelse return null;
-        const orthographic_matrix = self.calculateOrthographicMatrix(frame, direction, look_at_matrix) orelse return null;
-        const window_matrix = self.calculateWindowMatrix(direction);
-        return look_at_matrix.multiply(orthographic_matrix).multiply(window_matrix);
+    pub fn processInput(self: *Self, inverse_matrix: sdk.math.Mat4) void {
+        if (!imgui.igIsWindowHovered(imgui.ImGuiHoveredFlags_ChildWindows)) {
+            return;
+        }
+
+        const wheel = imgui.igGetIO_Nil().*.MouseWheel;
+        if (wheel != 0.0) {
+            var window_pos: sdk.math.Vec2 = undefined;
+            imgui.igGetCursorScreenPos(window_pos.asImVec());
+            var window_size: sdk.math.Vec2 = undefined;
+            imgui.igGetContentRegionAvail(window_size.asImVec());
+
+            const screen_camera = window_pos.add(window_size.scale(0.5)).extend(0);
+            const world_camera = screen_camera.pointTransform(inverse_matrix);
+
+            const mouse_pos = imgui.igGetIO_Nil().*.MousePos;
+            const screen_mouse = sdk.math.Vec2.fromImVec(mouse_pos).extend(0);
+            const world_mouse = screen_mouse.pointTransform(inverse_matrix);
+
+            const scale_factor = std.math.pow(f32, 1.2, wheel);
+            const delta_translation = world_mouse.subtract(world_camera).scale(1.0 / scale_factor - 1.0);
+            self.transform.translation = self.transform.translation.add(delta_translation);
+            self.transform.scale *= scale_factor;
+        }
+        if (imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseLeft)) {
+            const delta_mouse = imgui.igGetIO_Nil().*.MouseDelta;
+            const delta_screen = sdk.math.Vec2.fromImVec(delta_mouse).extend(0);
+            const delta_world = delta_screen.directionTransform(inverse_matrix);
+            self.transform.translation = self.transform.translation.add(delta_world);
+            imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeAll);
+        }
+        if (imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseRight)) {
+            var window_pos: sdk.math.Vec2 = undefined;
+            imgui.igGetCursorScreenPos(window_pos.asImVec());
+            var window_size: sdk.math.Vec2 = undefined;
+            imgui.igGetContentRegionAvail(window_size.asImVec());
+            const center = window_pos.add(window_size.scale(0.5));
+
+            const previous_mouse = sdk.math.Vec2.fromImVec(imgui.igGetIO_Nil().*.MousePosPrev);
+            const current_mouse = sdk.math.Vec2.fromImVec(imgui.igGetIO_Nil().*.MousePos);
+            const previous_offset = previous_mouse.subtract(center);
+            const current_offset = current_mouse.subtract(center);
+            const previous_angle = std.math.atan2(previous_offset.y(), previous_offset.x());
+            const current_angle = std.math.atan2(current_offset.y(), current_offset.x());
+            const delta_angle = current_angle - previous_angle;
+
+            self.transform.rotation = std.math.wrap(self.transform.rotation + delta_angle, std.math.pi);
+            const factor = comptime (1.0 / std.math.tan(std.math.pi / 8.0));
+            if (@abs(current_offset.x()) > factor * @abs(current_offset.y())) {
+                imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeNS);
+            } else if (@abs(current_offset.y()) > factor * @abs(current_offset.x())) {
+                imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeEW);
+            } else if (std.math.sign(current_offset.x()) == std.math.sign(current_offset.y())) {
+                imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeNESW);
+            } else {
+                imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeNWSE);
+            }
+        }
+        if (imgui.igIsKeyPressed_Bool(imgui.ImGuiKey_MouseMiddle, false)) {
+            self.transform = .{};
+        }
     }
 
-    fn calculateLookAtMatrix(
-        frame: *const model.Frame,
-        direction: ui.ViewDirection,
-    ) ?sdk.math.Mat4 {
+    pub fn calculateMatrix(self: *const Self, frame: *const model.Frame, direction: ui.ViewDirection) ?sdk.math.Mat4 {
+        const translation_matrix = sdk.math.Mat4.fromTranslation(self.transform.translation);
+        const look_at_matrix = calculateLookAtMatrix(frame, direction) orelse return null;
+        const rotation_matrix = switch (direction) {
+            .front, .side => sdk.math.Mat4.fromYRotation(self.transform.rotation),
+            .top => sdk.math.Mat4.fromZRotation(-self.transform.rotation),
+        };
+        const scale_matrix = sdk.math.Mat4.fromScale(sdk.math.Vec3.fill(self.transform.scale));
+        const orthographic_matrix = self.calculateOrthographicMatrix(frame, direction, look_at_matrix) orelse return null;
+        const window_matrix = self.calculateWindowMatrix(direction);
+        return translation_matrix
+            .multiply(look_at_matrix)
+            .multiply(rotation_matrix)
+            .multiply(scale_matrix)
+            .multiply(orthographic_matrix)
+            .multiply(window_matrix);
+    }
+
+    fn calculateLookAtMatrix(frame: *const model.Frame, direction: ui.ViewDirection) ?sdk.math.Mat4 {
         const left_player = frame.getPlayerBySide(.left).position orelse return null;
         const right_player = frame.getPlayerBySide(.right).position orelse return null;
         const eye = left_player.add(right_player).scale(0.5);
