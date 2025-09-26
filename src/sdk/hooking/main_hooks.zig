@@ -28,7 +28,10 @@ pub fn MainHooks(
         var is_deinit_called = std.atomic.Value(bool).init(false);
 
         pub fn init() !void {
-            g_command_queue = null;
+            if (g_command_queue) |command_queue| {
+                g_command_queue = null;
+                _ = command_queue.IUnknown.Release();
+            }
             is_init_called = false;
             is_deinit_called.store(false, .seq_cst);
 
@@ -190,7 +193,10 @@ pub fn MainHooks(
                 }
                 std.log.debug("Waiting completed.", .{});
 
-                g_command_queue = null;
+                if (g_command_queue) |command_queue| {
+                    g_command_queue = null;
+                    _ = command_queue.IUnknown.Release();
+                }
                 is_init_called = false;
                 is_deinit_called.store(false, .seq_cst);
             }
@@ -201,11 +207,28 @@ pub fn MainHooks(
             num_command_lists: u32,
             pp_command_lists: [*]?*w32.ID3D12CommandList,
         ) callconv(.winapi) void {
-            if (g_command_queue == null) {
+            execute_command_lists_hook.?.original(command_queue, num_command_lists, pp_command_lists);
+            if (command_queue == g_command_queue) {
+                return;
+            }
+
+            const getDesc: *const fn (
+                self: *const w32.ID3D12CommandQueue,
+                out: *w32.D3D12_COMMAND_QUEUE_DESC,
+            ) callconv(.winapi) void = @ptrCast(command_queue.vtable.GetDesc);
+            var desc: w32.D3D12_COMMAND_QUEUE_DESC = undefined;
+            getDesc(command_queue, &desc);
+            if (desc.Type != .DIRECT) {
+                return;
+            }
+
+            if (g_command_queue) |previous_command_queue| {
+                _ = previous_command_queue.IUnknown.Release();
+            } else {
                 std.log.info("DX12 command queue found.", .{});
             }
+            _ = command_queue.IUnknown.AddRef();
             g_command_queue = command_queue;
-            return execute_command_lists_hook.?.original(command_queue, num_command_lists, pp_command_lists);
         }
 
         fn onPresent(
