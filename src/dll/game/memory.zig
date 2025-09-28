@@ -6,6 +6,7 @@ const game = @import("root.zig");
 pub const Memory = struct {
     player_1: sdk.memory.StructProxy(game.Player),
     player_2: sdk.memory.StructProxy(game.Player),
+    camera: sdk.memory.Proxy(game.Camera),
     functions: Functions,
 
     const Self = @This();
@@ -17,7 +18,11 @@ pub const Memory = struct {
 
     const pattern_cache_file_name = "pattern_cache.json";
 
-    pub fn init(allocator: std.mem.Allocator, base_dir: ?*const sdk.misc.BaseDir) Self {
+    pub fn init(
+        allocator: std.mem.Allocator,
+        base_dir: ?*const sdk.misc.BaseDir,
+        last_camera_manager_address_pointer: *const usize,
+    ) Self {
         var cache = initPatternCache(allocator, base_dir) catch |err| block: {
             sdk.misc.error_context.append("Failed to initialize pattern cache.", .{});
             sdk.misc.error_context.logError(err);
@@ -74,6 +79,10 @@ pub const Memory = struct {
                 0x38,
                 0x0,
             }, player_offsets),
+            .camera = proxy("camera", game.Camera, .{
+                @intFromPtr(last_camera_manager_address_pointer),
+                0x22D0,
+            }),
             .functions = .{
                 .tick = functionPointer(
                     "tick_function",

@@ -11,6 +11,7 @@ pub const Capturer = struct {
     pub const GameMemory = struct {
         player_1: sdk.misc.Partial(game.Player),
         player_2: sdk.misc.Partial(game.Player),
+        camera: ?game.Camera = null,
     };
     pub const PlayerState = struct {
         airborne_state: AirborneState = .{},
@@ -28,12 +29,14 @@ pub const Capturer = struct {
         const floor_z = captureFloorZ(game_memory);
         const player_1 = capturePlayer(&self.player_1_state, &game_memory.player_1, .player_1);
         const player_2 = capturePlayer(&self.player_2_state, &game_memory.player_2, .player_2);
+        const camera = captureCamera(game_memory);
         const main_player_id = captureMainPlayerId(game_memory);
         const left_player_id = captureLeftPlayerId(game_memory, main_player_id);
         return .{
             .frames_since_round_start = frames_since_round_start,
             .floor_z = floor_z,
             .players = .{ player_1, player_2 },
+            .camera = camera,
             .left_player_id = left_player_id,
             .main_player_id = main_player_id,
         };
@@ -64,6 +67,23 @@ pub const Capturer = struct {
         } else {
             return null;
         }
+    }
+
+    fn captureCamera(game_memory: *const GameMemory) ?model.Camera {
+        const camera: game.Camera = game_memory.camera orelse return null;
+        return .{
+            .position = .fromArray(.{
+                @floatCast(camera.position.array[0]),
+                @floatCast(camera.position.array[1]),
+                @floatCast(camera.position.array[2]),
+            }),
+            .rotation = .fromArray(.{
+                @floatCast(camera.rotation.array[0]),
+                @floatCast(camera.rotation.array[1]),
+                @floatCast(camera.rotation.array[2]),
+            }),
+            .fov = camera.fov,
+        };
     }
 
     fn captureMainPlayerId(game_memory: *const GameMemory) model.PlayerId {

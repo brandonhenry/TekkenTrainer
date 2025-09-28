@@ -38,11 +38,12 @@ pub const Core = struct {
     ) void {
         const player_1 = game_memory.player_1.takePartialCopy();
         const player_2 = game_memory.player_2.takePartialCopy();
+        const camera = game_memory.camera.takeCopy();
         if (!self.frame_detector.detect(&player_1, &player_2)) {
             return;
         }
         self.pause_detector.update();
-        var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2 });
+        var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2, .camera = camera });
         self.hit_detector.detect(&frame);
         self.move_phase_detector.detect(&frame);
         self.move_measurer.measure(&frame);

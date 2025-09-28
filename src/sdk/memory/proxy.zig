@@ -42,6 +42,14 @@ pub fn Proxy(comptime Type: type) type {
             }
             return @ptrFromInt(address);
         }
+
+        pub fn takeCopy(self: *const Self) ?Type {
+            if (self.toConstPointer()) |pointer| {
+                return pointer.*;
+            } else {
+                return null;
+            }
+        }
     };
 }
 
@@ -139,4 +147,45 @@ test "toMutablePointer should return null when trail is not resolvable, address 
     try testing.expectEqual(null, proxy(.{ str_address_address, field_1_offset, null }).toMutablePointer());
     try testing.expectEqual(null, proxy(.{ str_address_address, null, field_1_offset }).toMutablePointer());
     try testing.expectEqual(null, proxy(.{ str_address_address, field_1_offset + 1 }).toMutablePointer());
+}
+
+test "takeCopy should return a copy when trail is resolvable, address is aligned and memory is readable" {
+    const Struct = packed struct { field_1: i32, field_2: i32 };
+    const field_1_offset = @offsetOf(Struct, "field_1");
+    const field_2_offset = @offsetOf(Struct, "field_2");
+
+    const str = Struct{ .field_1 = 1, .field_2 = 2 };
+    const str_address = @intFromPtr(&str);
+    const str_address_address = @intFromPtr(&str_address);
+    const str_address_address_address = @intFromPtr(&str_address_address);
+
+    const proxy = Proxy(i32).fromArray;
+    try testing.expectEqual(str.field_1, proxy(.{str_address + field_1_offset}).takeCopy());
+    try testing.expectEqual(str.field_2, proxy(.{str_address + field_2_offset}).takeCopy());
+    try testing.expectEqual(str.field_1, proxy(.{ str_address_address, field_1_offset }).takeCopy());
+    try testing.expectEqual(str.field_2, proxy(.{ str_address_address, field_2_offset }).takeCopy());
+    try testing.expectEqual(str.field_1, proxy(.{ str_address_address_address, 0, field_1_offset }).takeCopy());
+    try testing.expectEqual(str.field_2, proxy(.{ str_address_address_address, 0, field_2_offset }).takeCopy());
+}
+
+test "takeCopy should return null when trail is not resolvable, address is misaligned or memory is not readable" {
+    const Struct = packed struct { field_1: i32, field_2: i32 };
+    const field_1_offset = @offsetOf(Struct, "field_1");
+    const field_2_offset = @offsetOf(Struct, "field_2");
+
+    const str = Struct{ .field_1 = 1, .field_2 = 2 };
+    const str_address = @intFromPtr(&str);
+    const str_address_address = @intFromPtr(&str_address);
+
+    const proxy = Proxy(i32).fromArray;
+    try testing.expectEqual(null, proxy(.{}).takeCopy());
+    try testing.expectEqual(null, proxy(.{0}).takeCopy());
+    try testing.expectEqual(null, proxy(.{std.math.maxInt(usize)}).takeCopy());
+    try testing.expectEqual(null, proxy(.{ 0, field_2_offset }).takeCopy());
+    try testing.expectEqual(null, proxy(.{ str_address_address, std.math.maxInt(usize) }).takeCopy());
+    try testing.expectEqual(null, proxy(.{null}).takeCopy());
+    try testing.expectEqual(null, proxy(.{ str_address_address, null }).takeCopy());
+    try testing.expectEqual(null, proxy(.{ str_address_address, field_1_offset, null }).takeCopy());
+    try testing.expectEqual(null, proxy(.{ str_address_address, null, field_1_offset }).takeCopy());
+    try testing.expectEqual(null, proxy(.{ str_address_address, field_1_offset + 1 }).takeCopy());
 }

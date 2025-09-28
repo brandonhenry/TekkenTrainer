@@ -7,7 +7,7 @@ pub fn Hooks(onTick: *const fn () void) type {
     return struct {
         var tick_hook: ?TickHook = null;
         var update_camera_hook: ?UpdateCameraHook = null;
-        var last_camera_manager_address: usize = 0;
+        pub var last_camera_manager_address: usize = 0;
 
         const TickHook = sdk.hooking.Hook(game.TickFunction);
         const UpdateCameraHook = sdk.hooking.Hook(game.UpdateCameraFunction);

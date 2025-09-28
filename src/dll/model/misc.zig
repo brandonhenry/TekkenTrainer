@@ -1,3 +1,5 @@
+const sdk = @import("../../sdk/root.zig");
+
 pub const U32ActualMax = struct {
     actual: ?u32,
     max: ?u32,
@@ -116,4 +118,10 @@ pub const Heat = union(enum) {
 
 pub const ActivatedHeat = struct {
     gauge: f32,
+};
+
+pub const Camera = struct {
+    position: sdk.math.Vec3,
+    rotation: sdk.math.Vec3,
+    fov: f32,
 };

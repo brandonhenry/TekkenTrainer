@@ -35,6 +35,7 @@ pub const CollisionSphere = @import("types.zig").CollisionSphere;
 pub const CollisionSpheres = @import("types.zig").CollisionSpheres;
 pub const EncryptedHealth = @import("types.zig").EncryptedHealth;
 pub const Player = @import("types.zig").Player;
+pub const Camera = @import("types.zig").Camera;
 pub const TickFunction = @import("types.zig").TickFunction;
 pub const UpdateCameraFunction = @import("types.zig").UpdateCameraFunction;
 pub const DecryptHealthFunction = @import("types.zig").DecryptHealthFunction;

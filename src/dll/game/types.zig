@@ -450,6 +450,12 @@ pub const Player = struct {
     ), // 0x3580
 };
 
+pub const Camera = extern struct {
+    position: sdk.math.Vector(3, f64),
+    rotation: sdk.math.Vector(3, f64),
+    fov: f32,
+};
+
 pub const TickFunction = fn (delta_time: f64) callconv(.c) void;
 
 pub const UpdateCameraFunction = fn (camera_manager_address: usize, delta_time: f32) callconv(.c) void;
