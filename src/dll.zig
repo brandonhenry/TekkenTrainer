@@ -18,14 +18,10 @@ pub const std_options = std.Options{
 };
 
 const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
-const MemorySearchTask = sdk.misc.Task(MemorySearchResult);
-const MemorySearchResult = struct {
-    game_memory: dll.game.Memory,
-    tick_hook: ?TickHook,
-};
-const TickHook = sdk.hooking.Hook(dll.game.TickFunction);
+const MemorySearchTask = sdk.misc.Task(dll.game.Memory);
 
-const main_hooks = sdk.hooking.MainHooks(onHooksInit, onHooksDeinit, onHooksUpdate, beforeHooksResize, afterHooksResize);
+const main_hooks = sdk.hooking.MainHooks(onHooksInit, onHooksDeinit, onUpdate, beforeResize, afterResize);
+const game_hooks = dll.game.Hooks(onTick);
 const number_of_hooking_retries = 10;
 const hooking_retry_sleep_time = 100 * std.time.ns_per_ms;
 
@@ -253,39 +249,16 @@ fn onHooksInit(
     }
 }
 
-fn performMemorySearch(allocator: std.mem.Allocator, dir: *const sdk.misc.BaseDir) MemorySearchResult {
+fn performMemorySearch(allocator: std.mem.Allocator, dir: *const sdk.misc.BaseDir) dll.game.Memory {
     std.log.debug("Initializing game memory...", .{});
     const game_memory = dll.game.Memory.init(allocator, dir);
     std.log.info("Game memory initialized.", .{});
 
-    std.log.debug("Creating tick hook...", .{});
-    var tick_hook = if (game_memory.tick_function) |tick_function| block: {
-        if (TickHook.create(tick_function, onTick)) |hook| {
-            std.log.info("Tick hook created.", .{});
-            break :block hook;
-        } else |err| {
-            sdk.misc.error_context.append("Failed to create tick hook.", .{});
-            sdk.misc.error_context.logError(err);
-            break :block null;
-        }
-    } else block: {
-        sdk.misc.error_context.new("Tick function not found.", .{});
-        sdk.misc.error_context.append("Failed to create tick hook.", .{});
-        sdk.misc.error_context.logError(error.NotFound);
-        break :block null;
-    };
+    std.log.debug("Initializing game hooks...", .{});
+    game_hooks.init(&game_memory.functions);
+    std.log.info("Game hooks initialized.", .{});
 
-    if (tick_hook) |*hook| {
-        std.log.debug("Enabling tick hook...", .{});
-        if (hook.enable()) {
-            std.log.info("Tick hook enabled.", .{});
-        } else |err| {
-            sdk.misc.error_context.append("Failed to enable tick hook.", .{});
-            sdk.misc.error_context.logError(err);
-        }
-    }
-
-    return .{ .game_memory = game_memory, .tick_hook = tick_hook };
+    return game_memory;
 }
 
 fn onHooksDeinit(
@@ -296,21 +269,12 @@ fn onHooksDeinit(
 ) void {
     std.log.debug("Joining memory search task...", .{});
     if (memory_search_task) |*task| {
-        const result = task.join();
+        _ = task.join();
         std.log.info("Memory search task joined.", .{});
 
-        std.log.debug("Destroying tick hook...", .{});
-        if (result.tick_hook) |*hook| {
-            if (hook.destroy()) {
-                std.log.info("Tick hook destroyed.", .{});
-                result.tick_hook = null;
-            } else |err| {
-                sdk.misc.error_context.append("Failed to destroy tick hook.", .{});
-                sdk.misc.error_context.logError(err);
-            }
-        } else {
-            std.log.debug("Nothing to destroy.", .{});
-        }
+        std.log.debug("De-initializing game hooks...", .{});
+        game_hooks.deinit();
+        std.log.info("Game hooks de-initialized.", .{});
 
         memory_search_task = null;
     } else {
@@ -340,28 +304,26 @@ fn onHooksDeinit(
     }
 }
 
-fn onTick(delta_time: f64) callconv(.c) void {
-    const task = memory_search_task.?.join();
-    task.tick_hook.?.original(delta_time);
+fn onTick() void {
     if (event_buss) |*buss| {
-        buss.tick(&task.game_memory);
+        const game_memory = memory_search_task.?.join();
+        buss.tick(game_memory);
     }
 }
 
-fn onHooksUpdate(
+fn onUpdate(
     window: w32.HWND,
     device: *const w32.ID3D12Device,
     command_queue: *const w32.ID3D12CommandQueue,
     swap_chain: *const w32.IDXGISwapChain,
 ) void {
     if (event_buss) |*buss| {
-        const task = memory_search_task.?.peek();
-        const game_memory = if (task) |t| &t.game_memory else null;
+        const game_memory = memory_search_task.?.peek();
         buss.draw(&base_dir, window, device, command_queue, swap_chain, game_memory);
     }
 }
 
-fn beforeHooksResize(
+fn beforeResize(
     window: w32.HWND,
     device: *const w32.ID3D12Device,
     command_queue: *const w32.ID3D12CommandQueue,
@@ -373,7 +335,7 @@ fn beforeHooksResize(
     }
 }
 
-fn afterHooksResize(
+fn afterResize(
     window: w32.HWND,
     device: *const w32.ID3D12Device,
     command_queue: *const w32.ID3D12CommandQueue,

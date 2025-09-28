@@ -6,7 +6,7 @@ const to_unreal_scale = 0.1;
 const from_unreal_scale = 1.0 / to_unreal_scale;
 
 pub const conversion_globals = struct {
-    pub var decrypt_health_function: ?*const game.DecryptHealthFunction = null;
+    pub var decryptHealth: ?*const game.DecryptHealthFunction = null;
 };
 
 pub fn scaleToUnrealSpace(value: f32) f32 {
@@ -145,7 +145,7 @@ pub fn decryptHealth(value: game.EncryptedHealth) ?i32 {
     if (value[0] != 0 and value[0] != 1) {
         return null; // Decrypting invalid encrypted health value can cause a crash. This prevents it.
     }
-    const decrypt = conversion_globals.decrypt_health_function orelse return null;
+    const decrypt = conversion_globals.decryptHealth orelse return null;
     const shifted = decrypt(&value);
     return @intCast(shifted >> 16);
 }

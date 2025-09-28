@@ -74,6 +74,7 @@ test {
     _ = @import("dll/core/pause_detector.zig");
 
     _ = @import("dll/game/conversions.zig");
+    _ = @import("dll/game/hooks.zig");
     _ = @import("dll/game/memory.zig");
     _ = @import("dll/game/types.zig");
 

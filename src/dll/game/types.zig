@@ -452,4 +452,6 @@ pub const Player = struct {
 
 pub const TickFunction = fn (delta_time: f64) callconv(.c) void;
 
+pub const UpdateCameraFunction = fn (camera_manager_address: usize, delta_time: f32) callconv(.c) void;
+
 pub const DecryptHealthFunction = fn (encrypted_health: *const EncryptedHealth) callconv(.c) i64;

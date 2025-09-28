@@ -734,13 +734,13 @@ test "should capture health correctly" {
             return 123 << 16;
         }
     };
-    const old_decrypt_health = game.conversion_globals.decrypt_health_function;
-    defer game.conversion_globals.decrypt_health_function = old_decrypt_health;
+    const oldDecryptHealth = game.conversion_globals.decryptHealth;
+    defer game.conversion_globals.decryptHealth = oldDecryptHealth;
 
     var capturer = Capturer{};
     const encrypted = game.EncryptedHealth{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
-    game.conversion_globals.decrypt_health_function = null;
+    game.conversion_globals.decryptHealth = null;
     const frame_1 = capturer.captureFrame(&.{
         .player_1 = .{ .health = .{ .raw = encrypted } },
         .player_2 = .{ .health = null },
@@ -749,7 +749,7 @@ test "should capture health correctly" {
     try testing.expectEqual(null, frame_1.getPlayerById(.player_2).health);
     try testing.expectEqual(null, DecryptHealth.argument);
 
-    game.conversion_globals.decrypt_health_function = DecryptHealth.call;
+    game.conversion_globals.decryptHealth = DecryptHealth.call;
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{ .health = .{ .raw = encrypted } },
         .player_2 = .{ .health = null },

@@ -6,10 +6,15 @@ const game = @import("root.zig");
 pub const Memory = struct {
     player_1: sdk.memory.StructProxy(game.Player),
     player_2: sdk.memory.StructProxy(game.Player),
-    tick_function: ?*const game.TickFunction,
-    decrypt_health_function: ?*const game.DecryptHealthFunction,
+    functions: Functions,
 
     const Self = @This();
+    pub const Functions = struct {
+        tick: ?*const game.TickFunction = null,
+        updateCamera: ?*const game.UpdateCameraFunction = null,
+        decryptHealth: ?*const game.DecryptHealthFunction = null,
+    };
+
     const pattern_cache_file_name = "pattern_cache.json";
 
     pub fn init(allocator: std.mem.Allocator, base_dir: ?*const sdk.misc.BaseDir) Self {
@@ -69,18 +74,25 @@ pub const Memory = struct {
                 0x38,
                 0x0,
             }, player_offsets),
-            .tick_function = functionPointer(
-                "tick_function",
-                game.TickFunction,
-                pattern(&cache, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 48 8B 01 0F 28 C8"),
-            ),
-            .decrypt_health_function = functionPointer(
-                "decrypt_health_function",
-                game.DecryptHealthFunction,
-                pattern(&cache, "48 89 5C 24 08 57 48 83 EC ?? 48 8D 79 08 48 8B D9 48 8B CF E8 ?? ?? ?? ?? 85 C0"),
-            ),
+            .functions = .{
+                .tick = functionPointer(
+                    "tick_function",
+                    game.TickFunction,
+                    pattern(&cache, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 48 8B 01 0F 28 C8"),
+                ),
+                .updateCamera = functionPointer(
+                    "update_camera_function",
+                    game.UpdateCameraFunction,
+                    pattern(&cache, "48 8B C4 48 89 58 18 55 56 57 48 81 EC 50"),
+                ),
+                .decryptHealth = functionPointer(
+                    "decrypt_health_function",
+                    game.DecryptHealthFunction,
+                    pattern(&cache, "48 89 5C 24 08 57 48 83 EC ?? 48 8D 79 08 48 8B D9 48 8B CF E8 ?? ?? ?? ?? 85 C0"),
+                ),
+            },
         };
-        game.conversion_globals.decrypt_health_function = self.decrypt_health_function;
+        game.conversion_globals.decryptHealth = self.functions.decryptHealth;
         return self;
     }
 
