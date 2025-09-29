@@ -130,11 +130,11 @@ pub fn onProcessOpen(base_dir: *const sdk.misc.BaseDir, process: *const sdk.os.P
     std.log.info("Module injected successfully.", .{});
 
     if (only_inject_mode) {
-        std.log.info("Closing process (PID = {})...", .{process.id});
+        std.log.info("Closing process (PID = {f})...", .{process.id});
         if (process.close()) {
             std.log.info("Process closed successfully.", .{});
         } else |err| {
-            sdk.misc.error_context.append("Failed to close process with PID: {}", .{process.id});
+            sdk.misc.error_context.append("Failed to close process with PID: {f}", .{process.id});
             sdk.misc.error_context.logError(err);
         }
 
@@ -174,11 +174,11 @@ pub fn onConsoleClose() void {
             sdk.misc.error_context.logError(err);
         }
 
-        std.log.info("Closing process (PID = {})...", .{module.module.process.id});
+        std.log.info("Closing process (PID = {f})...", .{module.module.process.id});
         if (module.module.process.close()) {
             std.log.info("Process closed successfully.", .{});
         } else |err| {
-            sdk.misc.error_context.append("Failed to close process with PID: {}", .{module.module.process.id});
+            sdk.misc.error_context.append("Failed to close process with PID: {f}", .{module.module.process.id});
             sdk.misc.error_context.logError(err);
         }
 

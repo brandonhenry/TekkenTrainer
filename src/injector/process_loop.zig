@@ -12,7 +12,7 @@ pub fn runProcessLoop(
     var opened_process: ?sdk.os.Process = null;
     while (true) {
         runLoopLogic(&opened_process, access_rights, process_name, context, onProcessOpen, onProcessClose);
-        std.time.sleep(interval_ns);
+        std.Thread.sleep(interval_ns);
     }
 }
 
@@ -25,9 +25,9 @@ fn runLoopLogic(
     onProcessClose: *const fn (context: @TypeOf(context)) void,
 ) void {
     if (opened_process.*) |process| {
-        std.log.debug("Checking if the process (PID = {}) is still running...", .{process.id});
+        std.log.debug("Checking if the process (PID = {f}) is still running...", .{process.id});
         const still_running = process.isStillRunning() catch |err| c: {
-            sdk.misc.error_context.append("Failed to figure out if process (PID={}) is still running.", .{process.id});
+            sdk.misc.error_context.append("Failed to figure out if process (PID={f}) is still running.", .{process.id});
             sdk.misc.error_context.logError(err);
             break :c false;
         };
@@ -35,15 +35,15 @@ fn runLoopLogic(
             std.log.debug("Process still running.", .{});
             return;
         }
-        std.log.info("Process (PID = {}) stopped running.", .{process.id});
+        std.log.info("Process (PID = {f}) stopped running.", .{process.id});
 
         onProcessClose(context);
 
-        std.log.info("Closing process (PID = {})...", .{process.id});
+        std.log.info("Closing process (PID = {f})...", .{process.id});
         if (process.close()) {
             std.log.info("Process closed successfully.", .{});
         } else |err| {
-            sdk.misc.error_context.append("Failed close process with PID: {}", .{process.id});
+            sdk.misc.error_context.append("Failed close process with PID: {f}", .{process.id});
             sdk.misc.error_context.logError(err);
         }
         opened_process.* = null;
@@ -60,11 +60,11 @@ fn runLoopLogic(
                 return;
             },
         };
-        std.log.info("Process ID found: {}", .{process_id});
+        std.log.info("Process ID found: {f}", .{process_id});
 
-        std.log.info("Opening process (PID = {})...", .{process_id});
+        std.log.info("Opening process (PID = {f})...", .{process_id});
         const process = sdk.os.Process.open(process_id, access_rights) catch |err| {
-            sdk.misc.error_context.append("Failed to open process with PID: {}", .{process_id});
+            sdk.misc.error_context.append("Failed to open process with PID: {f}", .{process_id});
             sdk.misc.error_context.logError(err);
             return;
         };
@@ -74,11 +74,11 @@ fn runLoopLogic(
         if (success) {
             opened_process.* = process;
         } else {
-            std.log.info("Closing process (PID = {})...", .{process.id});
+            std.log.info("Closing process (PID = {f})...", .{process.id});
             if (process.close()) {
                 std.log.info("Process closed successfully.", .{});
             } else |err| {
-                sdk.misc.error_context.append("Failed close process with PID: {}", .{process.id});
+                sdk.misc.error_context.append("Failed close process with PID: {f}", .{process.id});
                 sdk.misc.error_context.logError(err);
             }
         }

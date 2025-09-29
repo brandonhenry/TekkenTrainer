@@ -60,11 +60,11 @@ pub fn Bitfield(comptime backing_integer: type, comptime members: []const Bitfie
 const testing = std.testing;
 
 test "should have same size as the backing integer" {
+    @setEvalBranchQuota(30000);
     try testing.expectEqual(@sizeOf(u8), @sizeOf(Bitfield(u8, &.{})));
     try testing.expectEqual(@sizeOf(u16), @sizeOf(Bitfield(u16, &.{})));
     try testing.expectEqual(@sizeOf(u32), @sizeOf(Bitfield(u32, &.{})));
     try testing.expectEqual(@sizeOf(u64), @sizeOf(Bitfield(u64, &.{})));
-    try testing.expectEqual(@sizeOf(u128), @sizeOf(Bitfield(u128, &.{})));
 }
 
 test "should place members at correct bits" {

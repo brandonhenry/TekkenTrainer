@@ -29,7 +29,7 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 .NodeMask = 1,
             }, w32.IID_ID3D12DescriptorHeap, @ptrCast(&rtv_descriptor_heap));
             if (dx12.Error.from(rtv_result)) |err| {
-                misc.error_context.new("{}", .{err});
+                misc.error_context.new("{f}", .{err});
                 misc.error_context.append("ID3D12Device.CreateDescriptorHeap returned a failure value.", .{});
                 misc.error_context.append("Failed to create RTV descriptor heap.", .{});
                 return error.Dx12Error;
@@ -44,7 +44,7 @@ pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type
                 .NodeMask = 0,
             }, w32.IID_ID3D12DescriptorHeap, @ptrCast(&srv_descriptor_heap));
             if (dx12.Error.from(srv_result)) |err| {
-                misc.error_context.new("{}", .{err});
+                misc.error_context.new("{f}", .{err});
                 misc.error_context.append("ID3D12Device.CreateDescriptorHeap returned a failure value.", .{});
                 misc.error_context.append("Failed to create SRV descriptor heap.", .{});
                 return error.Dx12Error;
@@ -153,7 +153,7 @@ pub const BufferContext = struct {
             @ptrCast(&command_allocator),
         );
         if (dx12.Error.from(allocator_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("ID3D12Device.CreateCommandAllocator returned a failure value.", .{});
             misc.error_context.append("Failed to create command allocator.", .{});
             return error.Dx12Error;
@@ -170,7 +170,7 @@ pub const BufferContext = struct {
             @ptrCast(&command_list),
         );
         if (dx12.Error.from(list_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("ID3D12Device.CreateCommandList returned a failure value.", .{});
             misc.error_context.append("Failed to create command list.", .{});
             return error.Dx12Error;
@@ -179,7 +179,7 @@ pub const BufferContext = struct {
 
         const close_result = command_list.Close();
         if (dx12.Error.from(close_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("ID3D12GraphicsCommandList.Close returned a failure value.", .{});
             misc.error_context.append("Failed to close command list.", .{});
             return error.Dx12Error;
@@ -188,7 +188,7 @@ pub const BufferContext = struct {
         var resource: *w32.ID3D12Resource = undefined;
         const resource_result = swap_chain.GetBuffer(index, w32.IID_ID3D12Resource, @ptrCast(&resource));
         if (dx12.Error.from(resource_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("IDXGISwapChain.GetBuffer returned a failure value.", .{});
             misc.error_context.append("Failed to get buffer resource.", .{});
             return error.Dx12Error;
@@ -205,7 +205,7 @@ pub const BufferContext = struct {
         var fence: *w32.ID3D12Fence = undefined;
         const fence_result = device.CreateFence(0, .{}, w32.IID_ID3D12Fence, @ptrCast(&fence));
         if (dx12.Error.from(fence_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("ID3D12Device.CreateFence returned a failure value.", .{});
             misc.error_context.append("Failed to create the fence.", .{});
             return error.Dx12Error;
@@ -213,7 +213,7 @@ pub const BufferContext = struct {
         errdefer _ = fence.IUnknown.Release();
 
         const fence_event = w32.CreateEventW(null, 0, 0, null) orelse {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("CreateEventW returned null.", .{});
             misc.error_context.append("Failed to create the fence event.", .{});
             return error.OsError;
@@ -221,7 +221,7 @@ pub const BufferContext = struct {
         errdefer {
             const success = w32.CloseHandle(fence_event);
             if (success == 0) {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("CloseHandle returned 0.", .{});
                 misc.error_context.logError(error.OsError);
             }
@@ -244,7 +244,7 @@ pub const BufferContext = struct {
     pub fn deinit(self: *const Self) void {
         const close_success = w32.CloseHandle(self.fence_event);
         if (close_success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("CloseHandle returned 0.", .{});
             misc.error_context.append("Failed to close fence event.", .{});
             misc.error_context.logError(error.OsError);
@@ -287,14 +287,14 @@ pub fn beforeRender(
 
     const allocator_result = buffer_context.command_allocator.Reset();
     if (dx12.Error.from(allocator_result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("ID3D12CommandAllocator.Reset returned a failure value.", .{});
         return error.Dx12Error;
     }
 
     const list_result = buffer_context.command_list.Reset(buffer_context.command_allocator, null);
     if (dx12.Error.from(list_result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("ID3D12GraphicsCommandList.Reset returned a failure value.", .{});
         return error.Dx12Error;
     }
@@ -335,7 +335,7 @@ pub fn afterRender(
 
     const list_result = buffer_context.command_list.Close();
     if (dx12.Error.from(list_result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("ID3D12GraphicsCommandList.Close returned a failure value.", .{});
         return error.Dx12Error;
     }
@@ -347,7 +347,7 @@ pub fn afterRender(
 
     const signal_result = command_queue.Signal(buffer_context.fence, next_fence_value);
     if (dx12.Error.from(signal_result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("ID3D12CommandQueue.Signal returned a failure value.", .{});
         return error.Dx12Error;
     }
@@ -358,7 +358,7 @@ pub fn afterRender(
         buffer_context.fence_event,
     );
     if (dx12.Error.from(set_event_result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("ID3D12Fence.SetEventOnCompletion returned a failure value.", .{});
         return error.Dx12Error;
     }

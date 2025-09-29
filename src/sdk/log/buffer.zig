@@ -67,11 +67,12 @@ pub fn BufferLogger(comptime config: BufferLoggerConfig) type {
             var stream = std.io.fixedBufferStream(write_region);
 
             const timestamp = config.nanoTimestamp();
-            const timestamp_struct = misc.Timestamp.fromNano(timestamp, config.time_zone) catch null;
-            stream.writer().print("{?} ", .{timestamp_struct}) catch |err| {
-                clearBufferRegion(write_region);
-                return err;
-            };
+            if (misc.Timestamp.fromNano(timestamp, config.time_zone) catch null) |timestamp_struct| {
+                stream.writer().print("{f} ", .{timestamp_struct}) catch |err| {
+                    clearBufferRegion(write_region);
+                    return err;
+                };
+            }
             const timestamp_str = write_region[0..(stream.pos - 1)];
 
             stream.writer().writeAll("[" ++ comptime level.asText() ++ "] ") catch |err| {

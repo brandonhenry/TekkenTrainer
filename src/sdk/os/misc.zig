@@ -58,7 +58,7 @@ pub fn getFullPath(full_path_buffer: *[os.max_file_path_length]u8, short_path: [
         null,
     );
     if (full_path_size == 0) {
-        misc.error_context.new("{}", .{os.Error.getLast()});
+        misc.error_context.new("{f}", .{os.Error.getLast()});
         misc.error_context.append("GetFullPathNameW returned 0.", .{});
         return error.OsError;
     }
@@ -83,7 +83,7 @@ pub fn setConsoleCloseHandler(onConsoleClose: *const fn () void) !void {
     Handler.function = onConsoleClose;
     const success = w32.SetConsoleCtrlHandler(Handler.call, 1);
     if (success == 0) {
-        misc.error_context.new("{}", .{os.Error.getLast()});
+        misc.error_context.new("{f}", .{os.Error.getLast()});
         misc.error_context.append("SetConsoleCtrlHandler returned 0.", .{});
         return error.OsError;
     }
@@ -91,7 +91,7 @@ pub fn setConsoleCloseHandler(onConsoleClose: *const fn () void) !void {
 
 pub fn getExecutableTimestamp() !u32 {
     const handle = w32.GetModuleHandleW(null) orelse {
-        misc.error_context.new("{}", .{os.Error.getLast()});
+        misc.error_context.new("{f}", .{os.Error.getLast()});
         misc.error_context.append("GetModuleHandleW returned null.", .{});
         return error.OsError;
     };

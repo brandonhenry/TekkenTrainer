@@ -44,13 +44,13 @@ pub const PatternCache = struct {
         const address = pattern.findAddress(self.memory_range) catch |err_1| {
             if (err_1 == error.NotFound) {
                 self.map.put(pattern.*, null) catch |err_2| {
-                    std.log.warn("Failed to put memory pattern \"{}\" into cache. [{}]", .{ pattern, err_2 });
+                    std.log.warn("Failed to put memory pattern \"{f}\" into cache. [{}]", .{ pattern, err_2 });
                 };
             }
             return err_1;
         };
         self.map.put(pattern.*, address) catch |err| {
-            std.log.warn("Failed to put memory pattern \"{}\" into cache. [{}]", .{ pattern, err });
+            std.log.warn("Failed to put memory pattern \"{f}\" into cache. [{}]", .{ pattern, err });
         };
         return address;
     }
@@ -125,8 +125,8 @@ pub const PatternCache = struct {
         while (iterator.next()) |entry| {
             const pattern = entry.key_ptr;
             const address = entry.value_ptr.*;
-            const pattern_str = std.fmt.allocPrint(parsed.arena.allocator(), "{}", .{pattern}) catch |err| {
-                misc.error_context.new("Failed to convert memory pattern to string: {}", .{pattern});
+            const pattern_str = std.fmt.allocPrint(parsed.arena.allocator(), "{f}", .{pattern}) catch |err| {
+                misc.error_context.new("Failed to convert memory pattern to string: {f}", .{pattern});
                 return err;
             };
             version.map.put(parsed.arena.allocator(), pattern_str, address) catch |err| {
@@ -135,7 +135,7 @@ pub const PatternCache = struct {
             };
         }
 
-        const new_file_data = std.json.stringifyAlloc(
+        const new_file_data = std.json.Stringify.valueAlloc(
             self.allocator,
             parsed.value,
             .{ .whitespace = .indent_4 },

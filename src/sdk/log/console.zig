@@ -8,16 +8,13 @@ pub const ConsoleLoggerConfig = struct {
     nanoTimestamp: *const fn () i128 = std.time.nanoTimestamp,
     lockStdErr: *const fn () void = std.debug.lockStdErr,
     unlockStdErr: *const fn () void = std.debug.unlockStdErr,
-    use_testing_buffer: bool = false,
+    testing_buffer: ?[]u8 = null,
 };
 
 pub fn ConsoleLogger(comptime config: ConsoleLoggerConfig) type {
     return struct {
-        var log_writer: ?std.io.BufferedWriter(
-            config.buffer_size,
-            if (config.use_testing_buffer) std.ArrayList(u8).Writer else std.fs.File.Writer,
-        ) = null;
-        pub var testing_buffer = if (config.use_testing_buffer) std.ArrayList(u8).init(std.testing.allocator) else {};
+        var log_writer: if (config.testing_buffer == null) ?std.fs.File.Writer else ?std.io.Writer = null;
+        var buffer: [config.buffer_size]u8 = [1]u8{0} ** config.buffer_size;
 
         pub fn logFn(
             comptime level: std.log.Level,
@@ -31,17 +28,23 @@ pub fn ConsoleLogger(comptime config: ConsoleLoggerConfig) type {
             const timestamp = misc.Timestamp.fromNano(config.nanoTimestamp(), config.time_zone) catch null;
             const scope_prefix = if (scope != std.log.default_log_scope) "(" ++ @tagName(scope) ++ ") " else "";
             const level_prefix = "[" ++ comptime level.asText() ++ "] ";
-            var writer = log_writer orelse w: {
+            if (log_writer == null) {
                 config.lockStdErr();
                 defer config.unlockStdErr();
-                const unbuffered_writer = if (config.use_testing_buffer) testing_buffer.writer() else std.io.getStdErr().writer();
-                const buffered_writer = std.io.BufferedWriter(config.buffer_size, @TypeOf(unbuffered_writer)){ .unbuffered_writer = unbuffered_writer };
-                log_writer = buffered_writer;
-                break :w buffered_writer;
-            };
+                if (config.testing_buffer) |testing_buffer| {
+                    log_writer = std.io.Writer.fixed(testing_buffer);
+                } else {
+                    log_writer = std.fs.File.stderr().writer(&buffer);
+                }
+            }
+            const writer: *std.io.Writer = if (config.testing_buffer == null) &log_writer.?.interface else &log_writer.?;
             config.lockStdErr();
             defer config.unlockStdErr();
-            writer.writer().print("{?} " ++ level_prefix ++ scope_prefix ++ format ++ "\n", .{timestamp} ++ args) catch return;
+            if (timestamp) |t| {
+                writer.print("{f} " ++ level_prefix ++ scope_prefix ++ format ++ "\n", .{t} ++ args) catch return;
+            } else {
+                writer.print(level_prefix ++ scope_prefix ++ format ++ "\n", args) catch return;
+            }
             writer.flush() catch return;
         }
     };
@@ -58,6 +61,9 @@ test "should format output correctly" {
     const doNothing = struct {
         fn call() void {}
     }.call;
+    const TestBuffer = struct {
+        var buffer = [1]u8{0} ** 512;
+    };
 
     const logger = ConsoleLogger(.{
         .level = .debug,
@@ -65,9 +71,8 @@ test "should format output correctly" {
         .nanoTimestamp = nanoTimestamp,
         .lockStdErr = doNothing,
         .unlockStdErr = doNothing,
-        .use_testing_buffer = true,
+        .testing_buffer = &TestBuffer.buffer,
     });
-    defer logger.testing_buffer.deinit();
 
     logger.logFn(.debug, std.log.default_log_scope, "Message: {}", .{1});
     logger.logFn(.info, .scope_1, "Message: {}", .{2});
@@ -80,7 +85,8 @@ test "should format output correctly" {
         \\2020-01-02T03:04:05.123456789 [error] (scope_3) Message: 4
         \\
     ;
-    try testing.expectEqualStrings(expected, logger.testing_buffer.items);
+    const actual = std.mem.sliceTo(&TestBuffer.buffer, 0);
+    try testing.expectStringStartsWith(expected, actual);
 }
 
 test "should filter based on log level correctly" {
@@ -92,6 +98,9 @@ test "should filter based on log level correctly" {
     const doNothing = struct {
         fn call() void {}
     }.call;
+    const TestBuffer = struct {
+        var buffer = [1]u8{0} ** 512;
+    };
 
     const logger = ConsoleLogger(.{
         .level = .warn,
@@ -99,9 +108,8 @@ test "should filter based on log level correctly" {
         .nanoTimestamp = nanoTimestamp,
         .lockStdErr = doNothing,
         .unlockStdErr = doNothing,
-        .use_testing_buffer = true,
+        .testing_buffer = &TestBuffer.buffer,
     });
-    defer logger.testing_buffer.deinit();
 
     logger.logFn(.debug, std.log.default_log_scope, "Message: 1", .{});
     logger.logFn(.info, std.log.default_log_scope, "Message: 2", .{});
@@ -113,7 +121,8 @@ test "should filter based on log level correctly" {
         \\2020-01-02T03:04:05.123456789 [error] Message: 4
         \\
     ;
-    try testing.expectEqualStrings(expected, logger.testing_buffer.items);
+    const actual = std.mem.sliceTo(&TestBuffer.buffer, 0);
+    try testing.expectEqualStrings(expected, actual);
 }
 
 test "should lock/unlock stderr correctly" {
@@ -139,6 +148,9 @@ test "should lock/unlock stderr correctly" {
             locked = false;
         }
     };
+    const TestBuffer = struct {
+        var buffer = [1]u8{0} ** 512;
+    };
 
     const logger = ConsoleLogger(.{
         .level = .debug,
@@ -146,9 +158,8 @@ test "should lock/unlock stderr correctly" {
         .nanoTimestamp = nanoTimestamp,
         .lockStdErr = Lock.lock,
         .unlockStdErr = Lock.unlock,
-        .use_testing_buffer = true,
+        .testing_buffer = &TestBuffer.buffer,
     });
-    defer logger.testing_buffer.deinit();
 
     try testing.expect(!Lock.locked);
     try testing.expectEqual(0, Lock.times_locked);

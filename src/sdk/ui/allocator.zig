@@ -20,13 +20,13 @@ const AllocatorWrapper = struct {
     }
 
     pub fn alloc(self: *Self, size: usize) !*anyopaque {
-        const slice = try self.allocator.alignedAlloc(u8, alignment, size);
+        const slice = try self.allocator.alignedAlloc(u8, std.mem.Alignment.fromByteUnits(alignment), size);
         try self.map.put(slice.ptr, slice.len);
         return slice.ptr;
     }
 
     pub fn free(self: *Self, ptr: *anyopaque) !void {
-        const aligned: [*]align(alignment) u8 = @alignCast(@ptrCast(ptr));
+        const aligned: [*]align(alignment) u8 = @ptrCast(@alignCast(ptr));
         const len = (self.map.fetchRemove(aligned) orelse return error.AllocationNotFound).value;
         const slice = aligned[0..len];
         self.allocator.free(slice);

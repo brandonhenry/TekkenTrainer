@@ -66,8 +66,8 @@
         //    .lazy = false,
         //},
         .zigwin32 = .{
-            .url = "https://github.com/marlersoft/zigwin32/archive/7b434a47c2b85f395d8e5a6dca47af6a74422521.tar.gz",
-            .hash = "zigwin32-25.0.28-preview-AAAAALqY-wMp_N2rd4U4tD9LAxh0TbUPLKhzx6lngGQK",
+            .url = "https://github.com/marlersoft/zigwin32/archive/5587b16fa040573846a6bf531301f6206d31a6bf.tar.gz",
+            .hash = "zigwin32-25.0.28-preview-AAAAAICM5AMResOGQnQ85mfe60TTOQeMtt7GRATUOKoP",
         },
         .minhook = .{
             .url = "https://github.com/TsudaKageyu/minhook/archive/refs/tags/v1.3.3.tar.gz",

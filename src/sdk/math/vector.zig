@@ -272,7 +272,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         pub fn normalize(self: Self) Self {
             const len = self.length();
             if (len == 0) {
-                std.log.warn("Attempting to normalize a zero vector {}. Skipping normalization.", .{self});
+                std.log.warn("Attempting to normalize a zero vector {f}. Skipping normalization.", .{self});
                 return self;
             }
             return self.scaleDown(len);
@@ -422,7 +422,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const other_len = other.length();
             if (self_len == 0 or other_len == 0) {
                 std.log.warn(
-                    "Attempting to find angle between vectors {} and {}. However, one of the vectors is zero." ++
+                    "Attempting to find angle between vectors {f} and {f}. However, one of the vectors is zero." ++
                         "Returning fallback angle 0.",
                     .{ self, other },
                 );
@@ -438,7 +438,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             const other_len_squared = other.lengthSquared();
             if (other_len_squared == 0) {
                 std.log.warn(
-                    "Attempting to project a vector {} onto a zero vector {}. Skipping projection.",
+                    "Attempting to project a vector {f} onto a zero vector {f}. Skipping projection.",
                     .{ self, other },
                 );
                 return self;
@@ -497,8 +497,8 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             var homogeneous_coordinate = homogeneous_result.array[size];
             if (homogeneous_coordinate == 0) {
                 std.log.warn(
-                    "After point transformation of {}, the resulting vector {} has a zero homogeneous coordinate." ++
-                        "Using fallback homogeneous coordinate value of 1. The transformation matrix was:\n{}",
+                    "After point transformation of {f}, the resulting vector {f} has a zero homogeneous coordinate." ++
+                        "Using fallback homogeneous coordinate value of 1. The transformation matrix was:\n{f}",
                     .{ self, homogeneous_result, matrix },
                 );
                 homogeneous_coordinate = 1;
@@ -512,19 +512,7 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
             return homogeneous_result.shrink(size);
         }
 
-        pub fn format(
-            self: Self,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            _ = options;
-            if (fmt.len != 0) {
-                @compileError(std.fmt.comptimePrint(
-                    "Invalid vector format {{{s}}}. The only allowed format for vectors is {{}}.",
-                    .{fmt},
-                ));
-            }
+        pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try writer.writeByte('{');
             inline for (self.array, 0..) |element, index| {
                 try writer.print("{}", .{element});
@@ -940,7 +928,7 @@ test "directionTransform should return correct value" {
 
 test "should format correctly" {
     const vec = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
-    const string = try std.fmt.allocPrint(testing.allocator, "{}", .{vec});
+    const string = try std.fmt.allocPrint(testing.allocator, "{f}", .{vec});
     defer testing.allocator.free(string);
-    try testing.expectEqualStrings("{1e0, 2e0, 3e0, 4e0}", string);
+    try testing.expectEqualStrings("{1, 2, 3, 4}", string);
 }

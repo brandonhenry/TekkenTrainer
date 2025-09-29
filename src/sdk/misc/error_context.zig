@@ -131,7 +131,7 @@ pub fn ErrorContext(comptime config: ErrorContextConfig) type {
                     .static => |msg| msg,
                     .dynamic => |msg| msg,
                 };
-                std.log.err("{s} [{}]\nCausation chain:\n{}", .{ message, err, self });
+                std.log.err("{s} [{}]\nCausation chain:\n{f}", .{ message, err, self });
             } else {
                 std.log.err("No items inside the error context. [{}]", .{err});
             }
@@ -143,25 +143,13 @@ pub fn ErrorContext(comptime config: ErrorContextConfig) type {
                     .static => |msg| msg,
                     .dynamic => |msg| msg,
                 };
-                std.log.warn("{s} [{}]\nCausation chain:\n{}", .{ message, err, self });
+                std.log.warn("{s} [{}]\nCausation chain:\n{f}", .{ message, err, self });
             } else {
                 std.log.warn("No items inside the error context. [{}]", .{err});
             }
         }
 
-        pub fn format(
-            self: Self,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            _ = options;
-            if (fmt.len != 0) {
-                @compileError(std.fmt.comptimePrint(
-                    "Invalid ErrorContext format {{{s}}}. The only allowed format for ErrorContext is {{}}.",
-                    .{fmt},
-                ));
-            }
+        pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             if (self.items.len == 0) {
                 try writer.writeAll("No items inside the error context.");
                 return;
@@ -188,18 +176,18 @@ test "should correctly format error message" {
 
     context.new("Error 1.", .{});
     context.append("Error 2 with context: {}", .{123});
-    const message_1 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_1 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_1);
     try testing.expectEqualStrings("1) Error 2 with context: 123\n2) Error 1.\n", message_1);
 
     context.new("Error 3 with context: {}", .{456});
     context.append("Error 4.", .{});
-    const message_2 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_2 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_2);
     try testing.expectEqualStrings("1) Error 4.\n2) Error 3 with context: 456\n", message_2);
 
     context.clear();
-    const message_3 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_3 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_3);
     try testing.expectEqualStrings("No items inside the error context.", message_3);
 }
@@ -212,17 +200,17 @@ test "should discard earliest items when exceeding max items" {
 
     context.new("Error: {}", .{1});
     context.append("Error: {}", .{2});
-    const message_1 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_1 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_1);
     try testing.expectEqualStrings("1) Error: 2\n2) Error: 1\n", message_1);
 
     context.append("Error: {}", .{3});
-    const message_2 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_2 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_2);
     try testing.expectEqualStrings("1) Error: 3\n2) Error: 2\n", message_2);
 
     context.append("Error: {}", .{4});
-    const message_3 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_3 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_3);
     try testing.expectEqualStrings("1) Error: 4\n2) Error: 3\n", message_3);
 }
@@ -238,19 +226,19 @@ test "should discard earliest items when exceeding buffer size" {
     context.new("Error: {}", .{number});
     number = 2;
     context.append("Error: {}", .{number});
-    const message_1 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_1 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_1);
     try testing.expectEqualStrings("1) Error: 2\n2) Error: 1\n", message_1);
 
     number = 3;
     context.append("Error: {}", .{number});
-    const message_2 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_2 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_2);
     try testing.expectEqualStrings("1) Error: 3\n2) Error: 2\n", message_2);
 
     number = 123;
     context.append("Error: {}", .{number});
-    const message_3 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_3 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_3);
     try testing.expectEqualStrings("1) Error: 123\n", message_3);
 }
@@ -266,13 +254,13 @@ test "should discard all items when message is larger then the buffer" {
     context.new("Error: {}", .{number});
     number = 2;
     context.append("Error: {}", .{number});
-    const message_1 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_1 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_1);
     try testing.expectEqualStrings("1) Error: 2\n2) Error: 1\n", message_1);
 
     number = 1234567890;
     context.append("Error: {}", .{number});
-    const message_2 = try std.fmt.allocPrint(testing.allocator, "{}", .{context});
+    const message_2 = try std.fmt.allocPrint(testing.allocator, "{f}", .{context});
     defer testing.allocator.free(message_2);
     try testing.expectEqualStrings("No items inside the error context.", message_2);
 }

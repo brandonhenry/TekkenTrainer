@@ -36,14 +36,15 @@ pub fn build(b: *std.Build) void {
     const imgui = imguiDependency(b, target, optimize, false);
     const imgui_te = imguiDependency(b, target, optimize, true);
 
-    const dll = b.addSharedLibrary(.{
+    const dll = b.addLibrary(.{
         .name = "irony",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/dll.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+        .linkage = .dynamic,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/dll.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
     });
     dll.root_module.addImport("win32", win32);
     dll.root_module.addImport("lib_c_time", lib_c_time);
@@ -58,10 +59,12 @@ pub fn build(b: *std.Build) void {
 
     const injector = b.addExecutable(.{
         .name = "irony_injector",
-        .root_source_file = b.path("src/injector.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/injector.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
     });
     injector.root_module.addImport("lib_c_time", lib_c_time);
     injector.root_module.addImport("win32", win32);
@@ -103,10 +106,12 @@ pub fn build(b: *std.Build) void {
     // Creates a step for testing. This only builds the test executable
     // but does not run it.
     const tests = b.addTest(.{
-        .root_source_file = b.path("src/tests.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tests.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
     });
     tests.root_module.addImport("lib_c_time", lib_c_time);
     tests.root_module.addImport("win32", win32);
@@ -214,10 +219,13 @@ fn imguiDependency(
         _ = files.addCopyDirectory(b.dependency("cimgui_test_engine", .{}).path("."), ".", .{});
     }
     const directory = files.getDirectory();
-    const library = b.addStaticLibrary(.{
+    const library = b.addLibrary(.{
         .name = "imgui",
-        .target = target,
-        .optimize = optimize,
+        .linkage = .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     library.addIncludePath(directory);
     library.addIncludePath(directory.path(b, "./imgui"));

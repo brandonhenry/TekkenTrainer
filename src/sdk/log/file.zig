@@ -12,7 +12,8 @@ pub const FileLoggerConfig = struct {
 pub fn FileLogger(comptime config: FileLoggerConfig) type {
     return struct {
         var log_file: ?std.fs.File = null;
-        var log_writer: ?std.io.BufferedWriter(config.buffer_size, std.fs.File.Writer) = null;
+        var log_writer: ?std.fs.File.Writer = null;
+        var buffer: [config.buffer_size]u8 = [1]u8{0} ** config.buffer_size;
         var mutex = std.Thread.Mutex{};
 
         pub fn start(file_path: []const u8) !void {
@@ -20,24 +21,17 @@ pub fn FileLogger(comptime config: FileLoggerConfig) type {
                 misc.error_context.new("Failed to create or open file: {s}\n", .{file_path});
                 return err;
             };
-            const end_pos = file.getEndPos() catch |err| {
-                misc.error_context.new("Failed to get the end position of the file: {s}\n", .{file_path});
-                return err;
-            };
-            file.seekTo(end_pos) catch |err| {
-                misc.error_context.new(
-                    "Failed to seek to end position ({}) of the file: {s}\n",
-                    .{ end_pos, file_path },
-                );
+            file.seekFromEnd(0) catch |err| {
+                misc.error_context.new("Failed to seek to end position of the file: {s}\n", .{file_path});
                 return err;
             };
             log_file = file;
-            log_writer = .{ .unbuffered_writer = file.writer() };
+            log_writer = file.writerStreaming(&buffer);
         }
 
         pub fn stop() void {
             if (log_writer) |*writer| {
-                writer.flush() catch |err| {
+                writer.interface.flush() catch |err| {
                     std.debug.print("Failed to flush buffer before closing the file logger. Cause: {}\n", .{err});
                 };
                 log_writer = null;
@@ -60,16 +54,20 @@ pub fn FileLogger(comptime config: FileLoggerConfig) type {
             const timestamp = misc.Timestamp.fromNano(config.nanoTimestamp(), config.time_zone) catch null;
             const scope_prefix = if (scope != std.log.default_log_scope) "(" ++ @tagName(scope) ++ ") " else "";
             const level_prefix = "[" ++ comptime level.asText() ++ "] ";
-            var writer = log_writer orelse return;
+            var writer = if (log_writer) |*w| &w.interface else return;
             mutex.lock();
             defer mutex.unlock();
-            writer.writer().print(
-                "{?} " ++ level_prefix ++ scope_prefix ++ format ++ "\n",
-                .{timestamp} ++ args,
-            ) catch |err| {
-                std.debug.print("Failed to write log message with file logger. Cause: {}\n", .{err});
-                return;
-            };
+            if (timestamp) |t| {
+                writer.print("{f} " ++ level_prefix ++ scope_prefix ++ format ++ "\n", .{t} ++ args) catch |err| {
+                    std.debug.print("Failed to write log message with file logger. Cause: {}\n", .{err});
+                    return;
+                };
+            } else {
+                writer.print(level_prefix ++ scope_prefix ++ format ++ "\n", args) catch |err| {
+                    std.debug.print("Failed to write log message with file logger. Cause: {}\n", .{err});
+                    return;
+                };
+            }
             writer.flush() catch |err| {
                 std.debug.print("Failed to flush log buffer with file logger. Cause: {}\n", .{err});
                 return;

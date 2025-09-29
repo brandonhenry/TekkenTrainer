@@ -13,19 +13,7 @@ pub const Error = struct {
         return .{ .result = result };
     }
 
-    pub fn format(
-        self: Self,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = options;
-        if (fmt.len != 0) {
-            @compileError(std.fmt.comptimePrint(
-                "Invalid Error format {{{s}}}. The only allowed format for Error is {{}}.",
-                .{fmt},
-            ));
-        }
+    pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         const u_result: u32 = @bitCast(self.result);
         if (ErrorEnum.from(self.result)) |err_enum| {
             const description = err_enum.getDescription();
@@ -134,7 +122,7 @@ test "from should return correct value when result code represents failure" {
 
 test "should format correctly when error has message" {
     const err = Error{ .result = w32.DXGI_ERROR_DRIVER_INTERNAL_ERROR };
-    const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
+    const message = try std.fmt.allocPrint(testing.allocator, "{f}", .{err});
     defer testing.allocator.free(message);
     try testing.expectEqualStrings(
         "The driver encountered a problem and was put into the device removed state. (result code 0x887A0020 DXGI_ERROR_DRIVER_INTERNAL_ERROR)",
@@ -144,7 +132,7 @@ test "should format correctly when error has message" {
 
 test "should format correctly when error has no message" {
     const err = Error{ .result = w32.STG_E_MEDIUMFULL };
-    const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
+    const message = try std.fmt.allocPrint(testing.allocator, "{f}", .{err});
     defer testing.allocator.free(message);
     try testing.expectEqualStrings("result code 0x80030070", message);
 }

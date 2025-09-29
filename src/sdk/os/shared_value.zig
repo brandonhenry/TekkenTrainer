@@ -26,7 +26,7 @@ pub fn SharedValue(comptime Value: type) type {
                 @intCast(@sizeOf(Value) & 0xFFFFFFFF),
                 full_name,
             ) orelse {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("CreateFileMappingW returned null.", .{});
                 return error.OsError;
             };
@@ -48,7 +48,7 @@ pub fn SharedValue(comptime Value: type) type {
             };
             const full_name = buffer[0..size :0];
             const handle = w32.OpenFileMappingW(@bitCast(desired_access), 0, full_name) orelse {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("OpenFileMappingW returned null.", .{});
                 return error.OsError;
             };
@@ -64,14 +64,14 @@ pub fn SharedValue(comptime Value: type) type {
 
         pub fn read(self: *const Self) !Value {
             const pointer = w32.MapViewOfFile(self.handle, w32.FILE_MAP_READ, 0, 0, @sizeOf(Value)) orelse {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("MapViewOfFile returned null.", .{});
                 return error.OsError;
             };
             defer {
                 const success = w32.UnmapViewOfFile(pointer);
                 if (success == 0) {
-                    misc.error_context.new("{}", .{os.Error.getLast()});
+                    misc.error_context.new("{f}", .{os.Error.getLast()});
                     misc.error_context.append("UnmapViewOfFile returned 0.", .{});
                     misc.error_context.logError(error.OsError);
                 }
@@ -82,14 +82,14 @@ pub fn SharedValue(comptime Value: type) type {
 
         pub fn write(self: *const Self, value: Value) !void {
             const pointer = w32.MapViewOfFile(self.handle, w32.FILE_MAP_WRITE, 0, 0, @sizeOf(Value)) orelse {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("MapViewOfFile returned null.", .{});
                 return error.OsError;
             };
             defer {
                 const success = w32.UnmapViewOfFile(pointer);
                 if (success == 0) {
-                    misc.error_context.new("{}", .{os.Error.getLast()});
+                    misc.error_context.new("{f}", .{os.Error.getLast()});
                     misc.error_context.append("UnmapViewOfFile returned 0.", .{});
                     misc.error_context.logError(error.OsError);
                 }
@@ -114,7 +114,7 @@ pub fn SharedValue(comptime Value: type) type {
         fn deinit(self: *const Self) !void {
             const success = w32.CloseHandle(self.handle);
             if (success == 0) {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("CloseHandle returned 0.", .{});
                 return error.OsError;
             }

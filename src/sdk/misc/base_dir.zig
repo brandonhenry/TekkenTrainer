@@ -50,7 +50,7 @@ pub const BaseDir = struct {
     }
 
     pub fn allocPath(self: *const Self, allocator: std.mem.Allocator, sub_path: []const u8) ![:0]u8 {
-        return std.fmt.allocPrintZ(allocator, "{s}\\{s}", .{ self.get(), sub_path }) catch |err| {
+        return std.fmt.allocPrintSentinel(allocator, "{s}\\{s}", .{ self.get(), sub_path }, 0) catch |err| {
             misc.error_context.new("Failed to print allocate string: {s}\\{s}", .{ self.get(), sub_path });
             return err;
         };

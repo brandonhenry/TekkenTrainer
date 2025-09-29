@@ -983,7 +983,7 @@ test "should draw float correctly" {
             const address = @intFromPtr(&value);
 
             ctx.setRef("Window");
-            try ctx.expectItemExists("test: -1e0");
+            try ctx.expectItemExists("test: -1");
             ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
 
             ctx.setRef("//$FOCUSED");
@@ -992,10 +992,10 @@ test "should draw float correctly" {
             try ctx.expectItemExists("type: f32");
             try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
             try ctx.expectItemExists("size: 4 (0x4) bytes");
-            try ctx.expectItemExists("value: -1e0");
+            try ctx.expectItemExists("value: -1");
             try ctx.expectItemExists("u32: 3212836864 (0xBF800000)");
             try ctx.expectItemExists("i32: -1082130432 (0x-40800000)");
-            try ctx.expectItemExists("f32: -1e0");
+            try ctx.expectItemExists("f32: -1");
             try ctx.expectItemExists("binary: 10111111100000000000000000000000");
         }
     };
@@ -2170,15 +2170,15 @@ test "should draw vector correctly" {
             ctx.setRef("Window");
             ctx.itemClick("test_1", imgui.ImGuiMouseButton_Left, 0);
             ctx.itemClick("test_2", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("test_1/x: 1e0");
-            try ctx.expectItemExists("test_1/y: 2e0");
-            try ctx.expectItemExists("test_1/z: 3e0");
-            try ctx.expectItemExists("test_1/w: 4e0");
-            try ctx.expectItemExists("test_2/0: 5e0");
-            try ctx.expectItemExists("test_2/1: 6e0");
-            try ctx.expectItemExists("test_2/2: 7e0");
-            try ctx.expectItemExists("test_2/3: 8e0");
-            try ctx.expectItemExists("test_2/4: 9e0");
+            try ctx.expectItemExists("test_1/x: 1");
+            try ctx.expectItemExists("test_1/y: 2");
+            try ctx.expectItemExists("test_1/z: 3");
+            try ctx.expectItemExists("test_1/w: 4");
+            try ctx.expectItemExists("test_2/0: 5");
+            try ctx.expectItemExists("test_2/1: 6");
+            try ctx.expectItemExists("test_2/2: 7");
+            try ctx.expectItemExists("test_2/3: 8");
+            try ctx.expectItemExists("test_2/4: 9");
         }
     };
     const context = try sdk.ui.getTestingContext();

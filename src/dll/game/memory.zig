@@ -282,7 +282,7 @@ fn pattern(pattern_cache: *?sdk.memory.PatternCache, comptime pattern_string: []
     };
     const memory_pattern = sdk.memory.Pattern.fromComptime(pattern_string);
     const address = cache.findAddress(&memory_pattern) catch |err| {
-        sdk.misc.error_context.append("Failed to find address of memory pattern: {}", .{memory_pattern});
+        sdk.misc.error_context.append("Failed to find address of memory pattern: {f}", .{memory_pattern});
         return err;
     };
     return address;

@@ -56,7 +56,7 @@ pub const Controller = struct {
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
             .allocator = allocator,
-            .recording = Recording.init(allocator),
+            .recording = .empty,
             .mode = .{ .live = .{ .frame = .{} } },
             .playback_speed = 1.0,
         };
@@ -64,7 +64,7 @@ pub const Controller = struct {
 
     pub fn deinit(self: *Self) void {
         self.stop();
-        self.recording.deinit();
+        self.recording.deinit(self.allocator);
     }
 
     pub fn processFrame(
@@ -81,7 +81,7 @@ pub const Controller = struct {
                 }
             },
             .record => |*state| {
-                state.segment.append(frame.*) catch |err| {
+                state.segment.append(self.allocator, frame.*) catch |err| {
                     sdk.misc.error_context.new("Failed to append a frame to the recorded segment.", .{});
                     sdk.misc.error_context.logError(err);
                     return;
@@ -252,7 +252,7 @@ pub const Controller = struct {
             break :block self.recording.items.len;
         };
         self.mode = .{ .record = .{
-            .segment = Recording.init(self.allocator),
+            .segment = .empty,
             .segment_start_index = segment_start,
         } };
     }
@@ -301,7 +301,7 @@ pub const Controller = struct {
             return;
         }
         self.flushSegment();
-        self.recording.clearAndFree();
+        self.recording.clearAndFree(self.allocator);
         self.mode = .{ .live = .{ .frame = .{} } };
     }
 
@@ -310,11 +310,11 @@ pub const Controller = struct {
             .record => |*state| state,
             else => return,
         };
-        self.recording.insertSlice(state.segment_start_index, state.segment.items) catch |err| {
+        self.recording.insertSlice(self.allocator, state.segment_start_index, state.segment.items) catch |err| {
             sdk.misc.error_context.new("Failed to insert the recorded segment into the recording.", .{});
             sdk.misc.error_context.logError(err);
         };
-        state.segment.deinit();
+        state.segment.deinit(self.allocator);
     }
 
     pub fn getTotalFrames(self: *const Self) usize {

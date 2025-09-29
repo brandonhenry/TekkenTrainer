@@ -44,19 +44,7 @@ pub const Timestamp = struct {
         };
     }
 
-    pub fn format(
-        self: Self,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = options;
-        if (fmt.len != 0) {
-            @compileError(std.fmt.comptimePrint(
-                "Invalid Timestamp format {{{s}}}. The only allowed format for Timestamp is {{}}.",
-                .{fmt},
-            ));
-        }
+    pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         if (self.year < 0) {
             try writer.writeByte('-');
         }
@@ -91,7 +79,7 @@ test "fromNano should return correct value" {
 }
 
 test "should format timestamp correctly" {
-    const timestamp_1 = try std.fmt.allocPrint(testing.allocator, "{}", .{Timestamp{
+    const timestamp_1 = try std.fmt.allocPrint(testing.allocator, "{f}", .{Timestamp{
         .year = 2020,
         .month = 1,
         .day = 2,
@@ -102,7 +90,7 @@ test "should format timestamp correctly" {
     }});
     defer testing.allocator.free(timestamp_1);
     try testing.expectEqualStrings("2020-01-02T03:04:05.000000006", timestamp_1);
-    const timestamp_2 = try std.fmt.allocPrint(testing.allocator, "{}", .{Timestamp{
+    const timestamp_2 = try std.fmt.allocPrint(testing.allocator, "{f}", .{Timestamp{
         .year = 2030,
         .month = 12,
         .day = 31,

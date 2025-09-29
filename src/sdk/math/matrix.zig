@@ -421,7 +421,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             const sin = std.math.sin(rotation);
             const axis = if (!vector.isZero(0)) vector.normalize() else block: {
                 std.log.warn(
-                    "When creating a rotate around matrix, the supplied vector {} was zero. " ++
+                    "When creating a rotate around matrix, the supplied vector {f} was zero. " ++
                         "Using fallback rotation axis.",
                     .{vector},
                 );
@@ -463,7 +463,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             var direction = target.subtract(eye);
             if (direction.isZero(0)) {
                 std.log.warn(
-                    "When creating a look at matrix, the supplied eye vector {} was equal to the target vector {}. " ++
+                    "When creating a look at matrix, the supplied eye vector {f} was equal to the target vector {f}. " ++
                         "Using fallback look direction.",
                     .{ eye, target },
                 );
@@ -473,7 +473,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
 
             const normalized_up = if (!up.isZero(0)) up.normalize() else block: {
                 std.log.warn(
-                    "When creating a look at matrix, the supplied up vector {} was zero. Using fallback up direction.",
+                    "When creating a look at matrix, the supplied up vector {f} was zero. Using fallback up direction.",
                     .{up},
                 );
                 break :block fallback_up;
@@ -481,7 +481,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             var z_cross_up = z.cross(normalized_up);
             if (z_cross_up.isZero(0)) {
                 std.log.warn(
-                    "When creating a look at matrix, the supplied up vector {} was colinear with the look direction {}. " ++
+                    "When creating a look at matrix, the supplied up vector {f} was colinear with the look direction {f}. " ++
                         "Using fallback up direction.",
                     .{ up, direction },
                 );
@@ -685,19 +685,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             return self.multiply(matrix);
         }
 
-        pub fn format(
-            self: Self,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            _ = options;
-            if (fmt.len != 0) {
-                @compileError(std.fmt.comptimePrint(
-                    "Invalid matrix format {{{s}}}. The only allowed format for matrix is {{}}.",
-                    .{fmt},
-                ));
-            }
+        pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             inline for (0..size) |i| {
                 try writer.writeByte('|');
                 inline for (0..size) |j| {
@@ -1304,13 +1292,13 @@ test "should format correctly" {
         .{ 9, 10, 11, 12 },
         .{ 13, 14, 15, 16 },
     });
-    const string = try std.fmt.allocPrint(testing.allocator, "{}", .{matrix});
+    const string = try std.fmt.allocPrint(testing.allocator, "{f}", .{matrix});
     defer testing.allocator.free(string);
     try testing.expectEqualStrings(
-        "|1e0, 2e0, 3e0, 4e0|\n" ++
-            "|5e0, 6e0, 7e0, 8e0|\n" ++
-            "|9e0, 1e1, 1.1e1, 1.2e1|\n" ++
-            "|1.3e1, 1.4e1, 1.5e1, 1.6e1|",
+        "|1, 2, 3, 4|\n" ++
+            "|5, 6, 7, 8|\n" ++
+            "|9, 10, 11, 12|\n" ++
+            "|13, 14, 15, 16|",
         string,
     );
 }

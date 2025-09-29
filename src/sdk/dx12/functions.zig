@@ -50,14 +50,14 @@ pub const Functions = struct {
 
         const register_success = w32.RegisterClassExW(&window_class);
         if (register_success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("RegisterClassExW returned 0.", .{});
             return error.OsError;
         }
         defer {
             const success = w32.UnregisterClassW(window_class.lpszClassName, window_class.hInstance);
             if (success == 0) {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("UnregisterClassW returned 0.", .{});
                 misc.error_context.append("Failed to clean up after finding DX12 functions.", .{});
                 misc.error_context.logError(error.OsError);
@@ -78,14 +78,14 @@ pub const Functions = struct {
             window_class.hInstance,
             null,
         ) orelse {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("CreateWindowExW returned 0.", .{});
             return error.OsError;
         };
         defer {
             const success = w32.DestroyWindow(window);
             if (success == 0) {
-                misc.error_context.new("{}", .{os.Error.getLast()});
+                misc.error_context.new("{f}", .{os.Error.getLast()});
                 misc.error_context.append("DestroyWindow returned 0.", .{});
                 misc.error_context.append("Failed to clean up after finding DX12 functions.", .{});
                 misc.error_context.logError(error.OsError);
@@ -105,7 +105,7 @@ pub const Functions = struct {
         var factory: *w32.IDXGIFactory4 = undefined;
         const factory_result = CreateDXGIFactory(w32.IID_IDXGIFactory4, @ptrCast(&factory));
         if (dx12.Error.from(factory_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("CreateDXGIFactory returned a failure value.", .{});
             return error.Dx12Error;
         }
@@ -114,7 +114,7 @@ pub const Functions = struct {
         var adapter: *w32.IDXGIAdapter = undefined;
         const adapter_result = factory.EnumWarpAdapter(w32.IID_IDXGIAdapter, @ptrCast(&adapter));
         if (dx12.Error.from(adapter_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("IDXGIFactory4.EnumWarpAdapter returned a failure value.", .{});
             return error.Dx12Error;
         }
@@ -138,7 +138,7 @@ pub const Functions = struct {
             @ptrCast(&device),
         );
         if (dx12.Error.from(device_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("D3D12CreateDevice returned a failure value.", .{});
             return error.Dx12Error;
         }
@@ -156,7 +156,7 @@ pub const Functions = struct {
             @ptrCast(&command_queue),
         );
         if (dx12.Error.from(command_queue_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("ID3D12Device.CreateCommandQueue returned a failure value.", .{});
             return error.Dx12Error;
         }
@@ -186,7 +186,7 @@ pub const Functions = struct {
             @ptrCast(&swap_chain),
         );
         if (dx12.Error.from(swap_chain_result)) |err| {
-            misc.error_context.new("{}", .{err});
+            misc.error_context.new("{f}", .{err});
             misc.error_context.append("IDXGIFactory.CreateSwapChain returned a failure value.", .{});
             return error.Dx12Error;
         }

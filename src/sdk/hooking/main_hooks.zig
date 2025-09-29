@@ -188,7 +188,7 @@ pub fn MainHooks(
                 std.log.debug("Waiting for the last present call...", .{});
                 while (!is_deinit_called.load(.seq_cst)) {
                     if (!builtin.is_test) {
-                        std.time.sleep(100 * std.time.ns_per_ms);
+                        std.Thread.sleep(100 * std.time.ns_per_ms);
                     }
                 }
                 std.log.debug("Waiting completed.", .{});

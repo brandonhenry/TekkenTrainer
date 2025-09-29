@@ -7,7 +7,7 @@ pub fn getWindowFromSwapChain(swap_chain: *const w32.IDXGISwapChain) !w32.HWND {
     var desc: w32.DXGI_SWAP_CHAIN_DESC = undefined;
     const result = swap_chain.GetDesc(&desc);
     if (dx12.Error.from(result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("IDXGISwapChain.GetDesc returned a failure value.", .{});
         return error.Dx12Error;
     }
@@ -18,7 +18,7 @@ pub fn getDeviceFromSwapChain(swap_chain: *const w32.IDXGISwapChain) !(*const w3
     var device: *const w32.ID3D12Device = undefined;
     const result = swap_chain.IDXGIDeviceSubObject.GetDevice(w32.IID_ID3D12Device, @ptrCast(&device));
     if (dx12.Error.from(result)) |err| {
-        misc.error_context.new("{}", .{err});
+        misc.error_context.new("{f}", .{err});
         misc.error_context.append("IDXGISwapChain.GetDevice returned a failure value.", .{});
         return error.Dx12Error;
     }

@@ -694,7 +694,7 @@ pub const TestContext = struct {
     }
 
     pub fn expectItemExistsFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
-        const ref = try std.fmt.allocPrintZ(std.testing.allocator, fmt, args);
+        const ref = try std.fmt.allocPrintSentinel(std.testing.allocator, fmt, args, 0);
         defer std.testing.allocator.free(ref);
         return self.expectItemExists(ref);
     }
@@ -713,7 +713,7 @@ pub const TestContext = struct {
     }
 
     pub fn expectItemNotExistsFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
-        const ref = try std.fmt.allocPrintZ(std.testing.allocator, fmt, args);
+        const ref = try std.fmt.allocPrintSentinel(std.testing.allocator, fmt, args, 0);
         defer std.testing.allocator.free(ref);
         return self.expectItemNotExists(ref);
     }
@@ -728,7 +728,7 @@ pub const TestContext = struct {
     }
 
     pub fn expectClipboardTextFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
-        const expected = try std.fmt.allocPrintZ(std.testing.allocator, fmt, args);
+        const expected = try std.fmt.allocPrintSentinel(std.testing.allocator, fmt, args, 0);
         defer std.testing.allocator.free(expected);
         return self.expectClipboardText(expected);
     }

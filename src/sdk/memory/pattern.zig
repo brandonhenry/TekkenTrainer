@@ -87,19 +87,7 @@ pub const Pattern = struct {
         return self.buffer[0..self.len];
     }
 
-    pub fn format(
-        self: Self,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = options;
-        if (fmt.len != 0) {
-            @compileError(std.fmt.comptimePrint(
-                "Invalid MemoryPattern format {{{s}}}. The only allowed format for MemoryPattern is {{}}.",
-                .{fmt},
-            ));
-        }
+    pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         var is_first = true;
         for (self.getBytes()) |byte| {
             if (is_first) {
@@ -175,7 +163,7 @@ test "fromString should error when pattern invalid" {
 
 test "should format correctly" {
     const pattern = Pattern.fromComptime("00 ?? 12 AB Cd eF 3a b4 5C D6");
-    const string = try std.fmt.allocPrint(testing.allocator, "{}", .{pattern});
+    const string = try std.fmt.allocPrint(testing.allocator, "{f}", .{pattern});
     defer testing.allocator.free(string);
     try testing.expectEqualStrings("00 ?? 12 AB CD EF 3A B4 5C D6", string);
 }

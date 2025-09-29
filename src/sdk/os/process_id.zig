@@ -21,7 +21,7 @@ pub const ProcessId = struct {
             &number_of_bytes,
         );
         if (success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("K32EnumProcesses returned 0.", .{});
             return error.OsError;
         }
@@ -55,12 +55,12 @@ pub const ProcessId = struct {
         while (iterator.next()) |process_id| {
             var process = os.Process.open(process_id, .{ .QUERY_LIMITED_INFORMATION = 1 }) catch continue;
             defer process.close() catch |err| {
-                misc.error_context.append("Failed to close process with ID: {}", .{process_id});
+                misc.error_context.append("Failed to close process with ID: {f}", .{process_id});
                 misc.error_context.logError(err);
             };
             var buffer: [os.max_file_path_length]u8 = undefined;
             const size = process.getFilePath(&buffer) catch |err| {
-                misc.error_context.append("Failed to get file path for process with ID: {}", .{process_id});
+                misc.error_context.append("Failed to get file path for process with ID: {f}", .{process_id});
                 return err;
             };
             const path = buffer[0..size];
@@ -73,14 +73,8 @@ pub const ProcessId = struct {
         return error.NotFound;
     }
 
-    pub fn format(
-        self: Self,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = options;
-        try writer.print("{" ++ fmt ++ "}", .{self.raw});
+    pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        try writer.print("{}", .{self.raw});
     }
 };
 
@@ -114,13 +108,9 @@ test "findByFileName should error when process does not exist" {
     try testing.expectError(error.NotFound, ProcessId.findByFileName("invalid process name"));
 }
 
-test "should format just like the raw value" {
+test "should format correctly" {
     const process_id = ProcessId{ .raw = 123 };
-    const string = try std.fmt.allocPrint(
-        testing.allocator,
-        "test {} {x} {X}",
-        .{ process_id, process_id, process_id },
-    );
+    const string = try std.fmt.allocPrint(testing.allocator, "test {f}", .{process_id});
     defer testing.allocator.free(string);
-    try testing.expectEqualStrings("test 123 7b 7B", string);
+    try testing.expectEqualStrings("test 123", string);
 }

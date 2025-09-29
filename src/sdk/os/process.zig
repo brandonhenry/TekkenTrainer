@@ -26,7 +26,7 @@ pub const Process = struct {
             0,
             id.raw,
         ) orelse {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("OpenProcess returned null.", .{});
             return error.OsError;
         };
@@ -40,7 +40,7 @@ pub const Process = struct {
     pub fn close(self: *const Self) !void {
         const success = w32.CloseHandle(self.handle);
         if (success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("CloseHandle returned 0.", .{});
             return error.OsError;
         }
@@ -58,7 +58,7 @@ pub const Process = struct {
         var exit_code: u32 = undefined;
         const success = w32.GetExitCodeProcess(self.handle, &exit_code);
         if (success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("GetExitCodeProcess returned 0.", .{});
             return error.OsError;
         }
@@ -69,7 +69,7 @@ pub const Process = struct {
         var buffer: [os.max_file_path_length:0]u16 = undefined;
         const size = w32.K32GetProcessImageFileNameW(self.handle, &buffer, buffer.len);
         if (size == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("K32GetProcessImageFileNameW returned 0.", .{});
             return error.OsError;
         }

@@ -10,20 +10,7 @@ pub const Error = struct {
         return .{ .error_code = w32.GetLastError() };
     }
 
-    pub fn format(
-        self: Self,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = options;
-        if (fmt.len != 0) {
-            @compileError(std.fmt.comptimePrint(
-                "Invalid Error format {{{s}}}. The only allowed format for Error is {{}}.",
-                .{fmt},
-            ));
-        }
-
+    pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         const language_id = 1024 * w32.SUBLANG_ENGLISH_US | w32.LANG_ENGLISH;
         var message: [*:0]u16 = undefined;
         const message_length = w32.FormatMessageW(.{
@@ -35,9 +22,9 @@ pub const Error = struct {
 
         if (message_length > 0) {
             var iterator = std.unicode.Utf16LeIterator.init(message[0..message_length]);
-            while (try iterator.nextCodepoint()) |codepoint| {
+            while (iterator.nextCodepoint() catch return error.WriteFailed) |codepoint| {
                 var buffer = [_]u8{undefined} ** 4;
-                const len = try std.unicode.utf8Encode(codepoint, &buffer);
+                const len = std.unicode.utf8Encode(codepoint, &buffer) catch return error.WriteFailed;
                 try writer.writeAll(buffer[0..len]);
             }
             try writer.writeAll(" (");
@@ -62,7 +49,7 @@ test "getLast should get correct error code" {
 
 test "should format correctly when error has message" {
     const err = Error{ .error_code = w32.ERROR_FILE_NOT_FOUND };
-    const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
+    const message = try std.fmt.allocPrint(testing.allocator, "{f}", .{err});
     defer testing.allocator.free(message);
     if (std.mem.startsWith(u8, message, "F")) { // Wine
         try testing.expectEqualStrings("File not found.\r\n (error code 0x2 ERROR_FILE_NOT_FOUND)", message);
@@ -76,7 +63,7 @@ test "should format correctly when error has message" {
 
 test "should format correctly when error has no message" {
     const err = Error{ .error_code = w32.WAIT_FAILED };
-    const message = try std.fmt.allocPrint(testing.allocator, "{}", .{err});
+    const message = try std.fmt.allocPrint(testing.allocator, "{f}", .{err});
     defer testing.allocator.free(message);
     try testing.expectEqualStrings("error code 0xFFFFFFFF WAIT_FAILED", message);
 }

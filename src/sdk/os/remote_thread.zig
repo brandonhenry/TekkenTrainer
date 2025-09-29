@@ -24,7 +24,7 @@ pub const RemoteThread = struct {
             0,
             null,
         ) orelse {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("CreateRemoteThread returned null.", .{});
             return error.OsError;
         };
@@ -35,7 +35,7 @@ pub const RemoteThread = struct {
     pub fn clean(self: *const Self) !void {
         const success = w32.CloseHandle(self.handle);
         if (success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("CloseHandle returned 0.", .{});
             return error.OsError;
         }
@@ -47,14 +47,14 @@ pub const RemoteThread = struct {
     pub fn join(self: *const Self) !u32 {
         const return_code = w32.WaitForSingleObject(self.handle, w32.INFINITE);
         if (return_code == @intFromEnum(w32.WAIT_FAILED)) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("WaitForSingleObject returned: {}", .{return_code});
             return error.OsError;
         }
         var exit_code: u32 = undefined;
         const success = w32.GetExitCodeThread(self.handle, &exit_code);
         if (success == 0) {
-            misc.error_context.new("{}", .{os.Error.getLast()});
+            misc.error_context.new("{f}", .{os.Error.getLast()});
             misc.error_context.append("GetExitCodeThread returned 0.", .{});
             return error.OsError;
         }
