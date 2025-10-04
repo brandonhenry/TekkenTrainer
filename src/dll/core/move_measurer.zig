@@ -161,120 +161,183 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             return .{ .buffer = buffer, .len = array.len };
         }
     }.call;
-    var frames = [_]model.Frame{
-        .{ .players = .{ .{
-            .animation_frame = 99,
-            .animation_total_frames = 99,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 0, 0 }),
-            .rotation = std.math.pi,
-            .hurt_cylinders = hurtCylinders(0),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 1,
-            .animation_total_frames = 5,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(1),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 2,
-            .animation_total_frames = 5,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(2),
-            .hit_lines = hitLines(.{
-                sdk.math.LineSegment3{ .point_1 = .fromArray(.{ 0, 4, 1 }), .point_2 = .fromArray(.{ 1, 5, 2 }) },
-                sdk.math.LineSegment3{ .point_1 = .fromArray(.{ 0, 0, 2 }), .point_2 = .fromArray(.{ -1, 0, 1 }) },
-            }),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 3,
-            .animation_total_frames = 5,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 3, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(3),
-            .hit_lines = hitLines(.{
-                sdk.math.LineSegment3{ .point_1 = .fromArray(.{ 0, 5, 2 }), .point_2 = .fromArray(.{ 0, 6, 3 }) },
-            }),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 4,
-            .animation_total_frames = 5,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(2),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 5,
-            .animation_total_frames = 5,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(1),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 1,
-            .animation_total_frames = 2,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(1),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 2,
-            .animation_total_frames = 2,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(1),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-        .{ .players = .{ .{
-            .animation_frame = 1,
-            .animation_total_frames = 99,
-            .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
-            .rotation = 0.5 * std.math.pi,
-            .hurt_cylinders = hurtCylinders(1),
-            .hit_lines = hitLines(.{}),
-        }, .{} } },
-    };
 
+    var frame = model.Frame{};
     var measurer = MoveMeasurer{};
-    for (&frames, 0..) |*frame, index| {
-        measurer.measure(frame);
-        switch (index) {
-            2 => {
-                try testing.expectEqual(1, frame.players[0].min_attack_z);
-                try testing.expectEqual(2, frame.players[0].max_attack_z);
-                try testing.expectEqual(3, frame.players[0].attack_range);
-                try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // initialization of previous frame state
+        .players = .{
+            .{
+                .animation_frame = 99,
+                .animation_total_frames = 99,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 0, 0 }),
+                .rotation = std.math.pi,
+                .hurt_cylinders = hurtCylinders(0),
+                .hit_lines = hitLines(.{}),
             },
-            3, 4 => {
-                try testing.expectEqual(1, frame.players[0].min_attack_z);
-                try testing.expectEqual(3, frame.players[0].max_attack_z);
-                try testing.expectEqual(4, frame.players[0].attack_range);
-                try testing.expectEqual(null, frame.players[0].recovery_range);
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(null, frame.players[0].min_attack_z);
+    try testing.expectEqual(null, frame.players[0].max_attack_z);
+    try testing.expectEqual(null, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // attack animation starts
+        .players = .{
+            .{
+                .animation_frame = 1,
+                .animation_total_frames = 5,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(1),
+                .hit_lines = hitLines(.{}),
             },
-            5 => {
-                try testing.expectEqual(1, frame.players[0].min_attack_z);
-                try testing.expectEqual(3, frame.players[0].max_attack_z);
-                try testing.expectEqual(4, frame.players[0].attack_range);
-                try testing.expectEqual(3, frame.players[0].recovery_range);
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(null, frame.players[0].min_attack_z);
+    try testing.expectEqual(null, frame.players[0].max_attack_z);
+    try testing.expectEqual(null, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // first active frame
+        .players = .{
+            .{
+                .animation_frame = 2,
+                .animation_total_frames = 5,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(2),
+                .hit_lines = hitLines(.{
+                    sdk.math.LineSegment3{ .point_1 = .fromArray(.{ 0, 4, 1 }), .point_2 = .fromArray(.{ 1, 5, 2 }) },
+                    sdk.math.LineSegment3{ .point_1 = .fromArray(.{ 0, 0, 2 }), .point_2 = .fromArray(.{ -1, 0, 1 }) },
+                }),
             },
-            6 => {
-                try testing.expectEqual(null, frame.players[0].min_attack_z);
-                try testing.expectEqual(null, frame.players[0].max_attack_z);
-                try testing.expectEqual(null, frame.players[0].attack_range);
-                try testing.expectEqual(3, frame.players[0].recovery_range);
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(1, frame.players[0].min_attack_z);
+    try testing.expectEqual(2, frame.players[0].max_attack_z);
+    try testing.expectEqual(3, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // last active frame
+        .players = .{
+            .{
+                .animation_frame = 3,
+                .animation_total_frames = 5,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 3, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(3),
+                .hit_lines = hitLines(.{
+                    sdk.math.LineSegment3{ .point_1 = .fromArray(.{ 0, 5, 2 }), .point_2 = .fromArray(.{ 0, 6, 3 }) },
+                }),
             },
-            else => {
-                try testing.expectEqual(null, frame.players[0].min_attack_z);
-                try testing.expectEqual(null, frame.players[0].max_attack_z);
-                try testing.expectEqual(null, frame.players[0].attack_range);
-                try testing.expectEqual(null, frame.players[0].recovery_range);
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(1, frame.players[0].min_attack_z);
+    try testing.expectEqual(3, frame.players[0].max_attack_z);
+    try testing.expectEqual(4, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // first recovery frame
+        .players = .{
+            .{
+                .animation_frame = 4,
+                .animation_total_frames = 5,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(2),
+                .hit_lines = hitLines(.{}),
             },
-        }
-    }
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(1, frame.players[0].min_attack_z);
+    try testing.expectEqual(3, frame.players[0].max_attack_z);
+    try testing.expectEqual(4, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // last attack frame
+        .players = .{
+            .{
+                .animation_frame = 5,
+                .animation_total_frames = 5,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(1),
+                .hit_lines = hitLines(.{}),
+            },
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(1, frame.players[0].min_attack_z);
+    try testing.expectEqual(3, frame.players[0].max_attack_z);
+    try testing.expectEqual(4, frame.players[0].attack_range);
+    try testing.expectEqual(3, frame.players[0].recovery_range);
+
+    frame = .{ // animation after attack starts
+        .players = .{
+            .{
+                .animation_frame = 1,
+                .animation_total_frames = 2,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(1),
+                .hit_lines = hitLines(.{}),
+            },
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(null, frame.players[0].min_attack_z);
+    try testing.expectEqual(null, frame.players[0].max_attack_z);
+    try testing.expectEqual(null, frame.players[0].attack_range);
+    try testing.expectEqual(3, frame.players[0].recovery_range);
+
+    frame = .{ // last frame of animation after attack
+        .players = .{
+            .{
+                .animation_frame = 2,
+                .animation_total_frames = 2,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(1),
+                .hit_lines = hitLines(.{}),
+            },
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(null, frame.players[0].min_attack_z);
+    try testing.expectEqual(null, frame.players[0].max_attack_z);
+    try testing.expectEqual(null, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
+
+    frame = .{ // next animation first frame
+        .players = .{
+            .{
+                .animation_frame = 1,
+                .animation_total_frames = 99,
+                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .rotation = 0.5 * std.math.pi,
+                .hurt_cylinders = hurtCylinders(1),
+                .hit_lines = hitLines(.{}),
+            },
+            .{},
+        },
+    };
+    measurer.measure(&frame);
+    try testing.expectEqual(null, frame.players[0].min_attack_z);
+    try testing.expectEqual(null, frame.players[0].max_attack_z);
+    try testing.expectEqual(null, frame.players[0].attack_range);
+    try testing.expectEqual(null, frame.players[0].recovery_range);
 }
