@@ -4,5 +4,5 @@ pub const Core = @import("core.zig").Core;
 pub const FrameDetector = @import("frame_detector.zig").FrameDetector;
 pub const HitDetector = @import("hit_detector.zig").HitDetector;
 pub const MoveMeasurer = @import("move_measurer.zig").MoveMeasurer;
-pub const MovePhaseDetector = @import("move_phase_detector.zig").MovePhaseDetector;
+pub const MoveDetector = @import("move_detector.zig").MoveDetector;
 pub const PauseDetector = @import("pause_detector.zig").PauseDetector;

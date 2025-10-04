@@ -32,12 +32,14 @@ pub fn drawDetails(frame: *const model.Frame) void {
     drawProperty("Character ID", &left.character_id, &right.character_id);
     drawProperty("Animation ID", &left.animation_id, &right.animation_id);
     drawProperty("Animation Frame", &left.animation_frame, &right.animation_frame);
+    drawProperty("Animation Total Frames", &left.animation_total_frames, &right.animation_total_frames);
+    drawProperty("Move Phase", &left.move_phase, &right.move_phase);
+    drawProperty("Move Frame", &left.move_frame, &right.move_frame);
     drawProperty("Startup Frames", &left.getStartupFrames(), &right.getStartupFrames());
     drawProperty("Active Frames", &left.getActiveFrames(), &right.getActiveFrames());
     drawProperty("Recovery Frames", &left.getRecoveryFrames(), &right.getRecoveryFrames());
-    drawProperty("Total Frames", &left.animation_total_frames, &right.animation_total_frames);
+    drawProperty("Total Frames", &left.getTotalFrames(), &right.getTotalFrames());
     drawProperty("Frame Advantage", &left.getFrameAdvantage(right), &right.getFrameAdvantage(left));
-    drawProperty("Move Phase", &left.move_phase, &right.move_phase);
     drawProperty("Attack Type", &left.attack_type, &right.attack_type);
     drawProperty(
         "Attack Range [m]",

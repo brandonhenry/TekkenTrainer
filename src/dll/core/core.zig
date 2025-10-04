@@ -8,7 +8,7 @@ pub const Core = struct {
     pause_detector: core.PauseDetector(.{}),
     capturer: core.Capturer,
     hit_detector: core.HitDetector,
-    move_phase_detector: core.MovePhaseDetector,
+    move_detector: core.MoveDetector,
     move_measurer: core.MoveMeasurer,
     controller: core.Controller,
 
@@ -20,7 +20,7 @@ pub const Core = struct {
             .pause_detector = .{},
             .capturer = .{},
             .hit_detector = .{},
-            .move_phase_detector = .{},
+            .move_detector = .{},
             .move_measurer = .{},
             .controller = core.Controller.init(allocator),
         };
@@ -45,7 +45,7 @@ pub const Core = struct {
         self.pause_detector.update();
         var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2, .camera = camera });
         self.hit_detector.detect(&frame);
-        self.move_phase_detector.detect(&frame);
+        self.move_detector.detect(&frame);
         self.move_measurer.measure(&frame);
         self.controller.processFrame(&frame, context, processFrame);
     }
