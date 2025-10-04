@@ -14,7 +14,7 @@ pub const HitDetector = struct {
     }
 
     fn detectSide(attacker: *model.Player, defender: *model.Player, already_connected: *bool) void {
-        if (attacker.move_frame == 1) {
+        if (attacker.animation_frame == 1) {
             already_connected.* = false;
         }
 
@@ -646,7 +646,7 @@ test "should detect inactive lines correctly" {
     }};
     const frame = model.Frame{ .players = .{
         .{
-            .move_frame = 10,
+            .animation_frame = 10,
             .attack_type = .mid,
             .hit_lines = hitLines(.{hit_line}),
         },
@@ -670,7 +670,7 @@ test "should detect inactive lines correctly" {
     }, frame_1.players[0].hit_lines.asConstSlice()[0].flags);
 
     var frame_2 = frame;
-    frame_2.players[0].move_frame.? += 1;
+    frame_2.players[0].animation_frame.? += 1;
     hit_detector.detect(&frame_2);
 
     try testing.expectEqual(1, frame_2.players[0].hit_lines.asConstSlice().len);
@@ -682,7 +682,7 @@ test "should detect inactive lines correctly" {
     }, frame_2.players[0].hit_lines.asConstSlice()[0].flags);
 
     var frame_3 = frame;
-    frame_3.players[0].move_frame.? = 1;
+    frame_3.players[0].animation_frame.? = 1;
     hit_detector.detect(&frame_3);
 
     try testing.expectEqual(1, frame_3.players[0].hit_lines.asConstSlice().len);

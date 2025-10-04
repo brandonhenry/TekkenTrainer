@@ -30,12 +30,12 @@ pub fn drawDetails(frame: *const model.Frame) void {
     const right = frame.getPlayerBySide(.right);
     drawProperty("Since Round Start", &frame.frames_since_round_start, &frame.frames_since_round_start);
     drawProperty("Character ID", &left.character_id, &right.character_id);
-    drawProperty("Move ID", &left.move_id, &right.move_id);
-    drawProperty("Current Frame", &left.move_frame, &right.move_frame);
+    drawProperty("Animation ID", &left.animation_id, &right.animation_id);
+    drawProperty("Animation Frame", &left.animation_frame, &right.animation_frame);
     drawProperty("Startup Frames", &left.getStartupFrames(), &right.getStartupFrames());
     drawProperty("Active Frames", &left.getActiveFrames(), &right.getActiveFrames());
     drawProperty("Recovery Frames", &left.getRecoveryFrames(), &right.getRecoveryFrames());
-    drawProperty("Total Frames", &left.move_total_frames, &right.move_total_frames);
+    drawProperty("Total Frames", &left.animation_total_frames, &right.animation_total_frames);
     drawProperty("Frame Advantage", &left.getFrameAdvantage(right), &right.getFrameAdvantage(left));
     drawProperty("Move Phase", &left.move_phase, &right.move_phase);
     drawProperty("Attack Type", &left.attack_type, &right.attack_type);

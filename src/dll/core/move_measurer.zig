@@ -37,7 +37,7 @@ pub const MoveMeasurer = struct {
     }
 
     fn updateReferenceState(state: *PlayerState, player: *model.Player) void {
-        if (player.move_frame != 1) {
+        if (player.animation_frame != 1) {
             return;
         }
         state.* = .{
@@ -71,7 +71,7 @@ pub const MoveMeasurer = struct {
                 state.max_attack_z = line_max_z;
             }
         }
-        if (player.move_frame != null and player.move_frame == player.move_total_frames) {
+        if (player.animation_frame != null and player.animation_frame == player.animation_total_frames) {
             state.recovery_range = findHurtRange(state, player);
         }
     }
@@ -163,24 +163,24 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
     }.call;
     var frames = [_]model.Frame{
         .{ .players = .{ .{
-            .move_frame = 99,
-            .move_total_frames = 99,
+            .animation_frame = 99,
+            .animation_total_frames = 99,
             .position = sdk.math.Vec3.fromArray(.{ 0, 0, 0 }),
             .rotation = std.math.pi,
             .hurt_cylinders = hurtCylinders(0),
             .hit_lines = hitLines(.{}),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 1,
-            .move_total_frames = 5,
+            .animation_frame = 1,
+            .animation_total_frames = 5,
             .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(1),
             .hit_lines = hitLines(.{}),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 2,
-            .move_total_frames = 5,
+            .animation_frame = 2,
+            .animation_total_frames = 5,
             .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(2),
@@ -190,8 +190,8 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             }),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 3,
-            .move_total_frames = 5,
+            .animation_frame = 3,
+            .animation_total_frames = 5,
             .position = sdk.math.Vec3.fromArray(.{ 0, 3, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(3),
@@ -200,40 +200,40 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             }),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 4,
-            .move_total_frames = 5,
+            .animation_frame = 4,
+            .animation_total_frames = 5,
             .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(2),
             .hit_lines = hitLines(.{}),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 5,
-            .move_total_frames = 5,
+            .animation_frame = 5,
+            .animation_total_frames = 5,
             .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(1),
             .hit_lines = hitLines(.{}),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 1,
-            .move_total_frames = 2,
+            .animation_frame = 1,
+            .animation_total_frames = 2,
             .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(1),
             .hit_lines = hitLines(.{}),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 2,
-            .move_total_frames = 2,
+            .animation_frame = 2,
+            .animation_total_frames = 2,
             .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(1),
             .hit_lines = hitLines(.{}),
         }, .{} } },
         .{ .players = .{ .{
-            .move_frame = 1,
-            .move_total_frames = 99,
+            .animation_frame = 1,
+            .animation_total_frames = 99,
             .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
             .rotation = 0.5 * std.math.pi,
             .hurt_cylinders = hurtCylinders(1),

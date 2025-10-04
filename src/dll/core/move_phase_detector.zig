@@ -20,7 +20,7 @@ pub const MovePhaseDetector = struct {
     }
 
     fn detectSide(state: *PlayerState, player: *model.Player, other_player: *model.Player) void {
-        const current_frame = player.move_frame orelse {
+        const current_frame = player.animation_frame orelse {
             state.* = .{};
             return;
         };
@@ -71,26 +71,26 @@ pub const MovePhaseDetector = struct {
             state.connected_frame = current_frame;
         }
         player.move_phase = state.phase;
-        player.move_first_active_frame = state.first_active_frame;
-        player.move_last_active_frame = state.last_active_frame;
-        player.move_connected_frame = state.connected_frame;
+        player.first_active_frame = state.first_active_frame;
+        player.last_active_frame = state.last_active_frame;
+        player.connected_frame = state.connected_frame;
     }
 };
 
 const testing = std.testing;
 
-test "should set move_phase, move_first_active_frame, move_last_active_frame, move_connected_frame to correct value at correct frame" {
+test "should set move_phase, first_active_frame, last_active_frame, connected_frame to correct value at correct frame" {
     var frames = [_]model.Frame{
         .{ .players = .{
             .{
-                .move_frame = 1,
+                .animation_frame = 1,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
                 .hit_lines = .{ .buffer = undefined, .len = 0 },
             },
             .{
-                .move_frame = 1,
+                .animation_frame = 1,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
@@ -99,14 +99,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 1,
+                .animation_frame = 1,
                 .attack_type = .mid,
                 .hit_outcome = .none,
                 .can_move = false,
                 .hit_lines = .{ .buffer = undefined, .len = 0 },
             },
             .{
-                .move_frame = 2,
+                .animation_frame = 2,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
@@ -115,14 +115,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 2,
+                .animation_frame = 2,
                 .attack_type = .mid,
                 .hit_outcome = .none,
                 .can_move = false,
                 .hit_lines = .{ .buffer = undefined, .len = 1 },
             },
             .{
-                .move_frame = 3,
+                .animation_frame = 3,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
@@ -131,14 +131,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 3,
+                .animation_frame = 3,
                 .attack_type = .mid,
                 .hit_outcome = .none,
                 .can_move = false,
                 .hit_lines = .{ .buffer = undefined, .len = 2 },
             },
             .{
-                .move_frame = 4,
+                .animation_frame = 4,
                 .attack_type = .not_attack,
                 .hit_outcome = .blocked_standing,
                 .can_move = true,
@@ -147,14 +147,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 4,
+                .animation_frame = 4,
                 .attack_type = .mid,
                 .hit_outcome = .none,
                 .can_move = false,
                 .hit_lines = .{ .buffer = undefined, .len = 3 },
             },
             .{
-                .move_frame = 1,
+                .animation_frame = 1,
                 .attack_type = .not_attack,
                 .hit_outcome = .blocked_standing,
                 .can_move = false,
@@ -163,14 +163,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 5,
+                .animation_frame = 5,
                 .attack_type = .mid,
                 .hit_outcome = .none,
                 .can_move = false,
                 .hit_lines = .{ .buffer = undefined, .len = 0 },
             },
             .{
-                .move_frame = 2,
+                .animation_frame = 2,
                 .attack_type = .not_attack,
                 .hit_outcome = .blocked_standing,
                 .can_move = false,
@@ -179,14 +179,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 6,
+                .animation_frame = 6,
                 .attack_type = .mid,
                 .hit_outcome = .none,
                 .can_move = false,
                 .hit_lines = .{ .buffer = undefined, .len = 0 },
             },
             .{
-                .move_frame = 1,
+                .animation_frame = 1,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
@@ -195,14 +195,14 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
         } },
         .{ .players = .{
             .{
-                .move_frame = 1,
+                .animation_frame = 1,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
                 .hit_lines = .{ .buffer = undefined, .len = 0 },
             },
             .{
-                .move_frame = 2,
+                .animation_frame = 2,
                 .attack_type = .not_attack,
                 .hit_outcome = .none,
                 .can_move = true,
@@ -218,55 +218,55 @@ test "should set move_phase, move_first_active_frame, move_last_active_frame, mo
             1 => {
                 try testing.expectEqual(.start_up, frame.players[0].move_phase);
                 try testing.expectEqual(.neutral, frame.players[1].move_phase);
-                try testing.expectEqual(null, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(null, frame.players[0].move_connected_frame);
-                try testing.expectEqual(null, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(null, frame.players[0].first_active_frame);
+                try testing.expectEqual(null, frame.players[0].connected_frame);
+                try testing.expectEqual(null, frame.players[0].last_active_frame);
             },
             2 => {
                 try testing.expectEqual(.active, frame.players[0].move_phase);
                 try testing.expectEqual(.neutral, frame.players[1].move_phase);
-                try testing.expectEqual(2, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(null, frame.players[0].move_connected_frame);
-                try testing.expectEqual(null, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(2, frame.players[0].first_active_frame);
+                try testing.expectEqual(null, frame.players[0].connected_frame);
+                try testing.expectEqual(null, frame.players[0].last_active_frame);
             },
             3 => {
                 try testing.expectEqual(.active, frame.players[0].move_phase);
                 try testing.expectEqual(.neutral, frame.players[1].move_phase);
-                try testing.expectEqual(2, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(3, frame.players[0].move_connected_frame);
-                try testing.expectEqual(null, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(2, frame.players[0].first_active_frame);
+                try testing.expectEqual(3, frame.players[0].connected_frame);
+                try testing.expectEqual(null, frame.players[0].last_active_frame);
             },
             4 => {
                 try testing.expectEqual(.active_recovery, frame.players[0].move_phase);
                 try testing.expectEqual(.recovery, frame.players[1].move_phase);
-                try testing.expectEqual(2, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(3, frame.players[0].move_connected_frame);
-                try testing.expectEqual(null, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(2, frame.players[0].first_active_frame);
+                try testing.expectEqual(3, frame.players[0].connected_frame);
+                try testing.expectEqual(null, frame.players[0].last_active_frame);
             },
             5 => {
                 try testing.expectEqual(.recovery, frame.players[0].move_phase);
                 try testing.expectEqual(.recovery, frame.players[1].move_phase);
-                try testing.expectEqual(2, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(3, frame.players[0].move_connected_frame);
-                try testing.expectEqual(4, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(2, frame.players[0].first_active_frame);
+                try testing.expectEqual(3, frame.players[0].connected_frame);
+                try testing.expectEqual(4, frame.players[0].last_active_frame);
             },
             6 => {
                 try testing.expectEqual(.recovery, frame.players[0].move_phase);
                 try testing.expectEqual(.neutral, frame.players[1].move_phase);
-                try testing.expectEqual(2, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(3, frame.players[0].move_connected_frame);
-                try testing.expectEqual(4, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(2, frame.players[0].first_active_frame);
+                try testing.expectEqual(3, frame.players[0].connected_frame);
+                try testing.expectEqual(4, frame.players[0].last_active_frame);
             },
             else => {
                 try testing.expectEqual(.neutral, frame.players[0].move_phase);
                 try testing.expectEqual(.neutral, frame.players[1].move_phase);
-                try testing.expectEqual(null, frame.players[0].move_first_active_frame);
-                try testing.expectEqual(null, frame.players[0].move_connected_frame);
-                try testing.expectEqual(null, frame.players[0].move_last_active_frame);
+                try testing.expectEqual(null, frame.players[0].first_active_frame);
+                try testing.expectEqual(null, frame.players[0].connected_frame);
+                try testing.expectEqual(null, frame.players[0].last_active_frame);
             },
         }
-        try testing.expectEqual(null, frame.players[1].move_first_active_frame);
-        try testing.expectEqual(null, frame.players[1].move_connected_frame);
-        try testing.expectEqual(null, frame.players[1].move_last_active_frame);
+        try testing.expectEqual(null, frame.players[1].first_active_frame);
+        try testing.expectEqual(null, frame.players[1].connected_frame);
+        try testing.expectEqual(null, frame.players[1].last_active_frame);
     }
 }

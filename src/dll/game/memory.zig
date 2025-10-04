@@ -37,7 +37,7 @@ pub const Memory = struct {
             .transform_matrix = 0x200,
             .floor_z = 0x0354,
             .rotation = 0x376,
-            .move_frame = deref(u32, add(8, pattern(
+            .animation_frame = deref(u32, add(8, pattern(
                 &cache,
                 "8B 81 ?? ?? 00 00 39 81 ?? ?? 00 00 0F 84 ?? ?? 00 00 48 C7 81",
             ))),
@@ -47,9 +47,9 @@ pub const Memory = struct {
                 "89 8E ?? ?? 00 00 48 8D 8E ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8D 8E ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 86",
             ))),
             .state_flags = 0x0434,
-            .move_id = 0x0548,
+            .animation_id = 0x0548,
             .can_move = 0x05C8,
-            .move_total_frames = 0x05D4,
+            .animation_total_frames = 0x05D4,
             .hit_outcome = 0x0610,
             .invincible = 0x08F8,
             .is_a_parry_move = 0xA2C,
