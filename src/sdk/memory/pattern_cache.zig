@@ -36,10 +36,20 @@ pub const PatternCache = struct {
 
     pub fn findAddress(self: *Self, pattern: *const memory.Pattern) !usize {
         if (self.map.get(pattern.*)) |value| {
-            return value orelse {
-                misc.error_context.new("Memory pattern cached as not found.", .{});
+            const offset = value orelse {
+                misc.error_context.new("Memory pattern is cached as not found.", .{});
                 return error.NotFound;
             };
+            if (offset >= self.memory_range.size_in_bytes) {
+                misc.error_context.new("Cached address is outside of memory range.", .{});
+                return error.NotFound;
+            }
+            const address = @addWithOverflow(self.memory_range.base_address, offset);
+            if (address[1] == 1) {
+                misc.error_context.new("Memory address overflow.", .{});
+                return error.NotFound;
+            }
+            return address[0];
         }
         const address = pattern.findAddress(self.memory_range) catch |err_1| {
             if (err_1 == error.NotFound) {
@@ -49,7 +59,12 @@ pub const PatternCache = struct {
             }
             return err_1;
         };
-        self.map.put(pattern.*, address) catch |err| {
+        const offset = @subWithOverflow(address, self.memory_range.base_address);
+        if (offset[1] == 1) {
+            std.log.warn("Failed to put memory pattern \"{f}\" into cache. Memory offset underflow.", .{pattern});
+            return address;
+        }
+        self.map.put(pattern.*, offset[0]) catch |err| {
             std.log.warn("Failed to put memory pattern \"{f}\" into cache. [{}]", .{ pattern, err });
         };
         return address;
@@ -82,12 +97,12 @@ pub const PatternCache = struct {
         var iterator = version.map.iterator();
         while (iterator.next()) |entry| {
             const pattern_str = entry.key_ptr.*;
-            const address = entry.value_ptr.*;
+            const offset = entry.value_ptr.*;
             const pattern = memory.Pattern.fromString(pattern_str) catch |err| {
                 misc.error_context.append("Failed to convert string to memory pattern: {s}", .{pattern_str});
                 return err;
             };
-            self.map.put(pattern, address) catch |err| {
+            self.map.put(pattern, offset) catch |err| {
                 misc.error_context.new("Failed to copy data from file structure to cache map.", .{});
                 return err;
             };
@@ -124,12 +139,12 @@ pub const PatternCache = struct {
         var iterator = self.map.iterator();
         while (iterator.next()) |entry| {
             const pattern = entry.key_ptr;
-            const address = entry.value_ptr.*;
+            const offset = entry.value_ptr.*;
             const pattern_str = std.fmt.allocPrint(parsed.arena.allocator(), "{f}", .{pattern}) catch |err| {
                 misc.error_context.new("Failed to convert memory pattern to string: {f}", .{pattern});
                 return err;
             };
-            version.map.put(parsed.arena.allocator(), pattern_str, address) catch |err| {
+            version.map.put(parsed.arena.allocator(), pattern_str, offset) catch |err| {
                 misc.error_context.new("Failed to copy data from cache map to file structure.", .{});
                 return err;
             };
