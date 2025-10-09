@@ -17,9 +17,9 @@ pub const View = struct {
 
     const Self = @This();
 
-    pub fn processFrame(self: *Self, frame: *const model.Frame) void {
-        self.hurt_cylinders.processFrame(frame);
-        self.hit_lines.processFrame(frame);
+    pub fn processFrame(self: *Self, settings: *const model.Settings, frame: *const model.Frame) void {
+        self.hurt_cylinders.processFrame(&settings.hurt_cylinders, frame);
+        self.hit_lines.processFrame(&settings.hit_lines, frame);
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
@@ -27,18 +27,23 @@ pub const View = struct {
         self.hit_lines.update(delta_time);
     }
 
-    pub fn draw(self: *Self, frame: *const model.Frame, direction: ViewDirection) void {
+    pub fn draw(
+        self: *Self,
+        settings: *const model.Settings,
+        frame: *const model.Frame,
+        direction: ViewDirection,
+    ) void {
         self.camera.updateWindowState(direction);
         const matrix = self.camera.calculateMatrix(frame, direction) orelse return;
         const inverse_matrix = matrix.inverse() orelse sdk.math.Mat4.identity;
         self.camera.processInput(direction, inverse_matrix);
 
-        ui.drawCollisionSpheres(frame, matrix, inverse_matrix);
-        self.hurt_cylinders.draw(frame, direction, matrix, inverse_matrix);
-        ui.drawIngameCamera(frame, direction, matrix);
-        ui.drawFloor(frame, direction, matrix);
-        ui.drawForwardDirections(frame, direction, matrix);
-        ui.drawSkeletons(frame, matrix);
-        self.hit_lines.draw(frame, matrix);
+        ui.drawIngameCamera(&settings.ingame_camera, frame, direction, matrix);
+        ui.drawCollisionSpheres(&settings.collision_spheres, frame, matrix, inverse_matrix);
+        self.hurt_cylinders.draw(&settings.hurt_cylinders, frame, direction, matrix, inverse_matrix);
+        ui.drawFloor(&settings.floor, frame, direction, matrix);
+        ui.drawForwardDirections(&settings.forward_directions, frame, direction, matrix);
+        ui.drawSkeletons(&settings.skeletons, frame, matrix);
+        self.hit_lines.draw(&settings.hit_lines, frame, matrix);
     }
 };

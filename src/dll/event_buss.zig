@@ -13,6 +13,7 @@ pub const EventBuss = struct {
     ui_context: ?sdk.ui.Context,
     core: core.Core,
     main_window: ui.MainWindow,
+    settings: model.Settings,
 
     const Self = @This();
     const buffer_count = 3;
@@ -72,6 +73,7 @@ pub const EventBuss = struct {
             .ui_context = ui_context,
             .core = c,
             .main_window = .{},
+            .settings = .{},
         };
     }
 
@@ -113,7 +115,7 @@ pub const EventBuss = struct {
     }
 
     fn processFrame(self: *Self, frame: *const model.Frame) void {
-        self.main_window.processFrame(frame);
+        self.main_window.processFrame(&self.settings, frame);
     }
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
@@ -145,7 +147,7 @@ pub const EventBuss = struct {
         imgui.igGetIO_Nil().*.MouseDrawCursor = true;
         sdk.ui.toasts.draw();
         if (game_memory) |memory| {
-            self.main_window.draw(memory, &self.core.controller);
+            self.main_window.draw(&self.settings, memory, &self.core.controller);
         } else {
             ui.drawMessageWindow("Loading", "Searching for memory addresses and offsets...", .center);
         }

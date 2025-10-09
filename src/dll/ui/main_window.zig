@@ -21,18 +21,24 @@ pub const MainWindow = struct {
     const Self = @This();
     const QuadrantContext = struct {
         self: *Self,
+        settings: *const model.Settings,
         frame: ?*const model.Frame,
     };
 
-    pub fn processFrame(self: *Self, frame: *const model.Frame) void {
-        self.view.processFrame(frame);
+    pub fn processFrame(self: *Self, settings: *const model.Settings, frame: *const model.Frame) void {
+        self.view.processFrame(settings, frame);
     }
 
     pub fn update(self: *Self, delta_time: f32) void {
         self.view.update(delta_time);
     }
 
-    pub fn draw(self: *Self, game_memory: *const game.Memory, controller: *core.Controller) void {
+    pub fn draw(
+        self: *Self,
+        settings: *model.Settings,
+        game_memory: *const game.Memory,
+        controller: *core.Controller,
+    ) void {
         self.handleFirstDraw();
         self.handleOpenKey();
         self.controls.handleKeybinds(controller);
@@ -49,6 +55,7 @@ pub const MainWindow = struct {
         if (imgui.igBeginChild_Str("views", .{ .x = 0, .y = -self.controls_height }, 0, 0)) {
             const context = QuadrantContext{
                 .self = self,
+                .settings = settings,
                 .frame = controller.getCurrentFrame(),
             };
             self.quadrant_layout.draw(context, &.{
@@ -117,17 +124,17 @@ pub const MainWindow = struct {
 
     fn drawFrontView(context: QuadrantContext) void {
         const frame = context.frame orelse return;
-        context.self.view.draw(frame, .front);
+        context.self.view.draw(context.settings, frame, .front);
     }
 
     fn drawSideView(context: QuadrantContext) void {
         const frame = context.frame orelse return;
-        context.self.view.draw(frame, .side);
+        context.self.view.draw(context.settings, frame, .side);
     }
 
     fn drawTopView(context: QuadrantContext) void {
         const frame = context.frame orelse return;
-        context.self.view.draw(frame, .top);
+        context.self.view.draw(context.settings, frame, .top);
     }
 
     fn drawDetails(context: QuadrantContext) void {

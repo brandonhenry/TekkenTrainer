@@ -2,14 +2,21 @@ const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 const ui = @import("../ui/root.zig");
 
-const color = sdk.math.Vec4.fromArray(.{ 0.0, 0.0, 1.0, 0.5 });
-const thickness = 1.0;
-
-pub fn drawCollisionSpheres(frame: *const model.Frame, matrix: sdk.math.Mat4, inverse_matrix: sdk.math.Mat4) void {
-    for (&frame.players) |*player| {
+pub fn drawCollisionSpheres(
+    settings: *const model.PlayerSettings(model.CollisionSpheresSettings),
+    frame: *const model.Frame,
+    matrix: sdk.math.Mat4,
+    inverse_matrix: sdk.math.Mat4,
+) void {
+    for (model.PlayerId.all) |player_id| {
+        const player_settings = settings.getById(frame, player_id);
+        if (!player_settings.enabled) {
+            continue;
+        }
+        const player = frame.getPlayerById(player_id);
         const spheres: *const model.CollisionSpheres = if (player.collision_spheres) |*s| s else continue;
         for (spheres.values) |sphere| {
-            ui.drawSphere(sphere, color, thickness, matrix, inverse_matrix);
+            ui.drawSphere(sphere, player_settings.color, player_settings.thickness, matrix, inverse_matrix);
         }
     }
 }

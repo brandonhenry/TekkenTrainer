@@ -4,8 +4,8 @@ const model = @import("../model/root.zig");
 const ui = @import("../ui/root.zig");
 
 pub const HurtCylinders = struct {
-    connected_life_time: std.EnumArray(model.PlayerId, std.EnumArray(model.HurtCylinderId, f32)) = .initFill(
-        .initFill(std.math.inf(f32)),
+    connected_remaining_time: std.EnumArray(model.PlayerId, std.EnumArray(model.HurtCylinderId, f32)) = .initFill(
+        .initFill(0),
     ),
     lingering: sdk.misc.CircularBuffer(32, LingeringCylinder) = .{},
 
@@ -13,57 +13,19 @@ pub const HurtCylinders = struct {
     pub const LingeringCylinder = struct {
         cylinder: sdk.math.Cylinder,
         player_id: model.PlayerId,
-        life_time: f32,
-    };
-    const config = struct {
-        const normal = struct {
-            const color = sdk.math.Vec4.fromArray(.{ 0.5, 0.5, 0.5, 0.5 });
-            const thickness = 1.0;
-        };
-        const high_crushing = struct {
-            const color = sdk.math.Vec4.fromArray(.{ 0.75, 0.0, 0.0, 0.5 });
-            const thickness = 1.0;
-        };
-        const low_crushing = struct {
-            const color = sdk.math.Vec4.fromArray(.{ 0.0, 0.375, 0.75, 0.5 });
-            const thickness = 1.0;
-        };
-        const invincible = struct {
-            const color = sdk.math.Vec4.fromArray(.{ 0.75, 0.0, 0.75, 0.5 });
-            const thickness = 1.0;
-        };
-        const power_crushing = struct {
-            const normal = struct {
-                const color = sdk.math.Vec4.fromArray(.{ 1.0, 1.0, 1.0, 1.0 });
-                const thickness = 1.0;
-            };
-            const high_crushing = struct {
-                const color = sdk.math.Vec4.fromArray(.{ 1.0, 0.25, 0.25, 1.0 });
-                const thickness = 1.0;
-            };
-            const low_crushing = struct {
-                const color = sdk.math.Vec4.fromArray(.{ 0.0, 0.25, 1.0, 1.0 });
-                const thickness = 1.0;
-            };
-            const invincible = struct {
-                const color = sdk.math.Vec4.fromArray(.{ 1.0, 0.0, 1.0, 1.0 });
-                const thickness = 1.0;
-            };
-        };
-        const connected = struct {
-            const color = sdk.math.Vec4.fromArray(.{ 1.0, 0.75, 0.25, 0.5 });
-            const thickness = 1.0;
-            const duration = 1.0;
-        };
-        const lingering = struct {
-            const color = sdk.math.Vec4.fromArray(.{ 0.0, 0.75, 0.75, 0.5 });
-            const thickness = 1.0;
-            const duration = 1.0;
-        };
+        remaining_time: f32,
     };
 
-    pub fn processFrame(self: *Self, frame: *const model.Frame) void {
+    pub fn processFrame(
+        self: *Self,
+        settings: *const model.PlayerSettings(model.HurtCylindersSettings),
+        frame: *const model.Frame,
+    ) void {
         for (model.PlayerId.all) |player_id| {
+            const player_settings = settings.getById(frame, player_id);
+            if (!player_settings.enabled) {
+                continue;
+            }
             const player = frame.getPlayerById(player_id);
             const cylinders: *const model.HurtCylinders = if (player.hurt_cylinders) |*c| c else return;
             for (&cylinders.values, 0..) |*hurt_cylinder, index| {
@@ -71,11 +33,12 @@ pub const HurtCylinders = struct {
                     continue;
                 }
                 const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
-                self.connected_life_time.getPtr(player_id).getPtr(cylinder_id).* = 0;
+                const connected_remaining_time = self.connected_remaining_time.getPtr(player_id).getPtr(cylinder_id);
+                connected_remaining_time.* = player_settings.connected.duration;
                 _ = self.lingering.addToBack(.{
                     .cylinder = hurt_cylinder.cylinder,
                     .player_id = player_id,
-                    .life_time = 0,
+                    .remaining_time = player_settings.lingering.duration,
                 });
             }
         }
@@ -87,20 +50,20 @@ pub const HurtCylinders = struct {
     }
 
     fn updateRegular(self: *Self, delta_time: f32) void {
-        for (&self.connected_life_time.values) |*player_cylinders| {
-            for (&player_cylinders.values) |*life_time| {
-                life_time.* += delta_time;
+        for (&self.connected_remaining_time.values) |*player_cylinders| {
+            for (&player_cylinders.values) |*remaining_time| {
+                remaining_time.* -= delta_time;
             }
         }
     }
 
     fn updateLingering(self: *Self, delta_time: f32) void {
         for (0..self.lingering.len) |index| {
-            const line = self.lingering.getMut(index) catch unreachable;
-            line.life_time += delta_time;
+            const cylinder = self.lingering.getMut(index) catch unreachable;
+            cylinder.remaining_time -= delta_time;
         }
-        while (self.lingering.getFirst() catch null) |line| {
-            if (line.life_time <= config.lingering.duration) {
+        while (self.lingering.getFirst() catch null) |cylinder| {
+            if (cylinder.remaining_time > 0) {
                 break;
             }
             _ = self.lingering.removeFirst() catch unreachable;
@@ -109,70 +72,42 @@ pub const HurtCylinders = struct {
 
     pub fn draw(
         self: *const Self,
+        settings: *const model.PlayerSettings(model.HurtCylindersSettings),
         frame: *const model.Frame,
         direction: ui.ViewDirection,
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {
-        self.drawLingering(direction, matrix, inverse_matrix);
-        self.drawRegular(frame, direction, matrix, inverse_matrix);
+        self.drawLingering(settings, frame, direction, matrix, inverse_matrix);
+        self.drawRegular(settings, frame, direction, matrix, inverse_matrix);
     }
 
     fn drawRegular(
         self: *const Self,
+        settings: *const model.PlayerSettings(model.HurtCylindersSettings),
         frame: *const model.Frame,
         direction: ui.ViewDirection,
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {
         for (model.PlayerId.all) |player_id| {
-            const player = frame.getPlayerById(player_id);
+            const player_settings = settings.getById(frame, player_id);
+            if (!player_settings.enabled) {
+                continue;
+            }
 
+            const player = frame.getPlayerById(player_id);
             const crushing = player.crushing orelse model.Crushing{};
-            const base_color: sdk.math.Vec4, const base_thickness: f32 = if (crushing.power_crushing) block: {
-                if (crushing.invincibility) {
-                    break :block .{
-                        config.power_crushing.invincible.color,
-                        config.power_crushing.invincible.thickness,
-                    };
-                } else if (crushing.high_crushing) {
-                    break :block .{
-                        config.power_crushing.high_crushing.color,
-                        config.power_crushing.high_crushing.thickness,
-                    };
-                } else if (crushing.low_crushing) {
-                    break :block .{
-                        config.power_crushing.low_crushing.color,
-                        config.power_crushing.low_crushing.thickness,
-                    };
-                } else {
-                    break :block .{
-                        config.power_crushing.normal.color,
-                        config.power_crushing.normal.thickness,
-                    };
-                }
+
+            const ps = if (crushing.power_crushing) &player_settings.power_crushing else &player_settings.normal;
+            const base_settings = if (crushing.invincibility) block: {
+                break :block &ps.invincible;
+            } else if (crushing.high_crushing) block: {
+                break :block &ps.high_crushing;
+            } else if (crushing.low_crushing) block: {
+                break :block &ps.low_crushing;
             } else block: {
-                if (crushing.invincibility) {
-                    break :block .{
-                        config.invincible.color,
-                        config.invincible.thickness,
-                    };
-                } else if (crushing.high_crushing) {
-                    break :block .{
-                        config.high_crushing.color,
-                        config.high_crushing.thickness,
-                    };
-                } else if (crushing.low_crushing) {
-                    break :block .{
-                        config.low_crushing.color,
-                        config.low_crushing.thickness,
-                    };
-                } else {
-                    break :block .{
-                        config.normal.color,
-                        config.normal.thickness,
-                    };
-                }
+                break :block &ps.normal;
             };
 
             const cylinders: *const model.HurtCylinders = if (player.hurt_cylinders) |*c| c else continue;
@@ -180,16 +115,14 @@ pub const HurtCylinders = struct {
                 const cylinder = hurt_cylinder.cylinder;
                 const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
 
-                const life_time = self.connected_life_time.getPtrConst(player_id).get(cylinder_id);
-                const duration = config.connected.duration;
+                const remaining_time = self.connected_remaining_time.getPtrConst(player_id).get(cylinder_id);
+                const duration = player_settings.connected.duration;
                 const completion: f32 = if (hurt_cylinder.flags.is_connected) 0.0 else block: {
-                    break :block std.math.clamp(life_time / duration, 0.0, 1.0);
+                    break :block std.math.clamp(1.0 - (remaining_time / duration), 0.0, 1.0);
                 };
                 const t = completion * completion * completion * completion;
-                const connected_color = config.connected.color;
-                const color = sdk.math.Vec4.lerpElements(connected_color, base_color, t);
-                const connected_thickness = config.connected.thickness;
-                const thickness = std.math.lerp(connected_thickness, base_thickness, t);
+                const color = sdk.math.Vec4.lerpElements(player_settings.connected.color, base_settings.color, t);
+                const thickness = std.math.lerp(player_settings.connected.thickness, base_settings.thickness, t);
 
                 ui.drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
             }
@@ -198,19 +131,25 @@ pub const HurtCylinders = struct {
 
     fn drawLingering(
         self: *const Self,
+        settings: *const model.PlayerSettings(model.HurtCylindersSettings),
+        frame: *const model.Frame,
         direction: ui.ViewDirection,
         matrix: sdk.math.Mat4,
         inverse_matrix: sdk.math.Mat4,
     ) void {
         for (0..self.lingering.len) |index| {
             const hurt_cylinder = self.lingering.get(index) catch unreachable;
+            const player_settings = settings.getById(frame, hurt_cylinder.player_id);
+            if (!player_settings.enabled) {
+                continue;
+            }
             const cylinder = hurt_cylinder.cylinder;
 
-            const duration = config.lingering.duration;
-            const completion = hurt_cylinder.life_time / duration;
-            var color = config.lingering.color;
+            const duration = player_settings.lingering.duration;
+            const completion = 1.0 - (hurt_cylinder.remaining_time / duration);
+            var color = player_settings.lingering.color;
             color.asColor().a *= 1.0 - (completion * completion * completion * completion);
-            const thickness = config.lingering.thickness;
+            const thickness = player_settings.lingering.thickness;
 
             ui.drawCylinder(cylinder, color, thickness, direction, matrix, inverse_matrix);
         }
