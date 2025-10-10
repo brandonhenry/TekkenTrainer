@@ -10,6 +10,7 @@ const ui = @import("root.zig");
 pub const MainWindow = struct {
     is_first_draw: bool = true,
     is_open: bool = false,
+    settings_window: ui.SettingsWindow = .{},
     logs_window: ui.LogsWindow = .{},
     game_memory_window: ui.GameMemoryWindow = .{},
     frame_window: ui.FrameWindow = .{},
@@ -45,7 +46,7 @@ pub const MainWindow = struct {
         if (!self.is_open) {
             return;
         }
-        self.drawSecondaryWindows(game_memory, controller);
+        self.drawSecondaryWindows(settings, game_memory, controller);
         const render_content = imgui.igBegin("Irony", &self.is_open, imgui.ImGuiWindowFlags_MenuBar);
         defer imgui.igEnd();
         if (!render_content) {
@@ -88,7 +89,13 @@ pub const MainWindow = struct {
         }
     }
 
-    fn drawSecondaryWindows(self: *Self, game_memory: *const game.Memory, controller: *const core.Controller) void {
+    fn drawSecondaryWindows(
+        self: *Self,
+        settings: *model.Settings,
+        game_memory: *const game.Memory,
+        controller: *const core.Controller,
+    ) void {
+        self.settings_window.draw(settings);
         self.logs_window.draw(dll.buffer_logger);
         self.game_memory_window.draw(game_memory);
         self.frame_window.draw(controller.getCurrentFrame());
@@ -103,6 +110,11 @@ pub const MainWindow = struct {
         if (imgui.igBeginMenu("Camera", true)) {
             defer imgui.igEndMenu();
             self.view.camera.drawMenuBar();
+        }
+
+        if (imgui.igMenuItem_Bool(ui.SettingsWindow.name, null, false, true)) {
+            self.settings_window.is_open = true;
+            imgui.igSetWindowFocus_Str(ui.SettingsWindow.name);
         }
 
         if (imgui.igBeginMenu("Help", true)) {

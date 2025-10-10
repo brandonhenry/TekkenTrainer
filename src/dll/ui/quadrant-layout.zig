@@ -246,7 +246,7 @@ test "should render correct content under correct id" {
     try context.runTest(.{}, Test.guiFunction, Test.testFunction);
 }
 
-test "should pass the context to draw functions" {
+test "should pass the context to content functions" {
     const Test = struct {
         var layout = QuadrantLayout{};
         var top_left_context: ?i32 = null;
