@@ -3,11 +3,11 @@ const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 
 pub const Settings = struct {
-    hit_lines: PlayerSettings(HitLinesSettings) = .{ .players = .{ .{}, .{} } },
-    hurt_cylinders: PlayerSettings(HurtCylindersSettings) = .{ .players = .{ .{}, .{} } },
-    collision_spheres: PlayerSettings(CollisionSpheresSettings) = .{ .players = .{ .{}, .{} } },
-    skeletons: PlayerSettings(SkeletonSettings) = .{ .players = .{ .{}, .{} } },
-    forward_directions: PlayerSettings(ForwardDirectionSettings) = .{ .players = .{ .{}, .{} } },
+    hit_lines: PlayerSettings(HitLinesSettings) = .{ .same = .{} },
+    hurt_cylinders: PlayerSettings(HurtCylindersSettings) = .{ .same = .{} },
+    collision_spheres: PlayerSettings(CollisionSpheresSettings) = .{ .same = .{} },
+    skeletons: PlayerSettings(SkeletonSettings) = .{ .same = .{} },
+    forward_directions: PlayerSettings(ForwardDirectionSettings) = .{ .same = .{} },
     floor: FloorSettings = .{},
     ingame_camera: IngameCameraSettings = .{},
 };
@@ -175,76 +175,83 @@ pub const IngameCameraSettings = struct {
     thickness: f32 = 1.0,
 };
 
-pub const PlayerSettingsMode = enum {
-    same,
-    id_separated,
-    side_separated,
-    role_separated,
-};
-
 pub fn PlayerSettings(comptime Type: type) type {
-    return struct {
-        mode: PlayerSettingsMode = .same,
-        players: [2]Type,
+    return union(enum) {
+        same: Type,
+        id_separated: IdSeperated,
+        side_separated: SideSeperated,
+        role_separated: RoleSeparated,
 
         const Self = @This();
+        pub const IdSeperated = struct {
+            player_1: Type,
+            player_2: Type,
+        };
+        pub const SideSeperated = struct {
+            left: Type,
+            right: Type,
+        };
+        pub const RoleSeparated = struct {
+            main: Type,
+            secondary: Type,
+        };
 
         pub fn getById(self: *const Self, frame: *const model.Frame, id: model.PlayerId) *const Type {
-            return switch (self.mode) {
-                .same => &self.players[0],
-                .id_separated => switch (id) {
-                    .player_1 => &self.players[0],
-                    .player_2 => &self.players[1],
+            return switch (self.*) {
+                .same => |*s| s,
+                .id_separated => |*s| switch (id) {
+                    .player_1 => &s.player_1,
+                    .player_2 => &s.player_2,
                 },
-                .side_separated => if (frame.left_player_id == id) &self.players[0] else &self.players[1],
-                .role_separated => if (frame.main_player_id == id) &self.players[0] else &self.players[1],
+                .side_separated => |*s| if (frame.left_player_id == id) &s.left else &s.right,
+                .role_separated => |*s| if (frame.main_player_id == id) &s.main else &s.secondary,
             };
         }
 
         pub fn getBySide(self: *const Self, frame: *const model.Frame, side: model.PlayerSide) *const Type {
-            return switch (self.mode) {
-                .same => &self.players[0],
-                .id_separated => switch (frame.left_player_id) {
+            return switch (self.*) {
+                .same => |*s| s,
+                .id_separated => |*s| switch (frame.left_player_id) {
                     .player_1 => switch (side) {
-                        .left => &self.players[0],
-                        .right => &self.players[1],
+                        .left => &s.player_1,
+                        .right => &s.player_2,
                     },
                     .player_2 => switch (side) {
-                        .left => &self.players[1],
-                        .right => &self.players[0],
+                        .left => &s.player_2,
+                        .right => &s.player_1,
                     },
                 },
-                .side_separated => switch (side) {
-                    .left => &self.players[0],
-                    .right => &self.players[1],
+                .side_separated => |*s| switch (side) {
+                    .left => &s.left,
+                    .right => &s.right,
                 },
-                .role_separated => switch (side) {
-                    .left => if (frame.left_player_id == frame.main_player_id) &self.players[0] else &self.players[1],
-                    .right => if (frame.left_player_id == frame.main_player_id) &self.players[1] else &self.players[0],
+                .role_separated => |*s| switch (side) {
+                    .left => if (frame.left_player_id == frame.main_player_id) &s.main else &s.secondary,
+                    .right => if (frame.left_player_id == frame.main_player_id) &s.secondary else &s.main,
                 },
             };
         }
 
         pub fn getByRole(self: *const Self, frame: *const model.Frame, role: model.PlayerRole) *const Type {
-            return switch (self.mode) {
-                .same => &self.players[0],
-                .id_separated => switch (frame.main_player_id) {
+            return switch (self.*) {
+                .same => |*s| s,
+                .id_separated => |*s| switch (frame.main_player_id) {
                     .player_1 => switch (role) {
-                        .main => &self.players[0],
-                        .secondary => &self.players[1],
+                        .main => &s.player_1,
+                        .secondary => &s.player_2,
                     },
                     .player_2 => switch (role) {
-                        .main => &self.players[1],
-                        .secondary => &self.players[0],
+                        .main => &s.player_2,
+                        .secondary => &s.player_1,
                     },
                 },
-                .side_separated => switch (role) {
-                    .main => if (frame.main_player_id == frame.left_player_id) &self.players[0] else &self.players[1],
-                    .secondary => if (frame.main_player_id == frame.left_player_id) &self.players[1] else &self.players[0],
+                .side_separated => |*s| switch (role) {
+                    .main => if (frame.main_player_id == frame.left_player_id) &s.left else &s.right,
+                    .secondary => if (frame.main_player_id == frame.left_player_id) &s.right else &s.left,
                 },
-                .role_separated => switch (role) {
-                    .main => &self.players[0],
-                    .secondary => &self.players[1],
+                .role_separated => |*s| switch (role) {
+                    .main => &s.main,
+                    .secondary => &s.secondary,
                 },
             };
         }
@@ -254,75 +261,75 @@ pub fn PlayerSettings(comptime Type: type) type {
 const testing = std.testing;
 
 test "PlayerSettings.getById should return correct value" {
-    const same = PlayerSettings(u8){ .mode = .same, .players = .{ 1, 2 } };
-    try testing.expectEqual(&same.players[0], same.getById(&.{}, .player_1));
-    try testing.expectEqual(&same.players[0], same.getById(&.{}, .player_2));
+    const same = PlayerSettings(u8){ .same = 'S' };
+    try testing.expectEqual('S', same.getById(&.{}, .player_1).*);
+    try testing.expectEqual('S', same.getById(&.{}, .player_2).*);
 
-    const id = PlayerSettings(u8){ .mode = .id_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&id.players[0], id.getById(&.{}, .player_1));
-    try testing.expectEqual(&id.players[1], id.getById(&.{}, .player_2));
+    const id = PlayerSettings(u8){ .id_separated = .{ .player_1 = 1, .player_2 = 2 } };
+    try testing.expectEqual(1, id.getById(&.{}, .player_1).*);
+    try testing.expectEqual(2, id.getById(&.{}, .player_2).*);
 
-    const side = PlayerSettings(u8){ .mode = .side_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&side.players[0], side.getById(&.{ .left_player_id = .player_1 }, .player_1));
-    try testing.expectEqual(&side.players[1], side.getById(&.{ .left_player_id = .player_1 }, .player_2));
-    try testing.expectEqual(&side.players[1], side.getById(&.{ .left_player_id = .player_2 }, .player_1));
-    try testing.expectEqual(&side.players[0], side.getById(&.{ .left_player_id = .player_2 }, .player_2));
+    const side = PlayerSettings(u8){ .side_separated = .{ .left = 'L', .right = 'R' } };
+    try testing.expectEqual('L', side.getById(&.{ .left_player_id = .player_1 }, .player_1).*);
+    try testing.expectEqual('R', side.getById(&.{ .left_player_id = .player_1 }, .player_2).*);
+    try testing.expectEqual('R', side.getById(&.{ .left_player_id = .player_2 }, .player_1).*);
+    try testing.expectEqual('L', side.getById(&.{ .left_player_id = .player_2 }, .player_2).*);
 
-    const role = PlayerSettings(u8){ .mode = .role_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&role.players[0], role.getById(&.{ .main_player_id = .player_1 }, .player_1));
-    try testing.expectEqual(&role.players[1], role.getById(&.{ .main_player_id = .player_1 }, .player_2));
-    try testing.expectEqual(&role.players[1], role.getById(&.{ .main_player_id = .player_2 }, .player_1));
-    try testing.expectEqual(&role.players[0], role.getById(&.{ .main_player_id = .player_2 }, .player_2));
+    const role = PlayerSettings(u8){ .role_separated = .{ .main = 'M', .secondary = 'S' } };
+    try testing.expectEqual('M', role.getById(&.{ .main_player_id = .player_1 }, .player_1).*);
+    try testing.expectEqual('S', role.getById(&.{ .main_player_id = .player_1 }, .player_2).*);
+    try testing.expectEqual('S', role.getById(&.{ .main_player_id = .player_2 }, .player_1).*);
+    try testing.expectEqual('M', role.getById(&.{ .main_player_id = .player_2 }, .player_2).*);
 }
 
 test "PlayerSettings.getBySide should return correct value" {
-    const same = PlayerSettings(u8){ .mode = .same, .players = .{ 1, 2 } };
-    try testing.expectEqual(&same.players[0], same.getBySide(&.{}, .left));
-    try testing.expectEqual(&same.players[0], same.getBySide(&.{}, .right));
+    const same = PlayerSettings(u8){ .same = 'S' };
+    try testing.expectEqual('S', same.getBySide(&.{}, .left).*);
+    try testing.expectEqual('S', same.getBySide(&.{}, .right).*);
 
-    const id = PlayerSettings(u8){ .mode = .id_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&id.players[0], id.getBySide(&.{ .left_player_id = .player_1 }, .left));
-    try testing.expectEqual(&id.players[1], id.getBySide(&.{ .left_player_id = .player_1 }, .right));
-    try testing.expectEqual(&id.players[1], id.getBySide(&.{ .left_player_id = .player_2 }, .left));
-    try testing.expectEqual(&id.players[0], id.getBySide(&.{ .left_player_id = .player_2 }, .right));
+    const id = PlayerSettings(u8){ .id_separated = .{ .player_1 = 1, .player_2 = 2 } };
+    try testing.expectEqual(1, id.getBySide(&.{ .left_player_id = .player_1 }, .left).*);
+    try testing.expectEqual(2, id.getBySide(&.{ .left_player_id = .player_1 }, .right).*);
+    try testing.expectEqual(2, id.getBySide(&.{ .left_player_id = .player_2 }, .left).*);
+    try testing.expectEqual(1, id.getBySide(&.{ .left_player_id = .player_2 }, .right).*);
 
-    const side = PlayerSettings(u8){ .mode = .side_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&side.players[0], side.getBySide(&.{}, .left));
-    try testing.expectEqual(&side.players[1], side.getBySide(&.{}, .right));
+    const side = PlayerSettings(u8){ .side_separated = .{ .left = 'L', .right = 'R' } };
+    try testing.expectEqual('L', side.getBySide(&.{}, .left).*);
+    try testing.expectEqual('R', side.getBySide(&.{}, .right).*);
 
-    const role = PlayerSettings(u8){ .mode = .role_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&role.players[0], role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .left));
-    try testing.expectEqual(&role.players[1], role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .right));
-    try testing.expectEqual(&role.players[1], role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .left));
-    try testing.expectEqual(&role.players[0], role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .right));
-    try testing.expectEqual(&role.players[1], role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .left));
-    try testing.expectEqual(&role.players[0], role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .right));
-    try testing.expectEqual(&role.players[0], role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .left));
-    try testing.expectEqual(&role.players[1], role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .right));
+    const role = PlayerSettings(u8){ .role_separated = .{ .main = 'M', .secondary = 'S' } };
+    try testing.expectEqual('M', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .left).*);
+    try testing.expectEqual('S', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .right).*);
+    try testing.expectEqual('S', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .left).*);
+    try testing.expectEqual('M', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .right).*);
+    try testing.expectEqual('S', role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .left).*);
+    try testing.expectEqual('M', role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .right).*);
+    try testing.expectEqual('M', role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .left).*);
+    try testing.expectEqual('S', role.getBySide(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .right).*);
 }
 
 test "PlayerSettings.getByRole should return correct value" {
-    const same = PlayerSettings(u8){ .mode = .same, .players = .{ 1, 2 } };
-    try testing.expectEqual(&same.players[0], same.getByRole(&.{}, .main));
-    try testing.expectEqual(&same.players[0], same.getByRole(&.{}, .secondary));
+    const same = PlayerSettings(u8){ .same = 'S' };
+    try testing.expectEqual('S', same.getByRole(&.{}, .main).*);
+    try testing.expectEqual('S', same.getByRole(&.{}, .secondary).*);
 
-    const id = PlayerSettings(u8){ .mode = .id_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&id.players[0], id.getByRole(&.{ .main_player_id = .player_1 }, .main));
-    try testing.expectEqual(&id.players[1], id.getByRole(&.{ .main_player_id = .player_1 }, .secondary));
-    try testing.expectEqual(&id.players[1], id.getByRole(&.{ .main_player_id = .player_2 }, .main));
-    try testing.expectEqual(&id.players[0], id.getByRole(&.{ .main_player_id = .player_2 }, .secondary));
+    const id = PlayerSettings(u8){ .id_separated = .{ .player_1 = 1, .player_2 = 2 } };
+    try testing.expectEqual(1, id.getByRole(&.{ .main_player_id = .player_1 }, .main).*);
+    try testing.expectEqual(2, id.getByRole(&.{ .main_player_id = .player_1 }, .secondary).*);
+    try testing.expectEqual(2, id.getByRole(&.{ .main_player_id = .player_2 }, .main).*);
+    try testing.expectEqual(1, id.getByRole(&.{ .main_player_id = .player_2 }, .secondary).*);
 
-    const side = PlayerSettings(u8){ .mode = .side_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&side.players[0], side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .main));
-    try testing.expectEqual(&side.players[1], side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .secondary));
-    try testing.expectEqual(&side.players[1], side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .main));
-    try testing.expectEqual(&side.players[0], side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .secondary));
-    try testing.expectEqual(&side.players[1], side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .main));
-    try testing.expectEqual(&side.players[0], side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .secondary));
-    try testing.expectEqual(&side.players[0], side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .main));
-    try testing.expectEqual(&side.players[1], side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .secondary));
+    const side = PlayerSettings(u8){ .side_separated = .{ .left = 'L', .right = 'R' } };
+    try testing.expectEqual('L', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .main).*);
+    try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .secondary).*);
+    try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .main).*);
+    try testing.expectEqual('L', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .secondary).*);
+    try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .main).*);
+    try testing.expectEqual('L', side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_1 }, .secondary).*);
+    try testing.expectEqual('L', side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .main).*);
+    try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .secondary).*);
 
-    const role = PlayerSettings(u8){ .mode = .role_separated, .players = .{ 1, 2 } };
-    try testing.expectEqual(&role.players[0], role.getByRole(&.{}, .main));
-    try testing.expectEqual(&role.players[1], role.getByRole(&.{}, .secondary));
+    const role = PlayerSettings(u8){ .role_separated = .{ .main = 'M', .secondary = 'S' } };
+    try testing.expectEqual('M', role.getByRole(&.{}, .main).*);
+    try testing.expectEqual('S', role.getByRole(&.{}, .secondary).*);
 }
