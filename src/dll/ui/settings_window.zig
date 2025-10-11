@@ -152,19 +152,23 @@ fn drawPlayerSettings(
         }
     }
 
+    const flags = imgui.ImGuiTableFlags_Resizable | imgui.ImGuiTableFlags_BordersInner;
     switch (settings.*) {
-        .same => |*s| drawContent(s),
+        .same => |*s| {
+            imgui.igSeparatorText("Both Players");
+            drawContent(s);
+        },
         .id_separated => |*s| {
-            if (imgui.igBeginTable("players", 2, imgui.ImGuiTableFlags_BordersInner, .{}, 0)) {
+            if (imgui.igBeginTable("players", 2, flags, .{}, 0)) {
                 defer imgui.igEndTable();
                 if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("player_1");
+                    imgui.igPushID_Str("Player 1");
                     defer imgui.igPopID();
                     imgui.igSeparatorText("Player 1");
                     drawContent(&s.player_1);
                 }
                 if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("player_2");
+                    imgui.igPushID_Str("Player 2");
                     defer imgui.igPopID();
                     imgui.igSeparatorText("Player 2");
                     drawContent(&s.player_2);
@@ -172,16 +176,16 @@ fn drawPlayerSettings(
             }
         },
         .side_separated => |*s| {
-            if (imgui.igBeginTable("players", 2, imgui.ImGuiTableFlags_BordersInner, .{}, 0)) {
+            if (imgui.igBeginTable("players", 2, flags, .{}, 0)) {
                 defer imgui.igEndTable();
                 if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("left");
+                    imgui.igPushID_Str("Left Player");
                     defer imgui.igPopID();
                     imgui.igSeparatorText("Left Player");
                     drawContent(&s.left);
                 }
                 if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("right");
+                    imgui.igPushID_Str("Right Player");
                     defer imgui.igPopID();
                     imgui.igSeparatorText("Right Player");
                     drawContent(&s.right);
@@ -189,16 +193,16 @@ fn drawPlayerSettings(
             }
         },
         .role_separated => |*s| {
-            if (imgui.igBeginTable("players", 2, imgui.ImGuiTableFlags_BordersInner, .{}, 0)) {
+            if (imgui.igBeginTable("players", 2, flags, .{}, 0)) {
                 defer imgui.igEndTable();
                 if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("main");
+                    imgui.igPushID_Str("Main Player");
                     defer imgui.igPopID();
                     imgui.igSeparatorText("Main Player");
                     drawContent(&s.main);
                 }
                 if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("secondary");
+                    imgui.igPushID_Str("Secondary Player");
                     defer imgui.igPopID();
                     imgui.igSeparatorText("Secondary Player");
                     drawContent(&s.secondary);
@@ -271,14 +275,19 @@ fn drawHitLinesSettings(settings: *model.HitLinesSettings) void {
             defer imgui.igPopID();
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
+
+            drawBool("Enabled", &value.enabled, default_value.enabled);
+            imgui.igBeginDisabled(!value.enabled);
+            defer imgui.igEndDisabled();
+
             drawColorsAndThickness("Fill", &value.fill, default_value.fill);
             drawColorsAndThickness("Outline", &value.outline, default_value.outline);
         }
     }.call;
 
-    drawFillAndOutline("Normal", &settings.normal, defaults.normal);
-    drawFillAndOutline("Inactive Or Crushed", &settings.inactive_or_crushed, defaults.inactive_or_crushed);
-    drawDuration("Duration", &settings.duration, defaults.duration);
+    drawDuration("Lingering Duration", &settings.duration, defaults.duration);
+    drawFillAndOutline("Normal Hit Lines", &settings.normal, defaults.normal);
+    drawFillAndOutline("Inactive Or Crushed Hit Lines", &settings.inactive_or_crushed, defaults.inactive_or_crushed);
 }
 
 fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
@@ -314,6 +323,11 @@ fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
             defer imgui.igPopID();
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
+
+            drawBool("Enabled", &value.enabled, default_value.enabled);
+            imgui.igBeginDisabled(!value.enabled);
+            defer imgui.igEndDisabled();
+
             drawColor("Color", &value.color, default_value.color);
             drawThickness("Thickness", &value.thickness, default_value.thickness);
             drawDuration("Duration", &value.duration, default_value.duration);
@@ -330,6 +344,11 @@ fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
             defer imgui.igPopID();
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
+
+            drawBool("Enabled", &value.enabled, default_value.enabled);
+            imgui.igBeginDisabled(!value.enabled);
+            defer imgui.igEndDisabled();
+
             drawColorAndThickness("Normal", &value.normal, default_value.normal);
             drawColorAndThickness("High Crushing", &value.high_crushing, default_value.high_crushing);
             drawColorAndThickness("Low Crushing", &value.low_crushing, default_value.low_crushing);
@@ -337,10 +356,10 @@ fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
         }
     }.call;
 
-    drawCrushing("Not Power-Crushing", &settings.normal, defaults.normal);
-    drawCrushing("Power-Crushing", &settings.power_crushing, defaults.power_crushing);
-    drawColorThicknessAndDuration("Connected", &settings.connected, defaults.connected);
-    drawColorThicknessAndDuration("Lingering", &settings.lingering, defaults.lingering);
+    drawCrushing("Normal Hurt Cylinders", &settings.normal, defaults.normal);
+    drawCrushing("Power-Crushing Hurt Cylinders", &settings.power_crushing, defaults.power_crushing);
+    drawColorThicknessAndDuration("Connected (Hit) Hurt Cylinders", &settings.connected, defaults.connected);
+    drawColorThicknessAndDuration("Lingering Hurt Cylinders", &settings.lingering, defaults.lingering);
 }
 
 fn drawCollisionSpheresSettings(settings: *model.CollisionSpheresSettings) void {
@@ -427,9 +446,11 @@ fn drawIngameCameraSettings(settings: *model.IngameCameraSettings) void {
 }
 
 fn drawBool(label: [:0]const u8, value: *bool, default_value: bool) void {
-    _ = imgui.igCheckbox(label, value);
-    imgui.igSameLine(0, -1);
+    imgui.igPushID_Str(label);
     drawDefaultButton(value, default_value);
+    imgui.igPopID();
+    imgui.igSameLine(0, -1);
+    _ = imgui.igCheckbox(label, value);
 }
 
 fn drawLength(label: [:0]const u8, value: *f32, default_value: f32) void {

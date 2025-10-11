@@ -15,6 +15,7 @@ pub const Settings = struct {
 pub const HitLinesSettings = struct {
     enabled: bool = true,
     normal: FillAndOutline = .{
+        .enabled = true,
         .fill = .{
             .colors = .init(.{
                 .not_attack = .fromArray(.{ 0.5, 0.5, 0.5, 1.0 }),
@@ -49,6 +50,7 @@ pub const HitLinesSettings = struct {
         },
     },
     inactive_or_crushed: FillAndOutline = .{
+        .enabled = true,
         .fill = .{
             .colors = .init(.{
                 .not_attack = .fromArray(.{ 0.5, 0.5, 0.5, 1.0 }),
@@ -85,6 +87,7 @@ pub const HitLinesSettings = struct {
     duration: f32 = 1.0,
 
     pub const FillAndOutline = struct {
+        enabled: bool,
         fill: ColorsAndThickness,
         outline: ColorsAndThickness,
     };
@@ -97,29 +100,34 @@ pub const HitLinesSettings = struct {
 pub const HurtCylindersSettings = struct {
     enabled: bool = true,
     normal: Crushing = .{
+        .enabled = true,
         .normal = .{ .color = .fromArray(.{ 0.5, 0.5, 0.5, 0.5 }), .thickness = 1.0 },
         .high_crushing = .{ .color = .fromArray(.{ 0.75, 0.0, 0.0, 0.5 }), .thickness = 1.0 },
         .low_crushing = .{ .color = .fromArray(.{ 0.0, 0.375, 0.75, 0.5 }), .thickness = 1.0 },
         .invincible = .{ .color = .fromArray(.{ 0.75, 0.0, 0.75, 0.5 }), .thickness = 1.0 },
     },
     power_crushing: Crushing = .{
+        .enabled = true,
         .normal = .{ .color = .fromArray(.{ 1.0, 1.0, 1.0, 1.0 }), .thickness = 1.0 },
         .high_crushing = .{ .color = .fromArray(.{ 1.0, 0.25, 0.25, 1.0 }), .thickness = 1.0 },
         .low_crushing = .{ .color = .fromArray(.{ 0.0, 0.25, 1.0, 1.0 }), .thickness = 1.0 },
         .invincible = .{ .color = .fromArray(.{ 1.0, 0.0, 1.0, 1.0 }), .thickness = 1.0 },
     },
     connected: ColorThicknessAndDuration = .{
+        .enabled = true,
         .color = .fromArray(.{ 1.0, 0.75, 0.25, 0.5 }),
         .thickness = 1.0,
         .duration = 1.0,
     },
     lingering: ColorThicknessAndDuration = .{
+        .enabled = true,
         .color = .fromArray(.{ 0.0, 0.75, 0.75, 0.5 }),
         .thickness = 1.0,
         .duration = 1.0,
     },
 
     pub const Crushing = struct {
+        enabled: bool,
         normal: ColorAndThickness,
         high_crushing: ColorAndThickness,
         low_crushing: ColorAndThickness,
@@ -130,6 +138,7 @@ pub const HurtCylindersSettings = struct {
         thickness: f32,
     };
     pub const ColorThicknessAndDuration = struct {
+        enabled: bool,
         color: sdk.math.Vec4,
         thickness: f32,
         duration: f32,

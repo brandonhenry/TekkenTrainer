@@ -74,8 +74,14 @@ pub const HitLines = struct {
             const player = frame.getPlayerById(player_id);
             for (player.hit_lines.asConstSlice()) |hit_line| {
                 const line_settings = if (hit_line.flags.is_inactive or hit_line.flags.is_crushed) block: {
+                    if (!player_settings.inactive_or_crushed.enabled) {
+                        continue;
+                    }
                     break :block &player_settings.inactive_or_crushed;
                 } else block: {
+                    if (!player_settings.normal.enabled) {
+                        continue;
+                    }
                     break :block &player_settings.normal;
                 };
                 const line = hit_line.line;
@@ -92,8 +98,14 @@ pub const HitLines = struct {
             const player = frame.getPlayerById(player_id);
             for (player.hit_lines.asConstSlice()) |hit_line| {
                 const line_settings = if (hit_line.flags.is_inactive or hit_line.flags.is_crushed) block: {
+                    if (!player_settings.inactive_or_crushed.enabled) {
+                        continue;
+                    }
                     break :block &player_settings.inactive_or_crushed;
                 } else block: {
+                    if (!player_settings.normal.enabled) {
+                        continue;
+                    }
                     break :block &player_settings.normal;
                 };
                 const line = hit_line.line;
@@ -119,8 +131,14 @@ pub const HitLines = struct {
 
             const line = hit_line.line;
             const line_settings = if (hit_line.inactive_or_crushed) block: {
+                if (!player_settings.inactive_or_crushed.enabled) {
+                    continue;
+                }
                 break :block &player_settings.inactive_or_crushed;
             } else block: {
+                if (!player_settings.normal.enabled) {
+                    continue;
+                }
                 break :block &player_settings.normal;
             };
 
@@ -141,8 +159,14 @@ pub const HitLines = struct {
 
             const line = hit_line.line;
             const line_settings = if (hit_line.inactive_or_crushed) block: {
+                if (!player_settings.inactive_or_crushed.enabled) {
+                    continue;
+                }
                 break :block &player_settings.inactive_or_crushed;
             } else block: {
+                if (!player_settings.normal.enabled) {
+                    continue;
+                }
                 break :block &player_settings.normal;
             };
 

@@ -34,12 +34,16 @@ pub const HurtCylinders = struct {
                 }
                 const cylinder_id = model.HurtCylinders.Indexer.keyForIndex(index);
                 const connected_remaining_time = self.connected_remaining_time.getPtr(player_id).getPtr(cylinder_id);
-                connected_remaining_time.* = player_settings.connected.duration;
-                _ = self.lingering.addToBack(.{
-                    .cylinder = hurt_cylinder.cylinder,
-                    .player_id = player_id,
-                    .remaining_time = player_settings.lingering.duration,
-                });
+                if (player_settings.connected.enabled) {
+                    connected_remaining_time.* = player_settings.connected.duration;
+                }
+                if (player_settings.lingering.enabled) {
+                    _ = self.lingering.addToBack(.{
+                        .cylinder = hurt_cylinder.cylinder,
+                        .player_id = player_id,
+                        .remaining_time = player_settings.lingering.duration,
+                    });
+                }
             }
         }
     }
@@ -99,7 +103,18 @@ pub const HurtCylinders = struct {
             const player = frame.getPlayerById(player_id);
             const crushing = player.crushing orelse model.Crushing{};
 
-            const ps = if (crushing.power_crushing) &player_settings.power_crushing else &player_settings.normal;
+            const ps = if (crushing.power_crushing) block: {
+                if (player_settings.power_crushing.enabled) {
+                    break :block &player_settings.power_crushing;
+                } else {
+                    break :block &player_settings.normal;
+                }
+            } else block: {
+                if (!player_settings.normal.enabled) {
+                    continue;
+                }
+                break :block &player_settings.normal;
+            };
             const base_settings = if (crushing.invincibility) block: {
                 break :block &ps.invincible;
             } else if (crushing.high_crushing) block: {
@@ -117,7 +132,11 @@ pub const HurtCylinders = struct {
 
                 const remaining_time = self.connected_remaining_time.getPtrConst(player_id).get(cylinder_id);
                 const duration = player_settings.connected.duration;
-                const completion: f32 = if (hurt_cylinder.flags.is_connected) 0.0 else block: {
+                const completion: f32 = if (!player_settings.connected.enabled) block: {
+                    break :block 1.0;
+                } else if (hurt_cylinder.flags.is_connected) block: {
+                    break :block 0.0;
+                } else block: {
                     break :block std.math.clamp(1.0 - (remaining_time / duration), 0.0, 1.0);
                 };
                 const t = completion * completion * completion * completion;
@@ -140,7 +159,7 @@ pub const HurtCylinders = struct {
         for (0..self.lingering.len) |index| {
             const hurt_cylinder = self.lingering.get(index) catch unreachable;
             const player_settings = settings.getById(frame, hurt_cylinder.player_id);
-            if (!player_settings.enabled) {
+            if (!player_settings.enabled or !player_settings.lingering.enabled) {
                 continue;
             }
             const cylinder = hurt_cylinder.cylinder;
