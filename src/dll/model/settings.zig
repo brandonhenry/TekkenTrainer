@@ -129,7 +129,7 @@ pub const HurtCylindersSettings = struct {
         color: sdk.math.Vec4,
         thickness: f32,
     };
-    const ColorThicknessAndDuration = struct {
+    pub const ColorThicknessAndDuration = struct {
         color: sdk.math.Vec4,
         thickness: f32,
         duration: f32,
@@ -137,7 +137,7 @@ pub const HurtCylindersSettings = struct {
 };
 
 pub const CollisionSpheresSettings = struct {
-    enabled: bool = true,
+    enabled: bool = false,
     color: sdk.math.Vec4 = .fromArray(.{ 0.0, 0.0, 1.0, 0.5 }),
     thickness: f32 = 1.0,
 };
@@ -158,8 +158,8 @@ pub const SkeletonSettings = struct {
 pub const ForwardDirectionSettings = struct {
     enabled: bool = true,
     color: sdk.math.Vec4 = .fromArray(.{ 1.0, 0.0, 1.0, 1.0 }),
-    thickness: f32 = 1.0,
     length: f32 = 100.0,
+    thickness: f32 = 1.0,
 };
 
 pub const FloorSettings = struct {
