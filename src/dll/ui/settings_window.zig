@@ -168,109 +168,48 @@ fn drawPlayerSettings(
     settings: *model.PlayerSettings(Type),
     drawContent: *const fn (settings: *Type) void,
 ) void {
-    const same_name = "Same Settings";
-    const id_separated_name = "Player 1 / Player 2";
-    const side_separated_name = "Left Player / Right Player";
-    const role_separated_name = "Main Player / Secondary Player";
-    const preview_value = switch (settings.*) {
-        .same => same_name,
-        .id_separated => id_separated_name,
-        .side_separated => side_separated_name,
-        .role_separated => role_separated_name,
-    };
-    if (imgui.igBeginCombo("Player Separation", preview_value, 0)) {
+    const labels = std.EnumArray(model.PlayerSettingsMode, [:0]const u8).init(.{
+        .same = "Same Settings",
+        .id_separated = "Player 1 / Player 2",
+        .side_separated = "Left Player / Right Player",
+        .role_separated = "Main Player / Secondary Player",
+    });
+    if (imgui.igBeginCombo("Player Separation", labels.get(settings.mode), 0)) {
         defer imgui.igEndCombo();
-        if (imgui.igSelectable_Bool(same_name, settings.* == .same, 0, .{})) {
-            settings.* = switch (settings.*) {
-                .same => |s| .{ .same = s },
-                .id_separated => |s| .{ .same = s.player_1 },
-                .side_separated => |s| .{ .same = s.left },
-                .role_separated => |s| .{ .same = s.main },
-            };
-        }
-        if (imgui.igSelectable_Bool(id_separated_name, settings.* == .id_separated, 0, .{})) {
-            settings.* = switch (settings.*) {
-                .same => |s| .{ .id_separated = .{ .player_1 = s, .player_2 = s } },
-                .id_separated => |s| .{ .id_separated = .{ .player_1 = s.player_1, .player_2 = s.player_2 } },
-                .side_separated => |s| .{ .id_separated = .{ .player_1 = s.left, .player_2 = s.right } },
-                .role_separated => |s| .{ .id_separated = .{ .player_1 = s.main, .player_2 = s.secondary } },
-            };
-        }
-        if (imgui.igSelectable_Bool(side_separated_name, settings.* == .side_separated, 0, .{})) {
-            settings.* = switch (settings.*) {
-                .same => |s| .{ .side_separated = .{ .left = s, .right = s } },
-                .id_separated => |s| .{ .side_separated = .{ .left = s.player_1, .right = s.player_2 } },
-                .side_separated => |s| .{ .side_separated = .{ .left = s.left, .right = s.right } },
-                .role_separated => |s| .{ .side_separated = .{ .left = s.main, .right = s.secondary } },
-            };
-        }
-        if (imgui.igSelectable_Bool(role_separated_name, settings.* == .role_separated, 0, .{})) {
-            settings.* = switch (settings.*) {
-                .same => |s| .{ .role_separated = .{ .main = s, .secondary = s } },
-                .id_separated => |s| .{ .role_separated = .{ .main = s.player_1, .secondary = s.player_2 } },
-                .side_separated => |s| .{ .role_separated = .{ .main = s.left, .secondary = s.right } },
-                .role_separated => |s| .{ .role_separated = .{ .main = s.main, .secondary = s.secondary } },
-            };
+        inline for (@typeInfo(model.PlayerSettingsMode).@"enum".fields) |*field| {
+            const mode: model.PlayerSettingsMode = @enumFromInt(field.value);
+            if (imgui.igSelectable_Bool(labels.get(mode), settings.mode == mode, 0, .{})) {
+                settings.mode = mode;
+            }
         }
     }
 
-    const flags = imgui.ImGuiTableFlags_Resizable | imgui.ImGuiTableFlags_BordersInner;
-    switch (settings.*) {
-        .same => |*s| {
+    const label_1, const label_2 = switch (settings.mode) {
+        .same => {
             imgui.igSeparatorText("Both Players");
-            drawContent(s);
+            drawContent(&settings.players[0]);
+            return;
         },
-        .id_separated => |*s| {
-            if (imgui.igBeginTable("players", 2, flags, .{}, 0)) {
-                defer imgui.igEndTable();
-                if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("Player 1");
-                    defer imgui.igPopID();
-                    imgui.igSeparatorText("Player 1");
-                    drawContent(&s.player_1);
-                }
-                if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("Player 2");
-                    defer imgui.igPopID();
-                    imgui.igSeparatorText("Player 2");
-                    drawContent(&s.player_2);
-                }
-            }
-        },
-        .side_separated => |*s| {
-            if (imgui.igBeginTable("players", 2, flags, .{}, 0)) {
-                defer imgui.igEndTable();
-                if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("Left Player");
-                    defer imgui.igPopID();
-                    imgui.igSeparatorText("Left Player");
-                    drawContent(&s.left);
-                }
-                if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("Right Player");
-                    defer imgui.igPopID();
-                    imgui.igSeparatorText("Right Player");
-                    drawContent(&s.right);
-                }
-            }
-        },
-        .role_separated => |*s| {
-            if (imgui.igBeginTable("players", 2, flags, .{}, 0)) {
-                defer imgui.igEndTable();
-                if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("Main Player");
-                    defer imgui.igPopID();
-                    imgui.igSeparatorText("Main Player");
-                    drawContent(&s.main);
-                }
-                if (imgui.igTableNextColumn()) {
-                    imgui.igPushID_Str("Secondary Player");
-                    defer imgui.igPopID();
-                    imgui.igSeparatorText("Secondary Player");
-                    drawContent(&s.secondary);
-                }
-            }
-        },
+        .id_separated => .{ "Player 1", "Player 2" },
+        .side_separated => .{ "Left Player", "Right Player" },
+        .role_separated => .{ "Main Player", "Secondary Player" },
+    };
+    const flags = imgui.ImGuiTableFlags_Resizable | imgui.ImGuiTableFlags_BordersInner;
+    if (!imgui.igBeginTable("players", 2, flags, .{}, 0)) {
+        return;
+    }
+    defer imgui.igEndTable();
+    if (imgui.igTableNextColumn()) {
+        imgui.igPushID_Str(label_1);
+        defer imgui.igPopID();
+        imgui.igSeparatorText(label_1);
+        drawContent(&settings.players[0]);
+    }
+    if (imgui.igTableNextColumn()) {
+        imgui.igPushID_Str(label_2);
+        defer imgui.igPopID();
+        imgui.igSeparatorText(label_2);
+        drawContent(&settings.players[1]);
     }
 }
 

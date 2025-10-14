@@ -3,11 +3,11 @@ const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 
 pub const Settings = struct {
-    hit_lines: PlayerSettings(HitLinesSettings) = .{ .same = .{} },
-    hurt_cylinders: PlayerSettings(HurtCylindersSettings) = .{ .same = .{} },
-    collision_spheres: PlayerSettings(CollisionSpheresSettings) = .{ .same = .{} },
-    skeletons: PlayerSettings(SkeletonSettings) = .{ .same = .{} },
-    forward_directions: PlayerSettings(ForwardDirectionSettings) = .{ .same = .{} },
+    hit_lines: PlayerSettings(HitLinesSettings) = .{ .mode = .same, .players = .{ .{}, .{} } },
+    hurt_cylinders: PlayerSettings(HurtCylindersSettings) = .{ .mode = .same, .players = .{ .{}, .{} } },
+    collision_spheres: PlayerSettings(CollisionSpheresSettings) = .{ .mode = .same, .players = .{ .{}, .{} } },
+    skeletons: PlayerSettings(SkeletonSettings) = .{ .mode = .same, .players = .{ .{}, .{} } },
+    forward_directions: PlayerSettings(ForwardDirectionSettings) = .{ .mode = .same, .players = .{ .{}, .{} } },
     floor: FloorSettings = .{},
     ingame_camera: IngameCameraSettings = .{},
 
@@ -139,6 +139,18 @@ pub const HitLinesSettings = struct {
                 .thickness = json_value.thickness,
             };
         }
+
+        pub fn settingsParse(allocator: std.mem.Allocator, reader: *std.json.Reader, default_value: *const Self) !Self {
+            const json_default = JsonValue{
+                .colors = sdk.misc.enumArrayToEnumFieldStruct(model.AttackType, sdk.math.Vec4, &default_value.colors),
+                .thickness = default_value.thickness,
+            };
+            const json_value = try sdk.misc.settingsInnerParse(JsonValue, allocator, reader, &json_default);
+            return .{
+                .colors = .init(json_value.colors),
+                .thickness = json_value.thickness,
+            };
+        }
     };
 };
 
@@ -210,10 +222,10 @@ pub const SkeletonSettings = struct {
 
     const Self = @This();
     const JsonValue = struct {
-        enabled: ?bool = null,
-        colors: ?std.enums.EnumFieldStruct(model.Blocking, sdk.math.Vec4, null) = null,
-        thickness: ?f32 = null,
-        cant_move_alpha: ?f32 = null,
+        enabled: bool,
+        colors: std.enums.EnumFieldStruct(model.Blocking, sdk.math.Vec4, null),
+        thickness: f32,
+        cant_move_alpha: f32,
     };
 
     pub fn jsonStringify(self: *const Self, jsonWriter: anytype) !void {
@@ -227,13 +239,28 @@ pub const SkeletonSettings = struct {
     }
 
     pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) !Self {
-        const default = Self{};
         const json_value = try std.json.innerParse(JsonValue, allocator, source, options);
         return .{
-            .enabled = json_value.enabled orelse default.enabled,
-            .colors = if (json_value.colors) |c| std.EnumArray(model.Blocking, sdk.math.Vec4).init(c) else default.colors,
-            .thickness = json_value.thickness orelse default.thickness,
-            .cant_move_alpha = json_value.cant_move_alpha orelse default.cant_move_alpha,
+            .enabled = json_value.enabled,
+            .colors = .init(json_value.colors),
+            .thickness = json_value.thickness,
+            .cant_move_alpha = json_value.cant_move_alpha,
+        };
+    }
+
+    pub fn settingsParse(allocator: std.mem.Allocator, reader: *std.json.Reader, default_value: *const Self) !Self {
+        const json_default = JsonValue{
+            .enabled = default_value.enabled,
+            .colors = sdk.misc.enumArrayToEnumFieldStruct(model.Blocking, sdk.math.Vec4, &default_value.colors),
+            .thickness = default_value.thickness,
+            .cant_move_alpha = default_value.cant_move_alpha,
+        };
+        const json_value = try sdk.misc.settingsInnerParse(JsonValue, allocator, reader, &json_default);
+        return .{
+            .enabled = json_value.enabled,
+            .colors = .init(json_value.colors),
+            .thickness = json_value.thickness,
+            .cant_move_alpha = json_value.cant_move_alpha,
         };
     }
 };
@@ -258,83 +285,76 @@ pub const IngameCameraSettings = struct {
     thickness: f32 = 1.0,
 };
 
+pub const PlayerSettingsMode = enum {
+    same,
+    id_separated,
+    side_separated,
+    role_separated,
+};
+
 pub fn PlayerSettings(comptime Type: type) type {
-    return union(enum) {
-        same: Type,
-        id_separated: IdSeperated,
-        side_separated: SideSeperated,
-        role_separated: RoleSeparated,
+    return struct {
+        mode: PlayerSettingsMode,
+        players: [2]Type,
 
         const Self = @This();
-        pub const IdSeperated = struct {
-            player_1: Type,
-            player_2: Type,
-        };
-        pub const SideSeperated = struct {
-            left: Type,
-            right: Type,
-        };
-        pub const RoleSeparated = struct {
-            main: Type,
-            secondary: Type,
-        };
 
         pub fn getById(self: *const Self, frame: *const model.Frame, id: model.PlayerId) *const Type {
-            return switch (self.*) {
-                .same => |*s| s,
-                .id_separated => |*s| switch (id) {
-                    .player_1 => &s.player_1,
-                    .player_2 => &s.player_2,
+            return switch (self.mode) {
+                .same => &self.players[0],
+                .id_separated => switch (id) {
+                    .player_1 => &self.players[0],
+                    .player_2 => &self.players[1],
                 },
-                .side_separated => |*s| if (frame.left_player_id == id) &s.left else &s.right,
-                .role_separated => |*s| if (frame.main_player_id == id) &s.main else &s.secondary,
+                .side_separated => if (frame.left_player_id == id) &self.players[0] else &self.players[1],
+                .role_separated => if (frame.main_player_id == id) &self.players[0] else &self.players[1],
             };
         }
 
         pub fn getBySide(self: *const Self, frame: *const model.Frame, side: model.PlayerSide) *const Type {
-            return switch (self.*) {
-                .same => |*s| s,
-                .id_separated => |*s| switch (frame.left_player_id) {
+            return switch (self.mode) {
+                .same => &self.players[0],
+                .id_separated => switch (frame.left_player_id) {
                     .player_1 => switch (side) {
-                        .left => &s.player_1,
-                        .right => &s.player_2,
+                        .left => &self.players[0],
+                        .right => &self.players[1],
                     },
                     .player_2 => switch (side) {
-                        .left => &s.player_2,
-                        .right => &s.player_1,
+                        .left => &self.players[1],
+                        .right => &self.players[0],
                     },
                 },
-                .side_separated => |*s| switch (side) {
-                    .left => &s.left,
-                    .right => &s.right,
+                .side_separated => switch (side) {
+                    .left => &self.players[0],
+                    .right => &self.players[1],
                 },
-                .role_separated => |*s| switch (side) {
-                    .left => if (frame.left_player_id == frame.main_player_id) &s.main else &s.secondary,
-                    .right => if (frame.left_player_id == frame.main_player_id) &s.secondary else &s.main,
+                .role_separated => switch (side) {
+                    .left => if (frame.left_player_id == frame.main_player_id) &self.players[0] else &self.players[1],
+                    .right => if (frame.left_player_id == frame.main_player_id) &self.players[1] else &self.players[0],
                 },
             };
         }
 
         pub fn getByRole(self: *const Self, frame: *const model.Frame, role: model.PlayerRole) *const Type {
-            return switch (self.*) {
-                .same => |*s| s,
-                .id_separated => |*s| switch (frame.main_player_id) {
+            return switch (self.mode) {
+                .same => &self.players[0],
+                .id_separated => switch (frame.main_player_id) {
                     .player_1 => switch (role) {
-                        .main => &s.player_1,
-                        .secondary => &s.player_2,
+                        .main => &self.players[0],
+                        .secondary => &self.players[1],
                     },
                     .player_2 => switch (role) {
-                        .main => &s.player_2,
-                        .secondary => &s.player_1,
+                        .main => &self.players[1],
+                        .secondary => &self.players[0],
                     },
                 },
-                .side_separated => |*s| switch (role) {
-                    .main => if (frame.main_player_id == frame.left_player_id) &s.left else &s.right,
-                    .secondary => if (frame.main_player_id == frame.left_player_id) &s.right else &s.left,
+                .side_separated => switch (role) {
+                    .main => if (frame.main_player_id == frame.left_player_id) &self.players[0] else &self.players[1],
+                    .secondary => if (frame.main_player_id == frame.left_player_id) &self.players[1] else &self.players[0],
                 },
-                .role_separated => |*s| switch (role) {
-                    .main => &s.main,
-                    .secondary => &s.secondary,
+                .role_separated => switch (role) {
+                    .main => &self.players[0],
+                    .secondary => &self.players[1],
                 },
             };
         }
@@ -357,21 +377,21 @@ test "Settings.load should load the same settings that Settings.save saves" {
 }
 
 test "PlayerSettings.getById should return correct value" {
-    const same = PlayerSettings(u8){ .same = 'S' };
-    try testing.expectEqual('S', same.getById(&.{}, .player_1).*);
-    try testing.expectEqual('S', same.getById(&.{}, .player_2).*);
+    const same = PlayerSettings(u8){ .mode = .same, .players = .{ 1, 2 } };
+    try testing.expectEqual(1, same.getById(&.{}, .player_1).*);
+    try testing.expectEqual(1, same.getById(&.{}, .player_2).*);
 
-    const id = PlayerSettings(u8){ .id_separated = .{ .player_1 = 1, .player_2 = 2 } };
+    const id = PlayerSettings(u8){ .mode = .id_separated, .players = .{ 1, 2 } };
     try testing.expectEqual(1, id.getById(&.{}, .player_1).*);
     try testing.expectEqual(2, id.getById(&.{}, .player_2).*);
 
-    const side = PlayerSettings(u8){ .side_separated = .{ .left = 'L', .right = 'R' } };
+    const side = PlayerSettings(u8){ .mode = .side_separated, .players = .{ 'L', 'R' } };
     try testing.expectEqual('L', side.getById(&.{ .left_player_id = .player_1 }, .player_1).*);
     try testing.expectEqual('R', side.getById(&.{ .left_player_id = .player_1 }, .player_2).*);
     try testing.expectEqual('R', side.getById(&.{ .left_player_id = .player_2 }, .player_1).*);
     try testing.expectEqual('L', side.getById(&.{ .left_player_id = .player_2 }, .player_2).*);
 
-    const role = PlayerSettings(u8){ .role_separated = .{ .main = 'M', .secondary = 'S' } };
+    const role = PlayerSettings(u8){ .mode = .role_separated, .players = .{ 'M', 'S' } };
     try testing.expectEqual('M', role.getById(&.{ .main_player_id = .player_1 }, .player_1).*);
     try testing.expectEqual('S', role.getById(&.{ .main_player_id = .player_1 }, .player_2).*);
     try testing.expectEqual('S', role.getById(&.{ .main_player_id = .player_2 }, .player_1).*);
@@ -379,21 +399,21 @@ test "PlayerSettings.getById should return correct value" {
 }
 
 test "PlayerSettings.getBySide should return correct value" {
-    const same = PlayerSettings(u8){ .same = 'S' };
-    try testing.expectEqual('S', same.getBySide(&.{}, .left).*);
-    try testing.expectEqual('S', same.getBySide(&.{}, .right).*);
+    const same = PlayerSettings(u8){ .mode = .same, .players = .{ 1, 2 } };
+    try testing.expectEqual(1, same.getBySide(&.{}, .left).*);
+    try testing.expectEqual(1, same.getBySide(&.{}, .right).*);
 
-    const id = PlayerSettings(u8){ .id_separated = .{ .player_1 = 1, .player_2 = 2 } };
+    const id = PlayerSettings(u8){ .mode = .id_separated, .players = .{ 1, 2 } };
     try testing.expectEqual(1, id.getBySide(&.{ .left_player_id = .player_1 }, .left).*);
     try testing.expectEqual(2, id.getBySide(&.{ .left_player_id = .player_1 }, .right).*);
     try testing.expectEqual(2, id.getBySide(&.{ .left_player_id = .player_2 }, .left).*);
     try testing.expectEqual(1, id.getBySide(&.{ .left_player_id = .player_2 }, .right).*);
 
-    const side = PlayerSettings(u8){ .side_separated = .{ .left = 'L', .right = 'R' } };
+    const side = PlayerSettings(u8){ .mode = .side_separated, .players = .{ 'L', 'R' } };
     try testing.expectEqual('L', side.getBySide(&.{}, .left).*);
     try testing.expectEqual('R', side.getBySide(&.{}, .right).*);
 
-    const role = PlayerSettings(u8){ .role_separated = .{ .main = 'M', .secondary = 'S' } };
+    const role = PlayerSettings(u8){ .mode = .role_separated, .players = .{ 'M', 'S' } };
     try testing.expectEqual('M', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .left).*);
     try testing.expectEqual('S', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .right).*);
     try testing.expectEqual('S', role.getBySide(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .left).*);
@@ -405,17 +425,17 @@ test "PlayerSettings.getBySide should return correct value" {
 }
 
 test "PlayerSettings.getByRole should return correct value" {
-    const same = PlayerSettings(u8){ .same = 'S' };
-    try testing.expectEqual('S', same.getByRole(&.{}, .main).*);
-    try testing.expectEqual('S', same.getByRole(&.{}, .secondary).*);
+    const same = PlayerSettings(u8){ .mode = .same, .players = .{ 1, 2 } };
+    try testing.expectEqual(1, same.getByRole(&.{}, .main).*);
+    try testing.expectEqual(1, same.getByRole(&.{}, .secondary).*);
 
-    const id = PlayerSettings(u8){ .id_separated = .{ .player_1 = 1, .player_2 = 2 } };
+    const id = PlayerSettings(u8){ .mode = .id_separated, .players = .{ 1, 2 } };
     try testing.expectEqual(1, id.getByRole(&.{ .main_player_id = .player_1 }, .main).*);
     try testing.expectEqual(2, id.getByRole(&.{ .main_player_id = .player_1 }, .secondary).*);
     try testing.expectEqual(2, id.getByRole(&.{ .main_player_id = .player_2 }, .main).*);
     try testing.expectEqual(1, id.getByRole(&.{ .main_player_id = .player_2 }, .secondary).*);
 
-    const side = PlayerSettings(u8){ .side_separated = .{ .left = 'L', .right = 'R' } };
+    const side = PlayerSettings(u8){ .mode = .side_separated, .players = .{ 'L', 'R' } };
     try testing.expectEqual('L', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .main).*);
     try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_1 }, .secondary).*);
     try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_1, .main_player_id = .player_2 }, .main).*);
@@ -425,7 +445,7 @@ test "PlayerSettings.getByRole should return correct value" {
     try testing.expectEqual('L', side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .main).*);
     try testing.expectEqual('R', side.getByRole(&.{ .left_player_id = .player_2, .main_player_id = .player_2 }, .secondary).*);
 
-    const role = PlayerSettings(u8){ .role_separated = .{ .main = 'M', .secondary = 'S' } };
+    const role = PlayerSettings(u8){ .mode = .role_separated, .players = .{ 'M', 'S' } };
     try testing.expectEqual('M', role.getByRole(&.{}, .main).*);
     try testing.expectEqual('S', role.getByRole(&.{}, .secondary).*);
 }
