@@ -74,10 +74,20 @@ pub const EventBuss = struct {
                 if (model.Settings.load(dir)) |settings| {
                     std.log.info("Settings loaded.", .{});
                     return settings;
-                } else |err| {
+                } else |err_1| {
                     sdk.misc.error_context.append("Failed to load settings. Using default settings.", .{});
-                    sdk.misc.error_context.logWarning(err);
-                    return .{};
+                    sdk.misc.error_context.logWarning(err_1);
+                    const default_settings = model.Settings{};
+                    if (err_1 == error.FileNotFound) {
+                        std.log.info("Saving default settings...", .{});
+                        if (default_settings.save(dir)) {
+                            std.log.info("Default settings saved.", .{});
+                        } else |err_2| {
+                            sdk.misc.error_context.append("Failed to save default settings.", .{});
+                            sdk.misc.error_context.logError(err_2);
+                        }
+                    }
+                    return default_settings;
                 }
             }
         }.call, .{base_dir}) catch |err| block: {
