@@ -7,8 +7,7 @@ const ui = @import("root.zig");
 pub const SettingsWindow = struct {
     is_open: bool = false,
     navigation_layout: ui.NavigationLayout = .{},
-    save_button_height: f32 = 0,
-    is_save_button_enabled: std.atomic.Value(bool) = .init(true),
+    save_button: SaveButton = .{},
 
     const Self = @This();
     pub const name = "Settings";
@@ -32,24 +31,38 @@ pub const SettingsWindow = struct {
         var content_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&content_size);
 
-        const navigation_layout_height = content_size.y - self.save_button_height - imgui.igGetStyle().*.ItemSpacing.y;
+        const navigation_layout_height = content_size.y - self.save_button.height - imgui.igGetStyle().*.ItemSpacing.y;
         if (imgui.igBeginChild_Str("navigation_layout", .{ .y = navigation_layout_height }, 0, 0)) {
             drawNavigationLayout(&self.navigation_layout, settings);
         }
         imgui.igEndChild();
 
-        imgui.igBeginDisabled(!self.is_save_button_enabled.load(.seq_cst));
+        self.save_button.draw(base_dir, settings);
+    }
+};
+
+const SaveButton = struct {
+    height: f32 = 0,
+    is_enabled: std.atomic.Value(bool) = .init(true),
+
+    const Self = @This();
+
+    fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
+        var content_size: imgui.ImVec2 = undefined;
+        imgui.igGetContentRegionAvail(&content_size);
+
+        imgui.igBeginDisabled(!self.is_enabled.load(.seq_cst));
         defer imgui.igEndDisabled();
         if (imgui.igButton("Save", .{ .x = content_size.x })) {
             self.saveSettings(base_dir, settings);
         }
-        var button_size: imgui.ImVec2 = undefined;
-        imgui.igGetItemRectSize(&button_size);
-        self.save_button_height = button_size.y;
+        var size: imgui.ImVec2 = undefined;
+        imgui.igGetItemRectSize(&size);
+        self.height = size.y;
     }
 
     fn saveSettings(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
-        self.is_save_button_enabled.store(false, .seq_cst);
+        self.is_enabled.store(false, .seq_cst);
         std.log.debug("Spawning settings save thread...", .{});
         const thread = std.Thread.spawn(
             .{},
@@ -57,25 +70,25 @@ pub const SettingsWindow = struct {
                 fn call(
                     dir: *const sdk.misc.BaseDir,
                     settings_to_save: model.Settings,
-                    is_save_button_enabled: *std.atomic.Value(bool),
+                    enabled: *std.atomic.Value(bool),
                 ) void {
                     std.log.info("Starting save thread started.", .{});
                     std.log.info("Saving settings...", .{});
-                    if (settings_to_save.save(dir)) |_| {
+                    if (settings_to_save.save(dir)) {
                         std.log.info("Settings saved.", .{});
                         sdk.ui.toasts.send(.success, null, "Settings saved successfully.", .{});
                     } else |err| {
                         sdk.misc.error_context.append("Failed to save settings.", .{});
                         sdk.misc.error_context.logError(err);
                     }
-                    is_save_button_enabled.store(true, .seq_cst);
+                    enabled.store(true, .seq_cst);
                 }
             }.call,
-            .{ base_dir, settings.*, &self.is_save_button_enabled },
+            .{ base_dir, settings.*, &self.is_enabled },
         ) catch |err| {
             sdk.misc.error_context.new("Failed to spawn settings thread.", .{});
             sdk.misc.error_context.logError(err);
-            self.is_save_button_enabled.store(true, .seq_cst);
+            self.is_enabled.store(true, .seq_cst);
             return;
         };
         thread.detach();
