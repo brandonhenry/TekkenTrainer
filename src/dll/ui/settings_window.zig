@@ -12,6 +12,7 @@ pub const SettingsWindow = struct {
 
     const Self = @This();
     pub const name = "Settings";
+    const default_settings = model.Settings{};
 
     pub fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         if (!self.is_open) {
@@ -60,6 +61,7 @@ pub const SettingsWindow = struct {
                         drawPlayerSettings(
                             model.HitLinesSettings,
                             &c.settings.hit_lines,
+                            &default_settings.hit_lines,
                             drawHitLinesSettings,
                         );
                     }
@@ -72,6 +74,7 @@ pub const SettingsWindow = struct {
                         drawPlayerSettings(
                             model.HurtCylindersSettings,
                             &c.settings.hurt_cylinders,
+                            &default_settings.hurt_cylinders,
                             drawHurtCylindersSettings,
                         );
                     }
@@ -84,6 +87,7 @@ pub const SettingsWindow = struct {
                         drawPlayerSettings(
                             model.CollisionSpheresSettings,
                             &c.settings.collision_spheres,
+                            &default_settings.collision_spheres,
                             drawCollisionSpheresSettings,
                         );
                     }
@@ -96,6 +100,7 @@ pub const SettingsWindow = struct {
                         drawPlayerSettings(
                             model.SkeletonSettings,
                             &c.settings.skeletons,
+                            &default_settings.skeletons,
                             drawSkeletonSettings,
                         );
                     }
@@ -108,6 +113,7 @@ pub const SettingsWindow = struct {
                         drawPlayerSettings(
                             model.ForwardDirectionSettings,
                             &c.settings.forward_directions,
+                            &default_settings.forward_directions,
                             drawForwardDirectionsSettings,
                         );
                     }
@@ -117,7 +123,7 @@ pub const SettingsWindow = struct {
                 .name = "Floor",
                 .content = struct {
                     fn call(c: *const Context) void {
-                        drawFloorSettings(&c.settings.floor);
+                        drawFloorSettings(&c.settings.floor, &default_settings.floor);
                     }
                 }.call,
             },
@@ -125,7 +131,7 @@ pub const SettingsWindow = struct {
                 .name = "Ingame Camera",
                 .content = struct {
                     fn call(c: *const Context) void {
-                        drawIngameCameraSettings(&c.settings.ingame_camera);
+                        drawIngameCameraSettings(&c.settings.ingame_camera, &default_settings.ingame_camera);
                     }
                 }.call,
             },
@@ -133,7 +139,7 @@ pub const SettingsWindow = struct {
                 .name = "Miscellaneous",
                 .content = struct {
                     fn call(c: *const Context) void {
-                        c.self.misc_settings.draw(c.base_dir, c.settings);
+                        c.self.misc_settings.draw(c.base_dir, c.settings, &default_settings);
                     }
                 }.call,
             },
@@ -147,11 +153,16 @@ const MiscSettings = struct {
 
     const Self = @This();
 
-    pub fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
-        drawMiscSettings(&settings.misc);
+    pub fn draw(
+        self: *Self,
+        base_dir: *const sdk.misc.BaseDir,
+        settings: *model.Settings,
+        default_settings: *const model.Settings,
+    ) void {
+        drawMiscSettings(&settings.misc, &default_settings.misc);
         imgui.igSeparator();
         self.reload_button.draw(base_dir, settings);
-        self.defaults_button.draw(settings);
+        self.defaults_button.draw(settings, default_settings);
     }
 };
 
@@ -287,7 +298,7 @@ const DefaultsButton = struct {
 
     const Self = @This();
 
-    fn draw(self: *Self, settings: *model.Settings) void {
+    fn draw(self: *Self, settings: *model.Settings, default_settings: *const model.Settings) void {
         if (imgui.igButton("Reset Settings To Defaults", .{})) {
             self.confirm_open = true;
             imgui.igOpenPopup_Str("Reset settings to defaults?", 0);
@@ -300,7 +311,7 @@ const DefaultsButton = struct {
             imgui.igText("(Unless you override them by saving.)");
             imgui.igSeparator();
             if (imgui.igButton("Reset", .{})) {
-                settings.* = .{};
+                settings.* = default_settings.*;
                 std.log.info("Settings set to default values.", .{});
                 sdk.ui.toasts.send(.success, null, "Settings set to default values.", .{});
                 imgui.igCloseCurrentPopup();
@@ -316,8 +327,9 @@ const DefaultsButton = struct {
 
 fn drawPlayerSettings(
     comptime Type: type,
-    settings: *model.PlayerSettings(Type),
-    drawContent: *const fn (settings: *Type) void,
+    value: *model.PlayerSettings(Type),
+    default: *const model.PlayerSettings(Type),
+    drawContent: *const fn (value: *Type, default: *const Type) void,
 ) void {
     drawEnum(
         model.PlayerSettingsMode,
@@ -328,14 +340,14 @@ fn drawPlayerSettings(
             .side_separated = "Left Player / Right Player",
             .role_separated = "Main Player / Secondary Player",
         },
-        &settings.mode,
-        .same,
+        &value.mode,
+        &default.mode,
     );
 
-    const label_1, const label_2 = switch (settings.mode) {
+    const label_1, const label_2 = switch (value.mode) {
         .same => {
             imgui.igSeparatorText("Both Players");
-            drawContent(&settings.players[0]);
+            drawContent(&value.players[0], &default.players[0]);
             return;
         },
         .id_separated => .{ "Player 1", "Player 2" },
@@ -351,28 +363,26 @@ fn drawPlayerSettings(
         imgui.igPushID_Str(label_1);
         defer imgui.igPopID();
         imgui.igSeparatorText(label_1);
-        drawContent(&settings.players[0]);
+        drawContent(&value.players[0], &default.players[0]);
     }
     if (imgui.igTableNextColumn()) {
         imgui.igPushID_Str(label_2);
         defer imgui.igPopID();
         imgui.igSeparatorText(label_2);
-        drawContent(&settings.players[1]);
+        drawContent(&value.players[1], &default.players[1]);
     }
 }
 
-fn drawHitLinesSettings(settings: *model.HitLinesSettings) void {
-    const defaults = model.HitLinesSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawHitLinesSettings(value: *model.HitLinesSettings, default: *const model.HitLinesSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
     const drawColors = struct {
         fn call(
             label: [:0]const u8,
-            value: *std.EnumArray(model.AttackType, sdk.math.Vec4),
-            default_value: std.EnumArray(model.AttackType, sdk.math.Vec4),
+            v: *std.EnumArray(model.AttackType, sdk.math.Vec4),
+            d: *const std.EnumArray(model.AttackType, sdk.math.Vec4),
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
@@ -394,30 +404,30 @@ fn drawHitLinesSettings(settings: *model.HitLinesSettings) void {
                     .projectile => "Projectile",
                     .antiair_only => "Anti-Air Only",
                 };
-                drawColor(color_label, value.getPtr(attack_type), default_value.get(attack_type));
+                drawColor(color_label, v.getPtr(attack_type), d.getPtrConst(attack_type));
             }
         }
     }.call;
     const drawColorsAndThickness = struct {
         fn call(
             label: [:0]const u8,
-            value: *model.HitLinesSettings.ColorsAndThickness,
-            default_value: model.HitLinesSettings.ColorsAndThickness,
+            v: *model.HitLinesSettings.ColorsAndThickness,
+            d: *const model.HitLinesSettings.ColorsAndThickness,
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
             defer imgui.igPopID();
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
-            drawColors("Colors", &value.colors, default_value.colors);
-            drawThickness("Thickness", &value.thickness, default_value.thickness);
+            drawColors("Colors", &v.colors, &d.colors);
+            drawThickness("Thickness", &v.thickness, &d.thickness);
         }
     }.call;
     const drawFillAndOutline = struct {
         fn call(
             label: [:0]const u8,
-            value: *model.HitLinesSettings.FillAndOutline,
-            default_value: model.HitLinesSettings.FillAndOutline,
+            v: *model.HitLinesSettings.FillAndOutline,
+            d: *const model.HitLinesSettings.FillAndOutline,
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
@@ -425,47 +435,45 @@ fn drawHitLinesSettings(settings: *model.HitLinesSettings) void {
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
 
-            drawBool("Enabled", &value.enabled, default_value.enabled);
-            imgui.igBeginDisabled(!value.enabled);
+            drawBool("Enabled", &v.enabled, &d.enabled);
+            imgui.igBeginDisabled(!v.enabled);
             defer imgui.igEndDisabled();
 
-            drawColorsAndThickness("Fill", &value.fill, default_value.fill);
-            drawColorsAndThickness("Outline", &value.outline, default_value.outline);
+            drawColorsAndThickness("Fill", &v.fill, &d.fill);
+            drawColorsAndThickness("Outline", &v.outline, &d.outline);
         }
     }.call;
 
-    drawDuration("Lingering Duration", &settings.duration, defaults.duration);
-    drawFillAndOutline("Normal Hit Lines", &settings.normal, defaults.normal);
-    drawFillAndOutline("Inactive Or Crushed Hit Lines", &settings.inactive_or_crushed, defaults.inactive_or_crushed);
+    drawDuration("Lingering Duration", &value.duration, &default.duration);
+    drawFillAndOutline("Normal Hit Lines", &value.normal, &default.normal);
+    drawFillAndOutline("Inactive Or Crushed Hit Lines", &value.inactive_or_crushed, &default.inactive_or_crushed);
 }
 
-fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
-    const defaults = model.HurtCylindersSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawHurtCylindersSettings(value: *model.HurtCylindersSettings, default: *const model.HurtCylindersSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
     const drawColorAndThickness = struct {
         fn call(
             label: [:0]const u8,
-            value: *model.HurtCylindersSettings.ColorAndThickness,
-            default_value: model.HurtCylindersSettings.ColorAndThickness,
+            v: *model.HurtCylindersSettings.ColorAndThickness,
+            d: *const model.HurtCylindersSettings.ColorAndThickness,
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
             defer imgui.igPopID();
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
-            drawColor("Color", &value.color, default_value.color);
-            drawThickness("Thickness", &value.thickness, default_value.thickness);
+            drawColor("Color", &v.color, &d.color);
+            drawThickness("Thickness", &v.thickness, &d.thickness);
         }
     }.call;
     const drawColorThicknessAndDuration = struct {
         fn call(
             label: [:0]const u8,
-            value: *model.HurtCylindersSettings.ColorThicknessAndDuration,
-            default_value: model.HurtCylindersSettings.ColorThicknessAndDuration,
+            v: *model.HurtCylindersSettings.ColorThicknessAndDuration,
+            d: *const model.HurtCylindersSettings.ColorThicknessAndDuration,
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
@@ -473,20 +481,20 @@ fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
 
-            drawBool("Enabled", &value.enabled, default_value.enabled);
-            imgui.igBeginDisabled(!value.enabled);
+            drawBool("Enabled", &v.enabled, &d.enabled);
+            imgui.igBeginDisabled(!v.enabled);
             defer imgui.igEndDisabled();
 
-            drawColor("Color", &value.color, default_value.color);
-            drawThickness("Thickness", &value.thickness, default_value.thickness);
-            drawDuration("Duration", &value.duration, default_value.duration);
+            drawColor("Color", &v.color, &d.color);
+            drawThickness("Thickness", &v.thickness, &d.thickness);
+            drawDuration("Duration", &v.duration, &d.duration);
         }
     }.call;
     const drawCrushing = struct {
         fn call(
             label: [:0]const u8,
-            value: *model.HurtCylindersSettings.Crushing,
-            default_value: model.HurtCylindersSettings.Crushing,
+            v: *model.HurtCylindersSettings.Crushing,
+            d: *const model.HurtCylindersSettings.Crushing,
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
@@ -494,46 +502,42 @@ fn drawHurtCylindersSettings(settings: *model.HurtCylindersSettings) void {
             imgui.igIndent(0);
             defer imgui.igUnindent(0);
 
-            drawBool("Enabled", &value.enabled, default_value.enabled);
-            imgui.igBeginDisabled(!value.enabled);
+            drawBool("Enabled", &v.enabled, &d.enabled);
+            imgui.igBeginDisabled(!v.enabled);
             defer imgui.igEndDisabled();
 
-            drawColorAndThickness("Normal", &value.normal, default_value.normal);
-            drawColorAndThickness("High Crushing", &value.high_crushing, default_value.high_crushing);
-            drawColorAndThickness("Low Crushing", &value.low_crushing, default_value.low_crushing);
-            drawColorAndThickness("Invincible", &value.invincible, default_value.invincible);
+            drawColorAndThickness("Normal", &v.normal, &d.normal);
+            drawColorAndThickness("High Crushing", &v.high_crushing, &d.high_crushing);
+            drawColorAndThickness("Low Crushing", &v.low_crushing, &d.low_crushing);
+            drawColorAndThickness("Invincible", &v.invincible, &d.invincible);
         }
     }.call;
 
-    drawCrushing("Normal Hurt Cylinders", &settings.normal, defaults.normal);
-    drawCrushing("Power-Crushing Hurt Cylinders", &settings.power_crushing, defaults.power_crushing);
-    drawColorThicknessAndDuration("Connected (Hit) Hurt Cylinders", &settings.connected, defaults.connected);
-    drawColorThicknessAndDuration("Lingering Hurt Cylinders", &settings.lingering, defaults.lingering);
+    drawCrushing("Normal Hurt Cylinders", &value.normal, &default.normal);
+    drawCrushing("Power-Crushing Hurt Cylinders", &value.power_crushing, &default.power_crushing);
+    drawColorThicknessAndDuration("Connected (Hit) Hurt Cylinders", &value.connected, &default.connected);
+    drawColorThicknessAndDuration("Lingering Hurt Cylinders", &value.lingering, &default.lingering);
 }
 
-fn drawCollisionSpheresSettings(settings: *model.CollisionSpheresSettings) void {
-    const defaults = model.CollisionSpheresSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawCollisionSpheresSettings(value: *model.CollisionSpheresSettings, default: *const model.CollisionSpheresSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
-    drawColor("Color", &settings.color, defaults.color);
-    drawThickness("Thickness", &settings.thickness, defaults.thickness);
+    drawColor("Color", &value.color, &default.color);
+    drawThickness("Thickness", &value.thickness, &default.thickness);
 }
 
-fn drawSkeletonSettings(settings: *model.SkeletonSettings) void {
-    const defaults = model.SkeletonSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawSkeletonSettings(value: *model.SkeletonSettings, default: *const model.SkeletonSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
     const drawColors = struct {
         fn call(
             label: [:0]const u8,
-            value: *std.EnumArray(model.Blocking, sdk.math.Vec4),
-            default_value: std.EnumArray(model.Blocking, sdk.math.Vec4),
+            v: *std.EnumArray(model.Blocking, sdk.math.Vec4),
+            d: *const std.EnumArray(model.Blocking, sdk.math.Vec4),
         ) void {
             imgui.igText("%s", label.ptr);
             imgui.igPushID_Str(label);
@@ -549,53 +553,49 @@ fn drawSkeletonSettings(settings: *model.SkeletonSettings) void {
                     .neutral_blocking_lows => "Neutral Blocking Lows",
                     .fully_blocking_lows => "Fully Blocking Lows",
                 };
-                drawColor(color_label, value.getPtr(blocking), default_value.get(blocking));
+                drawColor(color_label, v.getPtr(blocking), d.getPtrConst(blocking));
             }
         }
     }.call;
 
-    drawColors("Colors", &settings.colors, defaults.colors);
-    drawThickness("Thickness", &settings.thickness, defaults.thickness);
-    drawFloat("Can't Move Alpha", &settings.cant_move_alpha, defaults.cant_move_alpha, 0.01, 0, 1, "%.2f", 0);
+    drawColors("Colors", &value.colors, &default.colors);
+    drawThickness("Thickness", &value.thickness, &default.thickness);
+    drawFloat("Can't Move Alpha", &value.cant_move_alpha, &default.cant_move_alpha, 0.01, 0, 1, "%.2f", 0);
 }
 
-fn drawForwardDirectionsSettings(settings: *model.ForwardDirectionSettings) void {
-    const defaults = model.ForwardDirectionSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawForwardDirectionsSettings(
+    value: *model.ForwardDirectionSettings,
+    default: *const model.ForwardDirectionSettings,
+) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
-    drawColor("Color", &settings.color, defaults.color);
-    drawLength("Length", &settings.length, defaults.length);
-    drawThickness("Thickness", &settings.thickness, defaults.thickness);
+    drawColor("Color", &value.color, &default.color);
+    drawLength("Length", &value.length, &default.length);
+    drawThickness("Thickness", &value.thickness, &default.thickness);
 }
 
-fn drawFloorSettings(settings: *model.FloorSettings) void {
-    const defaults = model.FloorSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawFloorSettings(value: *model.FloorSettings, default: *const model.FloorSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
-    drawColor("Color", &settings.color, defaults.color);
-    drawThickness("Thickness", &settings.thickness, defaults.thickness);
+    drawColor("Color", &value.color, &default.color);
+    drawThickness("Thickness", &value.thickness, &default.thickness);
 }
 
-fn drawIngameCameraSettings(settings: *model.IngameCameraSettings) void {
-    const defaults = model.IngameCameraSettings{};
-
-    drawBool("Enabled", &settings.enabled, defaults.enabled);
-    imgui.igBeginDisabled(!settings.enabled);
+fn drawIngameCameraSettings(value: *model.IngameCameraSettings, default: *const model.IngameCameraSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    imgui.igBeginDisabled(!value.enabled);
     defer imgui.igEndDisabled();
 
-    drawColor("Color", &settings.color, defaults.color);
-    drawLength("Length", &settings.length, defaults.length);
-    drawThickness("Thickness", &settings.thickness, defaults.thickness);
+    drawColor("Color", &value.color, &default.color);
+    drawLength("Length", &value.length, &default.length);
+    drawThickness("Thickness", &value.thickness, &default.thickness);
 }
 
-fn drawMiscSettings(settings: *model.MiscSettings) void {
-    const defaults = model.MiscSettings{};
+fn drawMiscSettings(value: *model.MiscSettings, default: *const model.MiscSettings) void {
     drawEnum(
         model.MiscSettings.DetailsColumns,
         "Details Table Columns",
@@ -604,34 +604,34 @@ fn drawMiscSettings(settings: *model.MiscSettings) void {
             .side_based = "Left Player / Right Player",
             .role_based = "Main Player / Secondary Player",
         },
-        &settings.details_columns,
-        defaults.details_columns,
+        &value.details_columns,
+        &default.details_columns,
     );
 }
 
-fn drawBool(label: [:0]const u8, value: *bool, default_value: bool) void {
+fn drawBool(label: [:0]const u8, value: *bool, default: *const bool) void {
     imgui.igPushID_Str(label);
-    drawDefaultButton(value, default_value);
+    drawDefaultButton(value, default);
     imgui.igPopID();
     imgui.igSameLine(0, -1);
     _ = imgui.igCheckbox(label, value);
 }
 
-fn drawLength(label: [:0]const u8, value: *f32, default_value: f32) void {
-    drawFloat(label, value, default_value, 1, 0, 10000, "%.0f cm", 0);
+fn drawLength(label: [:0]const u8, value: *f32, default: *const f32) void {
+    drawFloat(label, value, default, 1, 0, 10000, "%.0f cm", 0);
 }
 
-fn drawThickness(label: [:0]const u8, value: *f32, default_value: f32) void {
-    drawFloat(label, value, default_value, 0.1, 0, 100, "%.1f px", 0);
+fn drawThickness(label: [:0]const u8, value: *f32, default: *const f32) void {
+    drawFloat(label, value, default, 0.1, 0, 100, "%.1f px", 0);
 }
 
-fn drawDuration(label: [:0]const u8, value: *f32, default_value: f32) void {
-    drawFloat(label, value, default_value, 0.1, 0, 100, "%.1f s", 0);
+fn drawDuration(label: [:0]const u8, value: *f32, default: *const f32) void {
+    drawFloat(label, value, default, 0.1, 0, 100, "%.1f s", 0);
 }
 
-fn drawColor(label: [:0]const u8, value: *sdk.math.Vec4, default_value: sdk.math.Vec4) void {
+fn drawColor(label: [:0]const u8, value: *sdk.math.Vec4, default: *const sdk.math.Vec4) void {
     imgui.igPushID_Str(label);
-    drawDefaultButton(value, default_value);
+    drawDefaultButton(value, default);
     imgui.igPopID();
     imgui.igSameLine(0, -1);
     _ = imgui.igColorEdit4(label, &value.array, 0);
@@ -640,7 +640,7 @@ fn drawColor(label: [:0]const u8, value: *sdk.math.Vec4, default_value: sdk.math
 fn drawFloat(
     label: [:0]const u8,
     value: *f32,
-    default_value: f32,
+    default: *const f32,
     step: f32,
     min: f32,
     max: f32,
@@ -648,7 +648,7 @@ fn drawFloat(
     flags: imgui.ImGuiInputTextFlags,
 ) void {
     imgui.igPushID_Str(label);
-    drawDefaultButton(value, default_value);
+    drawDefaultButton(value, default);
     imgui.igPopID();
     imgui.igSameLine(0, -1);
     _ = imgui.igDragFloat(label, value, step, min, max, format, flags);
@@ -659,14 +659,14 @@ fn drawEnum(
     label: [:0]const u8,
     names: *const std.enums.EnumFieldStruct(Type, [:0]const u8, null),
     value: *Type,
-    default_value: Type,
+    default: *const Type,
 ) void {
     const fields = switch (@typeInfo(Type)) {
         .@"enum" => |info| info.fields,
         else => @compileError("Expected Type to be a enum type but got: " ++ @typeName(Type)),
     };
     imgui.igPushID_Str(label);
-    drawDefaultButton(value, default_value);
+    drawDefaultButton(value, default);
     imgui.igPopID();
     imgui.igSameLine(0, -1);
     const array = std.EnumArray(Type, [:0]const u8).init(names.*);
@@ -681,11 +681,11 @@ fn drawEnum(
     }
 }
 
-fn drawDefaultButton(value_pointer: anytype, default_value: @TypeOf(value_pointer.*)) void {
-    imgui.igBeginDisabled(std.meta.eql(value_pointer.*, default_value));
+fn drawDefaultButton(value: anytype, default: *const @TypeOf(value.*)) void {
+    imgui.igBeginDisabled(std.meta.eql(value.*, default.*));
     defer imgui.igEndDisabled();
     if (imgui.igButton(" ↺ ###default", .{})) {
-        value_pointer.* = default_value;
+        value.* = default.*;
     }
     if (imgui.igIsItemHovered(0)) {
         imgui.igSetTooltip("Reset To Default Value");
