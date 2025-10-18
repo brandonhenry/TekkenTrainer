@@ -8,12 +8,16 @@ const FieldSize = u16;
 const NumberOfFrames = u64;
 const LocalField = struct {
     path: []const u8,
-    offset: FieldOffset,
-    size: FieldSize,
+    access: []const AccessElement,
+    Type: type,
 };
 const RemoteField = struct {
-    local_field: ?*const LocalField,
+    local_index: ?usize,
     size: FieldSize,
+};
+const AccessElement = union(enum) {
+    name: []const u8,
+    index: usize,
 };
 
 const magic_number = "irony";
@@ -87,12 +91,12 @@ pub fn loadRecording(comptime Frame: type, allocator: std.mem.Allocator, file_pa
     };
     const remote_fields = remote_fields_buffer[0..remote_fields_len];
 
-    const initial_values = readInitialValues(Frame, reader, remote_fields) catch |err| {
+    const initial_values = readInitialValues(Frame, reader, remote_fields, local_fields) catch |err| {
         sdk.misc.error_context.append("Failed to read initial values.", .{});
         return err;
     };
 
-    const frames = readFrames(Frame, allocator, reader, &initial_values, remote_fields) catch |err| {
+    const frames = readFrames(Frame, allocator, reader, &initial_values, remote_fields, local_fields) catch |err| {
         sdk.misc.error_context.append("Failed to read frames.", .{});
         return err;
     };
@@ -100,12 +104,12 @@ pub fn loadRecording(comptime Frame: type, allocator: std.mem.Allocator, file_pa
     return frames;
 }
 
-fn writeFieldList(writer: *std.io.Writer, fields: []const LocalField) !void {
+fn writeFieldList(writer: *std.io.Writer, comptime fields: []const LocalField) !void {
     writer.writeInt(FieldIndex, @intCast(fields.len), endian) catch |err| {
         sdk.misc.error_context.new("Failed to write number of fields: {}", .{fields.len});
         return err;
     };
-    for (fields) |*field| {
+    inline for (fields) |*field| {
         errdefer sdk.misc.error_context.append("Failed to write field: {s}", .{field.path});
         writer.writeInt(FieldPathLength, @intCast(field.path.len), endian) catch |err| {
             sdk.misc.error_context.new("Failed to write the size of field path: {}", .{field.path.len});
@@ -115,8 +119,9 @@ fn writeFieldList(writer: *std.io.Writer, fields: []const LocalField) !void {
             sdk.misc.error_context.new("Failed to write the field path: {s}", .{field.path});
             return err;
         };
-        writer.writeInt(FieldSize, field.size, endian) catch |err| {
-            sdk.misc.error_context.new("Failed to write the field size: {}", .{field.size});
+        const size: FieldSize = comptime @intCast(getTypeSize(field.Type));
+        writer.writeInt(FieldSize, size, endian) catch |err| {
+            sdk.misc.error_context.new("Failed to write the field size: {}", .{size});
             return err;
         };
     }
@@ -150,19 +155,25 @@ fn readFieldList(
             sdk.misc.error_context.new("Failed to read the field path.", .{});
             return err;
         };
-        const size = reader.takeInt(FieldSize, endian) catch |err| {
+        const remote_size = reader.takeInt(FieldSize, endian) catch |err| {
             sdk.misc.error_context.new("Failed to read the field size. Field path is: {s}", .{path});
             return err;
         };
-        const local_field: ?*const LocalField = for (local_fields) |*field| {
-            if (std.mem.eql(u8, field.path, path) and field.size == size) {
-                break field;
+        inline for (local_fields, 0..) |*local_field, local_index| {
+            const local_size = getTypeSize(local_field.Type);
+            if (std.mem.eql(u8, local_field.path, path) and local_size == remote_size) {
+                remote_fields_buffer[index] = .{
+                    .local_index = local_index,
+                    .size = remote_size,
+                };
+                break;
             }
-        } else null;
-        remote_fields_buffer[index] = .{
-            .local_field = local_field,
-            .size = size,
-        };
+        } else {
+            remote_fields_buffer[index] = .{
+                .local_index = null,
+                .size = remote_size,
+            };
+        }
     }
     return remote_fields_len;
 }
@@ -170,15 +181,12 @@ fn readFieldList(
 fn writeInitialValues(
     comptime Frame: type,
     writer: *std.io.Writer,
-    initial_values: *const Frame,
-    fields: []const LocalField,
+    frame: *const Frame,
+    comptime fields: []const LocalField,
 ) !void {
-    const frame_bytes: *const [@sizeOf(Frame)]u8 = @ptrCast(initial_values);
-    for (fields) |*field| {
-        const offset = field.offset;
-        const size = field.size;
-        const bytes = frame_bytes[offset..(offset + size)];
-        writer.writeAll(bytes) catch |err| {
+    inline for (fields) |*field| {
+        const field_pointer = getConstFieldPointer(frame, field);
+        writeValue(writer, field_pointer) catch |err| {
             sdk.misc.error_context.new("Failed to write the value of field: {s}", .{field.path});
             return err;
         };
@@ -189,21 +197,24 @@ fn readInitialValues(
     comptime Frame: type,
     reader: *std.io.Reader,
     remote_fields: []const RemoteField,
+    comptime local_fields: []const LocalField,
 ) !Frame {
     var frame = Frame{};
-    const frame_bytes: *[@sizeOf(Frame)]u8 = @ptrCast(&frame);
     for (remote_fields) |*remote_field| {
-        const local_field = remote_field.local_field orelse {
+        const local_index = remote_field.local_index orelse {
             reader.toss(remote_field.size);
             continue;
         };
-        const offset = local_field.offset;
-        const size = local_field.size;
-        const field_bytes = frame_bytes[offset..(offset + size)];
-        reader.readSliceAll(field_bytes) catch |err| {
-            sdk.misc.error_context.new("Failed to read the value of field: {s}", .{local_field.path});
-            return err;
-        };
+        inline for (local_fields, 0..) |*local_field, index| {
+            if (local_index == index) {
+                const field_pointer = getFieldPointer(&frame, local_field);
+                field_pointer.* = readValue(local_field.Type, reader) catch |err| {
+                    sdk.misc.error_context.new("Failed to read the value of field: {s}", .{local_field.path});
+                    return err;
+                };
+                break;
+            }
+        } else unreachable;
     }
     return frame;
 }
@@ -213,23 +224,20 @@ fn writeFrames(
     writer: *std.io.Writer,
     initial_values: *const Frame,
     frames: []const Frame,
-    fields: []const LocalField,
+    comptime fields: []const LocalField,
 ) !void {
     writer.writeInt(NumberOfFrames, @intCast(frames.len), endian) catch |err| {
         sdk.misc.error_context.new("Failed to write number of frames: {}", .{frames.len});
         return err;
     };
-    var last_frame_bytes: *const [@sizeOf(Frame)]u8 = @ptrCast(initial_values);
+    var last_frame: *const Frame = initial_values;
     for (frames, 0..) |*frame, frame_index| {
         errdefer sdk.misc.error_context.append("Failed to write frame: {}", .{frame_index});
-        const frame_bytes: *const [@sizeOf(Frame)]u8 = @ptrCast(frame);
         var number_of_changes: FieldIndex = 0;
-        for (fields) |*field| {
-            const offset = field.offset;
-            const size = field.size;
-            const field_bytes = frame_bytes[offset..(offset + size)];
-            const last_field_bytes = last_frame_bytes[offset..(offset + size)];
-            if (!std.mem.eql(u8, field_bytes, last_field_bytes)) {
+        inline for (fields) |*field| {
+            const field_pointer = getConstFieldPointer(frame, field);
+            const last_field_pointer = getConstFieldPointer(last_frame, field);
+            if (!std.meta.eql(field_pointer.*, last_field_pointer.*)) {
                 number_of_changes += 1;
             }
         }
@@ -237,24 +245,22 @@ fn writeFrames(
             sdk.misc.error_context.new("Failed to write number of changes: {}", .{number_of_changes});
             return err;
         };
-        for (fields, 0..) |*field, field_index| {
+        inline for (fields, 0..) |*field, field_index| {
             errdefer sdk.misc.error_context.append("Failed to write change for field: {s}", .{field.path});
-            const offset = field.offset;
-            const size = field.size;
-            const field_bytes = frame_bytes[offset..(offset + size)];
-            const last_field_bytes = last_frame_bytes[offset..(offset + size)];
-            if (!std.mem.eql(u8, field_bytes, last_field_bytes)) {
+            const field_pointer = getConstFieldPointer(frame, field);
+            const last_field_pointer = getConstFieldPointer(last_frame, field);
+            if (!std.meta.eql(field_pointer.*, last_field_pointer.*)) {
                 writer.writeInt(FieldIndex, @intCast(field_index), endian) catch |err| {
                     sdk.misc.error_context.new("Failed to write field index: {}", .{field_index});
                     return err;
                 };
-                writer.writeAll(field_bytes) catch |err| {
+                writeValue(writer, field_pointer) catch |err| {
                     sdk.misc.error_context.new("Failed to write the new value.", .{});
                     return err;
                 };
             }
         }
-        last_frame_bytes = @ptrCast(frame);
+        last_frame = frame;
     }
 }
 
@@ -264,6 +270,7 @@ fn readFrames(
     reader: *std.io.Reader,
     initial_values: *const Frame,
     remote_fields: []const RemoteField,
+    comptime local_fields: []const LocalField,
 ) ![]Frame {
     const number_of_frames = reader.takeInt(NumberOfFrames, endian) catch |err| {
         sdk.misc.error_context.new("Failed to read number of frames.", .{});
@@ -277,7 +284,6 @@ fn readFrames(
         return err;
     };
     var current_frame = initial_values.*;
-    const current_frame_bytes: *[@sizeOf(Frame)]u8 = @ptrCast(&current_frame);
     for (0..number_of_frames) |frame_index| {
         errdefer sdk.misc.error_context.append("Failed read frame: {}", .{frame_index});
         const number_of_changes = reader.takeInt(FieldIndex, endian) catch |err| {
@@ -297,22 +303,242 @@ fn readFrames(
                 );
                 return error.IndexOutOfBounds;
             }
-            const remote_field = &remote_fields[remote_index];
-            const local_field = remote_field.local_field orelse {
+            const remote_field = remote_fields[remote_index];
+            const local_index = remote_field.local_index orelse {
                 reader.toss(remote_field.size);
                 continue;
             };
-            const offset = local_field.offset;
-            const size = local_field.size;
-            const field_bytes = current_frame_bytes[offset..(offset + size)];
-            reader.readSliceAll(field_bytes) catch |err| {
-                sdk.misc.error_context.new("Failed to read the new value of: {s}", .{local_field.path});
-                return err;
-            };
+            inline for (local_fields, 0..) |*local_field, index| {
+                if (index == local_index) {
+                    const field_pointer = getFieldPointer(&current_frame, local_field);
+                    field_pointer.* = readValue(local_field.Type, reader) catch |err| {
+                        sdk.misc.error_context.new("Failed to read the new value of: {s}", .{local_field.path});
+                        return err;
+                    };
+                    break;
+                }
+            } else unreachable;
         }
         frames[frame_index] = current_frame;
     }
     return frames;
+}
+
+fn writeValue(writer: *std.io.Writer, value_pointer: anytype) !void {
+    const Type = switch (@typeInfo(@TypeOf(value_pointer))) {
+        .pointer => |info| info.child,
+        else => @compileError("Expected value_pointer to be a pointer but got: " ++ @typeName(@TypeOf(value_pointer))),
+    };
+    switch (@typeInfo(Type)) {
+        .void => {},
+        .bool => {
+            const byte: u8 = switch (value_pointer.*) {
+                false => 0,
+                true => 1,
+            };
+            try writer.writeByte(byte);
+        },
+        .int => |info| {
+            const WriteType = @Type(.{ .int = .{
+                .signedness = info.signedness,
+                .bits = @sizeOf(Type) * std.mem.byte_size_in_bits,
+            } });
+            try writer.writeInt(WriteType, value_pointer.*, endian);
+        },
+        .float => |*info| {
+            const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
+            const int: IntType = @bitCast(value_pointer.*);
+            try writer.writeInt(IntType, int, endian);
+        },
+        .@"enum" => |*info| {
+            const Tag = info.tag_type;
+            const tag: Tag = @intFromEnum(value_pointer.*);
+            try writeValue(writer, &tag);
+        },
+        .optional => |*info| {
+            if (value_pointer.*) |*child_pointer| {
+                try writer.writeByte(1);
+                try writeValue(writer, child_pointer);
+            } else {
+                try writer.writeByte(0);
+                for (0..getTypeSize(info.child)) |_| {
+                    try writer.writeByte(0);
+                }
+            }
+        },
+        .array => {
+            for (value_pointer) |*element_pointer| {
+                try writeValue(writer, element_pointer);
+            }
+        },
+        .@"struct" => |*info| {
+            inline for (info.fields) |*field| {
+                const field_pointer = &@field(value_pointer, field.name);
+                try writeValue(writer, field_pointer);
+            }
+        },
+        .@"union" => |*info| {
+            const Tag = info.tag_type orelse {
+                @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
+            };
+            const tag = @intFromEnum(value_pointer.*);
+            try writeValue(writer, &tag);
+            switch (value_pointer.*) {
+                inline else => |*payload_pointer| {
+                    const Payload = @TypeOf(payload_pointer.*);
+                    try writeValue(writer, payload_pointer);
+                    const padding_size = getTypeSize(Type) - getTypeSize(Tag) - getTypeSize(Payload);
+                    for (0..padding_size) |_| {
+                        try writer.writeByte(0);
+                    }
+                },
+            }
+        },
+        else => @compileError("Unsupported type: " ++ @typeName(Type)),
+    }
+}
+
+fn readValue(comptime Type: type, reader: *std.io.Reader) !Type {
+    switch (@typeInfo(Type)) {
+        .void => return {},
+        .bool => {
+            const byte = try reader.takeByte();
+            return switch (byte) {
+                0 => false,
+                1 => true,
+                else => error.InvalidValue,
+            };
+        },
+        .int => |info| {
+            const ReadType = @Type(.{ .int = .{
+                .signedness = info.signedness,
+                .bits = @sizeOf(Type) * std.mem.byte_size_in_bits,
+            } });
+            const read_int = try reader.takeInt(ReadType, endian);
+            return @intCast(read_int); // TODO Handle if it can't be casted.
+        },
+        .float => |*info| {
+            const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
+            const int = try reader.takeInt(IntType, endian);
+            return @bitCast(int);
+        },
+        .@"enum" => |*info| {
+            const Tag = info.tag_type;
+            const tag = try readValue(Tag, reader);
+            inline for (info.fields) |*field| {
+                if (field.value == tag) {
+                    return @enumFromInt(tag);
+                }
+            }
+            return error.InvalidValue;
+        },
+        .optional => |*info| {
+            const byte = try reader.takeByte();
+            return switch (byte) {
+                0 => {
+                    reader.toss(getTypeSize(info.child));
+                    return null;
+                },
+                1 => try readValue(info.child, reader),
+                else => {
+                    reader.toss(getTypeSize(info.child));
+                    return error.InvalidValue;
+                },
+            };
+        },
+        .array => |*info| {
+            var value: Type = undefined;
+            for (&value) |*element| {
+                element = try readValue(info.child, reader);
+            }
+            return value;
+        },
+        .@"struct" => |*info| {
+            var value: Type = undefined;
+            inline for (info.fields) |*field| {
+                const field_value = try readValue(field.type, reader);
+                @field(value, field.name) = field_value;
+            }
+            return value;
+        },
+        .@"union" => |*info| {
+            const Tag = info.tag_type orelse {
+                @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
+            };
+            const tag = try readValue(Tag, reader);
+            inline for (info.fields) |*field| {
+                if (std.mem.eql(u8, @tagName(tag), field.name)) {
+                    const Payload = field.type;
+                    const payload = try readValue(Payload, reader);
+                    const padding_size = getTypeSize(Type) - getTypeSize(Tag) - getTypeSize(Payload);
+                    reader.toss(padding_size);
+                    return @unionInit(Type, field.name, payload);
+                }
+            }
+            const padding_size = getTypeSize(Type) - getTypeSize(Tag);
+            reader.toss(padding_size);
+            return error.InvalidValue;
+        },
+        else => @compileError("Unsupported type: " ++ @typeName(Type)),
+    }
+}
+
+fn getTypeSize(comptime Type: type) usize {
+    return switch (@typeInfo(Type)) {
+        .void => 0,
+        .bool => 1,
+        .int, .float, .@"enum" => @sizeOf(Type),
+        .optional => |*info| 1 + getTypeSize(info.child),
+        .array => |*info| info.len * getTypeSize(info.child),
+        .@"struct" => |*info| {
+            var sum: usize = 0;
+            for (info.fields) |*field| {
+                sum += getTypeSize(field.type);
+            }
+            return sum;
+        },
+        .@"union" => |*info| {
+            const Tag = info.tag_type orelse {
+                @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
+            };
+            var max: usize = 0;
+            inline for (info.fields) |*field| {
+                max = @max(max, getTypeSize(field.type));
+            }
+            return @sizeOf(Tag) + max;
+        },
+        else => @compileError("Unsupported type: " ++ @typeName(Type)),
+    };
+}
+
+fn getFieldPointer(frame: anytype, comptime field: *const LocalField) *field.Type {
+    return getFieldPointerRecursive(*field.Type, frame, field.access);
+}
+
+fn getConstFieldPointer(frame: anytype, comptime field: *const LocalField) *const field.Type {
+    return getFieldPointerRecursive(*const field.Type, frame, field.access);
+}
+
+fn getFieldPointerRecursive(
+    comptime Pointer: type,
+    lhs_pointer: anytype,
+    comptime access: []const AccessElement,
+) Pointer {
+    if (@typeInfo(Pointer) != .pointer) {
+        @compileError("Expected Pointer to be a pointer type but got: " ++ @typeName(Pointer));
+    }
+    if (@typeInfo(@TypeOf(lhs_pointer)) != .pointer) {
+        @compileError("Expected lhs_pointer to be a pointer but got: " ++ @typeName(@TypeOf(lhs_pointer)));
+    }
+    if (access.len == 0) {
+        return lhs_pointer;
+    }
+    const next_pointer = switch (access[0]) {
+        .name => |name| &@field(lhs_pointer, name),
+        .index => |index| &lhs_pointer[index],
+    };
+    const next_access = access[1..];
+    return getFieldPointerRecursive(Pointer, next_pointer, next_access);
 }
 
 inline fn getLocalFields(comptime Frame: type) []const LocalField {
@@ -320,7 +546,7 @@ inline fn getLocalFields(comptime Frame: type) []const LocalField {
         @setEvalBranchQuota(10000);
         var buffer: [max_number_of_fields]LocalField = undefined;
         var len: usize = 0;
-        getLocalFieldsRecursive(Frame, "", 0, &buffer, &len);
+        getLocalFieldsRecursive(Frame, "", &.{}, &buffer, &len);
         const array = buffer[0..len].*;
         return &array;
     }
@@ -329,18 +555,18 @@ inline fn getLocalFields(comptime Frame: type) []const LocalField {
 fn getLocalFieldsRecursive(
     comptime Type: type,
     path: []const u8,
-    offset: usize,
+    access: []const AccessElement,
     buffer: []LocalField,
     len: *usize,
 ) void {
     const type_info = @typeInfo(Type);
     switch (type_info) {
         .void => {},
-        .bool, .int, .comptime_int, .float, .comptime_float, .vector, .@"enum", .optional, .@"union" => {
+        .bool, .int, .float, .@"enum", .optional, .@"union" => {
             appendLocalField(buffer, len, .{
                 .path = path,
-                .offset = offset,
-                .size = @sizeOf(Type),
+                .access = access,
+                .Type = Type,
             });
         },
         .@"struct" => |*info| {
@@ -348,7 +574,7 @@ fn getLocalFieldsRecursive(
                 getLocalFieldsRecursive(
                     field.type,
                     std.fmt.comptimePrint("{s}.{s}", .{ path, field.name }),
-                    offset + @offsetOf(Type, field.name),
+                    access ++ &[1]AccessElement{.{ .name = field.name }},
                     buffer,
                     len,
                 );
@@ -359,7 +585,7 @@ fn getLocalFieldsRecursive(
                 getLocalFieldsRecursive(
                     info.child,
                     std.fmt.comptimePrint("{s}.{}", .{ path, index }),
-                    offset + (index * @sizeOf(info.child)),
+                    access ++ &[1]AccessElement{.{ .index = index }},
                     buffer,
                     len,
                 );
