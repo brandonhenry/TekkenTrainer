@@ -185,7 +185,7 @@ fn writeInitialValues(
     inline for (fields) |*field| {
         const field_pointer = getConstFieldPointer(frame, field);
         writeValue(writer, field_pointer) catch |err| {
-            misc.error_context.new("Failed to write the value of field: {s}", .{field.path});
+            misc.error_context.append("Failed to write the value of field: {s}", .{field.path});
             return err;
         };
     }
@@ -207,13 +207,17 @@ fn readInitialValues(
         inline for (local_fields, 0..) |*local_field, index| {
             if (local_index == index) {
                 const field_pointer = getFieldPointer(&frame, local_field);
-                field_pointer.* = readValue(local_field.Type, reader) catch |err| switch (err) {
-                    error.InvalidValue => getConstFieldPointer(&default_frame, local_field).*,
-                    else => {
-                        misc.error_context.new("Failed to read the value of field: {s}", .{local_field.path});
+                if (readValue(local_field.Type, reader)) |field_value| {
+                    field_pointer.* = field_value;
+                } else |err| {
+                    misc.error_context.append("Failed to read the value of field: {s}", .{local_field.path});
+                    if (err == error.InvalidValue) {
+                        misc.error_context.logWarning(err);
+                        field_pointer.* = getConstFieldPointer(&default_frame, local_field).*;
+                    } else {
                         return err;
-                    },
-                };
+                    }
+                }
                 break;
             }
         } else unreachable;
@@ -257,7 +261,7 @@ fn writeFrames(
                     return err;
                 };
                 writeValue(writer, field_pointer) catch |err| {
-                    misc.error_context.new("Failed to write the new value.", .{});
+                    misc.error_context.append("Failed to write the new value.", .{});
                     return err;
                 };
             }
@@ -314,13 +318,17 @@ fn readFrames(
             inline for (local_fields, 0..) |*local_field, index| {
                 if (index == local_index) {
                     const field_pointer = getFieldPointer(&current_frame, local_field);
-                    field_pointer.* = readValue(local_field.Type, reader) catch |err| switch (err) {
-                        error.InvalidValue => getConstFieldPointer(&default_frame, local_field).*,
-                        else => {
-                            misc.error_context.new("Failed to read the new value of: {s}", .{local_field.path});
+                    if (readValue(local_field.Type, reader)) |field_value| {
+                        field_pointer.* = field_value;
+                    } else |err| {
+                        misc.error_context.append("Failed to read the new value of: {s}", .{local_field.path});
+                        if (err == error.InvalidValue) {
+                            misc.error_context.logWarning(err);
+                            field_pointer.* = getConstFieldPointer(&default_frame, local_field).*;
+                        } else {
                             return err;
-                        },
-                    };
+                        }
+                    }
                     break;
                 }
             } else unreachable;
@@ -347,45 +355,84 @@ fn writeValue(writer: *std.fs.File.Writer, value_pointer: anytype) !void {
                 false => 0,
                 true => 1,
             };
-            try writer.interface.writeByte(byte);
+            writer.interface.writeByte(byte) catch |err| {
+                misc.error_context.new("Failed to write bool's byte: {}", .{byte});
+                return err;
+            };
         },
         .int => |info| {
             const WriteType = @Type(.{ .int = .{
                 .signedness = info.signedness,
                 .bits = serializedSizeOf(Type) * std.mem.byte_size_in_bits,
             } });
-            try writer.interface.writeInt(WriteType, value_pointer.*, endian);
+            const value = value_pointer.*;
+            writer.interface.writeInt(WriteType, value, endian) catch |err| {
+                misc.error_context.new(
+                    "Failed to write int: {} ({s} -> {s})",
+                    .{ value, @typeName(Type), @typeName(WriteType) },
+                );
+                return err;
+            };
         },
         .float => |*info| {
             const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
-            const int: IntType = @bitCast(value_pointer.*);
-            try writer.interface.writeInt(IntType, int, endian);
+            const value = value_pointer.*;
+            const int_value: IntType = @bitCast(value);
+            writer.interface.writeInt(IntType, int_value, endian) catch |err| {
+                misc.error_context.new("Failed to write float: {} ({s})", .{ value, @typeName(Type) });
+                return err;
+            };
         },
         .@"enum" => |*info| {
             const Tag = info.tag_type;
-            const tag: Tag = @intFromEnum(value_pointer.*);
-            try writeValue(writer, &tag);
+            const value = value_pointer.*;
+            const tag: Tag = @intFromEnum(value);
+            writeValue(writer, &tag) catch |err| {
+                misc.error_context.append(
+                    "Failed to write enum tag: {s} ({s}) -> {} ({s})",
+                    .{ @tagName(value), @typeName(Type), tag, @typeName(Tag) },
+                );
+                return err;
+            };
         },
         .optional => |*info| {
             if (value_pointer.*) |*child_pointer| {
-                try writer.interface.writeByte(1);
-                try writeValue(writer, child_pointer);
+                writer.interface.writeByte(1) catch |err| {
+                    misc.error_context.new("Failed to write optional's tag byte: 1", .{});
+                    return err;
+                };
+                writeValue(writer, child_pointer) catch |err| {
+                    misc.error_context.append("Failed to write optional's payload.", .{});
+                    return err;
+                };
             } else {
-                try writer.interface.writeByte(0);
+                writer.interface.writeByte(0) catch |err| {
+                    misc.error_context.new("Failed to write optional's tag byte: 0", .{});
+                    return err;
+                };
                 for (0..serializedSizeOf(info.child)) |_| {
-                    try writer.interface.writeByte(0);
+                    writer.interface.writeByte(0) catch |err| {
+                        misc.error_context.new("Failed to write optional's null padding.", .{});
+                        return err;
+                    };
                 }
             }
         },
         .array => {
-            for (value_pointer) |*element_pointer| {
-                try writeValue(writer, element_pointer);
+            for (value_pointer, 0..) |*element_pointer, index| {
+                writeValue(writer, element_pointer) catch |err| {
+                    misc.error_context.append("Failed to write array element on index: {}", .{index});
+                    return err;
+                };
             }
         },
         .@"struct" => |*info| {
             inline for (info.fields) |*field| {
                 const field_pointer = &@field(value_pointer, field.name);
-                try writeValue(writer, field_pointer);
+                writeValue(writer, field_pointer) catch |err| {
+                    misc.error_context.append("Failed to write struct field: {s}", .{field.name});
+                    return err;
+                };
             }
         },
         .@"union" => |*info| {
@@ -393,14 +440,23 @@ fn writeValue(writer: *std.fs.File.Writer, value_pointer: anytype) !void {
                 @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
             };
             const tag = @intFromEnum(value_pointer.*);
-            try writeValue(writer, &tag);
+            writeValue(writer, &tag) catch |err| {
+                misc.error_context.append("Failed to write union's tag: {s}", .{@tagName(value_pointer.*)});
+                return err;
+            };
             switch (value_pointer.*) {
                 inline else => |*payload_pointer| {
                     const Payload = @TypeOf(payload_pointer.*);
-                    try writeValue(writer, payload_pointer);
+                    writeValue(writer, payload_pointer) catch |err| {
+                        misc.error_context.append("Failed to write union's payload: {s}", .{@tagName(value_pointer.*)});
+                        return err;
+                    };
                     const padding_size = serializedSizeOf(Type) - serializedSizeOf(Tag) - serializedSizeOf(Payload);
                     for (0..padding_size) |_| {
-                        try writer.interface.writeByte(0);
+                        writer.interface.writeByte(0) catch |err| {
+                            misc.error_context.new("Failed to write union's padding.", .{});
+                            return err;
+                        };
                     }
                 },
             }
@@ -423,58 +479,89 @@ fn readValue(comptime Type: type, reader: *std.fs.File.Reader) anyerror!Type {
     switch (@typeInfo(Type)) {
         .void => return {},
         .bool => {
-            const byte = try reader.interface.takeByte();
-            return switch (byte) {
-                0 => false,
-                1 => true,
-                else => error.InvalidValue,
+            const byte = reader.interface.takeByte() catch |err| {
+                misc.error_context.new("Failed to read bool's byte.", .{});
+                return err;
             };
+            switch (byte) {
+                0 => return false,
+                1 => return true,
+                else => {
+                    misc.error_context.new("Invalid value of bool's byte: {}", .{byte});
+                    return error.InvalidValue;
+                },
+            }
         },
         .int => |info| {
             const ReadType = @Type(.{ .int = .{
                 .signedness = info.signedness,
                 .bits = serializedSizeOf(Type) * std.mem.byte_size_in_bits,
             } });
-            const read_int = try reader.interface.takeInt(ReadType, endian);
+            const read_int = reader.interface.takeInt(ReadType, endian) catch |err| {
+                misc.error_context.new("Failed to read int. ({s} -> {s})", .{ @typeName(Type), @typeName(ReadType) });
+                return err;
+            };
             return std.math.cast(Type, read_int) orelse return error.InvalidValue;
         },
         .float => |*info| {
             const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
-            const int = try reader.interface.takeInt(IntType, endian);
+            const int = reader.interface.takeInt(IntType, endian) catch |err| {
+                misc.error_context.new("Failed to read float. ({s})", .{@typeName(Type)});
+                return err;
+            };
             return @bitCast(int);
         },
         .@"enum" => |*info| {
             const Tag = info.tag_type;
-            const tag = try readValue(Tag, reader);
+            const tag = readValue(Tag, reader) catch |err| {
+                misc.error_context.append("Failed to read enum tag. ({s} -> {s})", .{ @typeName(Type), @typeName(Tag) });
+                return err;
+            };
             inline for (info.fields) |*field| {
                 if (field.value == tag) {
                     return @enumFromInt(tag);
                 }
             }
+            misc.error_context.new("Invalid enum tag: {} ({s} -> {s})", .{ tag, @typeName(Type), @typeName(Tag) });
             return error.InvalidValue;
         },
         .optional => |*info| {
-            const byte = try reader.interface.takeByte();
-            return switch (byte) {
+            const byte = reader.interface.takeByte() catch |err| {
+                misc.error_context.new("Failed to read optional's tag byte.", .{});
+                return err;
+            };
+            switch (byte) {
                 0 => {
                     reader.interface.toss(serializedSizeOf(info.child));
                     return null;
                 },
-                1 => try readValue(info.child, reader),
-                else => return error.InvalidValue,
-            };
+                1 => return readValue(info.child, reader) catch |err| {
+                    misc.error_context.append("Failed to read optional's payload.", .{});
+                    return err;
+                },
+                else => {
+                    misc.error_context.new("Invalid optional's tag byte: {}", .{byte});
+                    return error.InvalidValue;
+                },
+            }
         },
         .array => |*info| {
             var value: Type = undefined;
-            for (&value) |*element| {
-                element = try readValue(info.child, reader);
+            for (&value, 0..) |*element, index| {
+                element = readValue(info.child, reader) catch |err| {
+                    misc.error_context.append("Failed to read array element at index: {}", .{index});
+                    return err;
+                };
             }
             return value;
         },
         .@"struct" => |*info| {
             var value: Type = undefined;
             inline for (info.fields) |*field| {
-                const field_value = try readValue(field.type, reader);
+                const field_value = readValue(field.type, reader) catch |err| {
+                    misc.error_context.append("Failed to read struct field: {}", .{field.name});
+                    return err;
+                };
                 @field(value, field.name) = field_value;
             }
             return value;
@@ -483,11 +570,17 @@ fn readValue(comptime Type: type, reader: *std.fs.File.Reader) anyerror!Type {
             const Tag = info.tag_type orelse {
                 @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
             };
-            const tag = try readValue(Tag, reader);
+            const tag = readValue(Tag, reader) catch |err| {
+                misc.error_context.append("Failed to read union's tag. ({s})", .{@typeName(Tag)});
+                return err;
+            };
             inline for (info.fields) |*field| {
                 if (std.mem.eql(u8, @tagName(tag), field.name)) {
                     const Payload = field.type;
-                    const payload = try readValue(Payload, reader);
+                    const payload = readValue(Payload, reader) catch |err| {
+                        misc.error_context.append("Failed to read union's payload.", .{});
+                        return err;
+                    };
                     const padding_size = serializedSizeOf(Type) - serializedSizeOf(Tag) - serializedSizeOf(Payload);
                     reader.interface.toss(padding_size);
                     return @unionInit(Type, field.name, payload);
