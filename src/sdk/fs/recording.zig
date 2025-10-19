@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const misc = @import("../misc/root.zig");
 
 const FieldIndex = u8;
@@ -212,7 +213,9 @@ fn readInitialValues(
                 } else |err| {
                     misc.error_context.append("Failed to read the value of field: {s}", .{local_field.path});
                     if (err == error.InvalidValue) {
-                        misc.error_context.logWarning(err);
+                        if (!builtin.is_test) {
+                            misc.error_context.logWarning(err);
+                        }
                         field_pointer.* = getConstFieldPointer(&default_frame, local_field).*;
                     } else {
                         return err;
@@ -243,7 +246,7 @@ fn writeFrames(
         inline for (fields) |*field| {
             const field_pointer = getConstFieldPointer(frame, field);
             const last_field_pointer = getConstFieldPointer(last_frame, field);
-            if (!std.meta.eql(field_pointer.*, last_field_pointer.*)) {
+            if (!areValuesEqual(field_pointer.*, last_field_pointer.*)) {
                 number_of_changes += 1;
             }
         }
@@ -255,7 +258,7 @@ fn writeFrames(
             errdefer misc.error_context.append("Failed to write change for field: {s}", .{field.path});
             const field_pointer = getConstFieldPointer(frame, field);
             const last_field_pointer = getConstFieldPointer(last_frame, field);
-            if (!std.meta.eql(field_pointer.*, last_field_pointer.*)) {
+            if (!areValuesEqual(field_pointer.*, last_field_pointer.*)) {
                 writer.interface.writeInt(FieldIndex, @intCast(field_index), endian) catch |err| {
                     misc.error_context.new("Failed to write field index: {}", .{field_index});
                     return err;
@@ -268,6 +271,22 @@ fn writeFrames(
         }
         last_frame = frame;
     }
+}
+
+fn areValuesEqual(value_1: anytype, value_2: @TypeOf(value_1)) bool {
+    const Type = @TypeOf(value_1);
+    return switch (@typeInfo(Type)) {
+        .@"union" => |*info| switch (info.layout) {
+            .@"packed" => {
+                const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(Type) } });
+                const int_1: IntType = @bitCast(value_1);
+                const int_2: IntType = @bitCast(value_2);
+                return int_1 == int_2;
+            },
+            else => std.meta.eql(value_1, value_2),
+        },
+        else => std.meta.eql(value_1, value_2),
+    };
 }
 
 fn readFrames(
@@ -323,7 +342,9 @@ fn readFrames(
                     } else |err| {
                         misc.error_context.append("Failed to read the new value of: {s}", .{local_field.path});
                         if (err == error.InvalidValue) {
-                            misc.error_context.logWarning(err);
+                            if (!builtin.is_test) {
+                                misc.error_context.logWarning(err);
+                            }
                             field_pointer.* = getConstFieldPointer(&default_frame, local_field).*;
                         } else {
                             return err;
@@ -426,7 +447,16 @@ fn writeValue(writer: *std.fs.File.Writer, value_pointer: anytype) !void {
                 };
             }
         },
-        .@"struct" => |*info| {
+        .@"struct" => |*info| if (info.backing_integer) |IntType| {
+            const int_pointer: *const IntType = @ptrCast(value_pointer);
+            writeValue(writer, int_pointer) catch |err| {
+                misc.error_context.append(
+                    "Failed to write packed struct backing int: {} ({s})",
+                    .{ int_pointer.*, @typeName(IntType) },
+                );
+                return err;
+            };
+        } else {
             inline for (info.fields) |*field| {
                 const field_pointer = &@field(value_pointer, field.name);
                 writeValue(writer, field_pointer) catch |err| {
@@ -435,9 +465,19 @@ fn writeValue(writer: *std.fs.File.Writer, value_pointer: anytype) !void {
                 };
             }
         },
-        .@"union" => |*info| {
+        .@"union" => |*info| if (info.layout == .@"packed") {
+            const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(Type) } });
+            const int_pointer: *const IntType = @ptrCast(value_pointer);
+            writeValue(writer, int_pointer) catch |err| {
+                misc.error_context.append(
+                    "Failed to write packed union backing int: {} ({s})",
+                    .{ int_pointer.*, @typeName(IntType) },
+                );
+                return err;
+            };
+        } else {
             const Tag = info.tag_type orelse {
-                @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
+                @compileError("Union " ++ @typeName(Type) ++ " is not serializable. (Not tagged and not packed.)");
             };
             const tag = @intFromEnum(value_pointer.*);
             writeValue(writer, &tag) catch |err| {
@@ -555,7 +595,16 @@ fn readValue(comptime Type: type, reader: *std.fs.File.Reader) anyerror!Type {
             }
             return value;
         },
-        .@"struct" => |*info| {
+        .@"struct" => |*info| if (info.backing_integer) |IntType| {
+            const int_value = readValue(IntType, reader) catch |err| {
+                misc.error_context.append(
+                    "Failed to read packed struct's backing integer. ({s})",
+                    .{@typeName(IntType)},
+                );
+                return err;
+            };
+            return @bitCast(int_value);
+        } else {
             var value: Type = undefined;
             inline for (info.fields) |*field| {
                 const field_value = readValue(field.type, reader) catch |err| {
@@ -566,9 +615,19 @@ fn readValue(comptime Type: type, reader: *std.fs.File.Reader) anyerror!Type {
             }
             return value;
         },
-        .@"union" => |*info| {
+        .@"union" => |info| if (info.layout == .@"packed") {
+            const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(Type) } });
+            const int_value = readValue(IntType, reader) catch |err| {
+                misc.error_context.append(
+                    "Failed to read packed unions's backing integer. ({s})",
+                    .{@typeName(IntType)},
+                );
+                return err;
+            };
+            return @bitCast(int_value);
+        } else {
             const Tag = info.tag_type orelse {
-                @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
+                @compileError("Union " ++ @typeName(Type) ++ " is not serializable. (Not tagged and not packed.)");
             };
             const tag = readValue(Tag, reader) catch |err| {
                 misc.error_context.append("Failed to read union's tag. ({s})", .{@typeName(Tag)});
@@ -607,6 +666,9 @@ fn serializedSizeOf(comptime Type: type) comptime_int {
         .optional => |*info| 1 + serializedSizeOf(info.child),
         .array => |*info| info.len * serializedSizeOf(info.child),
         .@"struct" => |*info| {
+            if (info.backing_integer) |IntType| {
+                return serializedSizeOf(IntType);
+            }
             var sum: usize = 0;
             for (info.fields) |*field| {
                 sum += serializedSizeOf(field.type);
@@ -614,8 +676,12 @@ fn serializedSizeOf(comptime Type: type) comptime_int {
             return sum;
         },
         .@"union" => |*info| {
+            if (info.layout == .@"packed") {
+                const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(Type) } });
+                return serializedSizeOf(IntType);
+            }
             const Tag = info.tag_type orelse {
-                @compileError("Unsupported type: " ++ @typeName(Type) ++ " (Only tagged version of unions is supported.)");
+                @compileError("Union " ++ @typeName(Type) ++ " is not serializable. (Not tagged and not packed.)");
             };
             var max: usize = 0;
             inline for (info.fields) |*field| {
@@ -659,7 +725,7 @@ fn getFieldPointerRecursive(
 
 inline fn getLocalFields(comptime Frame: type) []const LocalField {
     comptime {
-        @setEvalBranchQuota(10000);
+        @setEvalBranchQuota(100000);
         var buffer: [max_number_of_fields]LocalField = undefined;
         var len: usize = 0;
         getLocalFieldsRecursive(Frame, "", &.{}, &buffer, &len);
@@ -684,16 +750,16 @@ fn getLocalFieldsRecursive(
                 .access = access,
                 .Type = Type,
             };
-            if (len.* >= buffer.len) {
-                @compileError("Maximum number of fields exceeded.");
-            }
-            if (field.path.len > max_field_path_len) {
-                @compileError("Maximum size of field path exceeded.");
-            }
-            buffer[len.*] = field;
-            len.* += 1;
+            appendLocalField(&field, buffer, len);
         },
-        .@"struct" => |*info| {
+        .@"struct" => |*info| if (info.layout == .@"packed") {
+            const field = LocalField{
+                .path = path,
+                .access = access,
+                .Type = Type,
+            };
+            appendLocalField(&field, buffer, len);
+        } else {
             for (info.fields) |*field| {
                 getLocalFieldsRecursive(
                     field.type,
@@ -719,6 +785,17 @@ fn getLocalFieldsRecursive(
     }
 }
 
+fn appendLocalField(element: *const LocalField, buffer: []LocalField, len: *usize) void {
+    if (len.* >= buffer.len) {
+        @compileError("Maximum number of fields exceeded.");
+    }
+    if (element.path.len > max_field_path_len) {
+        @compileError("Maximum size of field path exceeded.");
+    }
+    buffer[len.*] = element.*;
+    len.* += 1;
+}
+
 const testing = std.testing;
 
 test "loadRecording should load the same recording that saveRecording saved" {
@@ -737,6 +814,7 @@ test "loadRecording should load the same recording that saveRecording saved" {
         optional: ?f32 = 0,
         @"enum": enum { a, b } = .a,
         @"struct": struct { a: f32 = 0, b: f32 = 0 } = .{},
+        packed_struct: packed struct { a: u18 = 0, b: u14 = 0 } = .{},
         tuple: struct { f32, f32 } = .{ 0, 0 },
         array: [2]f32 = .{ 0, 0 },
         tagged_union: union(enum) { i: i32, f: f32 } = .{ .i = 0 },
@@ -759,11 +837,12 @@ test "loadRecording should load the same recording that saveRecording saved" {
             .optional = null,
             .@"enum" = .a,
             .@"struct" = .{ .a = 1, .b = 2 },
-            .tuple = .{ 3, 4 },
-            .array = .{ 5, 6 },
-            .tagged_union = .{ .i = 7 },
-            .array_of_struct = .{ .{ .a = 8, .b = 9 }, .{ .a = 10, .b = 11 } },
-            .struct_of_array = .{ .a = .{ 12, 13 }, .b = .{ 14, 15 } },
+            .packed_struct = .{ .a = 3, .b = 4 },
+            .tuple = .{ 5, 6 },
+            .array = .{ 7, 8 },
+            .tagged_union = .{ .i = 9 },
+            .array_of_struct = .{ .{ .a = 10, .b = 11 }, .{ .a = 12, .b = 13 } },
+            .struct_of_array = .{ .a = .{ 14, 15 }, .b = .{ 16, 17 } },
         },
         .{
             .bool = true,
@@ -779,7 +858,8 @@ test "loadRecording should load the same recording that saveRecording saved" {
             .f64 = 0.1,
             .optional = 123,
             .@"enum" = .b,
-            .@"struct" = .{ .a = 15, .b = 14 },
+            .@"struct" = .{ .a = 17, .b = 16 },
+            .packed_struct = .{ .a = 15, .b = 41 },
             .array = .{ 13, 12 },
             .tuple = .{ 11, 10 },
             .tagged_union = .{ .f = 9 },
@@ -934,13 +1014,14 @@ test "loadRecording should use default value when encountering invalid enum valu
 }
 
 test "loadRecording should use default value when encountering invalid optional" {
-    const SavedFrame = struct { a: u16 = 0xFFFF, b: u16 = 0xFFFF };
+    const TagAndPayload = packed struct { tag: u8 = 255, payload: u8 = 255 };
+    const SavedFrame = struct { a: TagAndPayload = .{}, b: TagAndPayload = .{} };
     const LoadedFrame = struct { a: ?u8 = null, b: ?u8 = 0 };
     try saveRecording(SavedFrame, &.{
-        .{ .a = 0x0000, .b = 0x0000 },
-        .{ .a = 0x0001, .b = 0x0001 },
-        .{ .a = 0x0101, .b = 0x0101 },
-        .{ .a = 0x0102, .b = 0x0102 },
+        .{ .a = .{ .tag = 0, .payload = 0 }, .b = .{ .tag = 0, .payload = 0 } },
+        .{ .a = .{ .tag = 1, .payload = 0 }, .b = .{ .tag = 1, .payload = 0 } },
+        .{ .a = .{ .tag = 1, .payload = 1 }, .b = .{ .tag = 1, .payload = 1 } },
+        .{ .a = .{ .tag = 2, .payload = 1 }, .b = .{ .tag = 2, .payload = 1 } },
     }, "./test_assets/recording.irony");
     defer std.fs.cwd().deleteFile("./test_assets/recording.irony") catch @panic("Failed to cleanup test file.");
     const recording = try loadRecording(LoadedFrame, testing.allocator, "./test_assets/recording.irony");
@@ -954,22 +1035,23 @@ test "loadRecording should use default value when encountering invalid optional"
 }
 
 test "loadRecording should use default value when encountering invalid tagged union" {
+    const TagAndPayload = packed struct { tag: u8 = 0xFF, payload: u16 = 0xFFFF };
     const Tag = enum(u8) { a = 1, b = 2 };
     const Union = union(Tag) { a: u8, b: u16 };
-    const SavedFrame = struct { f1: u24 = 0xFFFFFF, f2: u24 = 0xFFFFFF };
+    const SavedFrame = struct { f1: TagAndPayload = .{}, f2: TagAndPayload = .{} };
     const LoadedFrame = struct { f1: Union = .{ .a = 128 }, f2: Union = .{ .b = 129 } };
-    try testing.expectEqual(serializedSizeOf(Union), serializedSizeOf(u24));
+    try testing.expectEqual(serializedSizeOf(Union), serializedSizeOf(TagAndPayload));
     try saveRecording(SavedFrame, &.{
-        .{ .f1 = 0x000000, .f2 = 0x000000 },
-        .{ .f1 = 0x000001, .f2 = 0x000001 },
-        .{ .f1 = 0x000101, .f2 = 0x000101 },
-        .{ .f1 = 0x000002, .f2 = 0x000002 },
-        .{ .f1 = 0x000102, .f2 = 0x000102 },
-        .{ .f1 = 0x000003, .f2 = 0x000003 },
-        .{ .f1 = 0x00FF01, .f2 = 0x00FF01 },
-        .{ .f1 = 0x010001, .f2 = 0x010001 },
-        .{ .f1 = 0x00FF02, .f2 = 0x00FF02 },
-        .{ .f1 = 0x010002, .f2 = 0x010002 },
+        .{ .f1 = .{ .tag = 0, .payload = 0 }, .f2 = .{ .tag = 0, .payload = 0 } },
+        .{ .f1 = .{ .tag = 1, .payload = 0 }, .f2 = .{ .tag = 1, .payload = 0 } },
+        .{ .f1 = .{ .tag = 1, .payload = 1 }, .f2 = .{ .tag = 1, .payload = 1 } },
+        .{ .f1 = .{ .tag = 2, .payload = 0 }, .f2 = .{ .tag = 2, .payload = 0 } },
+        .{ .f1 = .{ .tag = 2, .payload = 1 }, .f2 = .{ .tag = 2, .payload = 1 } },
+        .{ .f1 = .{ .tag = 3, .payload = 0 }, .f2 = .{ .tag = 3, .payload = 0 } },
+        .{ .f1 = .{ .tag = 1, .payload = 255 }, .f2 = .{ .tag = 1, .payload = 255 } },
+        .{ .f1 = .{ .tag = 1, .payload = 256 }, .f2 = .{ .tag = 1, .payload = 256 } },
+        .{ .f1 = .{ .tag = 2, .payload = 255 }, .f2 = .{ .tag = 2, .payload = 255 } },
+        .{ .f1 = .{ .tag = 2, .payload = 256 }, .f2 = .{ .tag = 2, .payload = 256 } },
     }, "./test_assets/recording.irony");
     defer std.fs.cwd().deleteFile("./test_assets/recording.irony") catch @panic("Failed to cleanup test file.");
     const recording = try loadRecording(LoadedFrame, testing.allocator, "./test_assets/recording.irony");
@@ -986,4 +1068,51 @@ test "loadRecording should use default value when encountering invalid tagged un
         .{ .f1 = .{ .b = 255 }, .f2 = .{ .b = 255 } },
         .{ .f1 = .{ .b = 256 }, .f2 = .{ .b = 256 } },
     }, recording);
+}
+
+test "loadRecording should load the same recording that saveRecording saved when working with packed types" {
+    const StructOfUnions = packed struct {
+        a: packed union { u: u8, i: i8 } = .{ .u = 255 },
+        b: packed union { u: u16, i: i16 } = .{ .u = 255 },
+
+        const Self = @This();
+        pub const Int = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(Self) } });
+    };
+    const UnionOfStructs = packed union {
+        a: packed struct { f1: u16 = 0xFFFF, f2: u8 = 0xFF },
+        b: packed struct { f1: u8 = 0xFF, f2: u16 = 0xFFFF },
+
+        const Self = @This();
+        pub const Int = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(Self) } });
+    };
+    const Frame = struct {
+        struct_of_unions: StructOfUnions = .{},
+        union_of_structs: UnionOfStructs = .{ .a = .{} },
+    };
+    const saved_recording = [_]Frame{
+        .{
+            .struct_of_unions = .{ .a = .{ .u = 255 }, .b = .{ .i = -1 } },
+            .union_of_structs = .{ .a = .{ .f1 = 1, .f2 = 1 } },
+        },
+        .{
+            .struct_of_unions = .{ .a = .{ .i = -1 }, .b = .{ .u = 255 } },
+            .union_of_structs = .{ .b = .{ .f1 = 1, .f2 = 1 } },
+        },
+    };
+    try saveRecording(Frame, &saved_recording, "./test_assets/recording.irony");
+    defer std.fs.cwd().deleteFile("./test_assets/recording.irony") catch @panic("Failed to cleanup test file.");
+    const loaded_recording = try loadRecording(Frame, testing.allocator, "./test_assets/recording.irony");
+    defer testing.allocator.free(loaded_recording);
+
+    try testing.expectEqual(saved_recording.len, loaded_recording.len);
+    for (0..saved_recording.len) |index| {
+        try testing.expectEqual(
+            @as(StructOfUnions.Int, @bitCast(saved_recording[index].struct_of_unions)),
+            @as(StructOfUnions.Int, @bitCast(loaded_recording[index].struct_of_unions)),
+        );
+        try testing.expectEqual(
+            @as(UnionOfStructs.Int, @bitCast(saved_recording[index].union_of_structs)),
+            @as(UnionOfStructs.Int, @bitCast(loaded_recording[index].union_of_structs)),
+        );
+    }
 }
