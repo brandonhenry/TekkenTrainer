@@ -25,6 +25,8 @@ const magic_number = "irony";
 const endian = std.builtin.Endian.little;
 const max_number_of_fields = std.math.maxInt(FieldIndex);
 const max_field_path_len = std.math.maxInt(FieldPathLength);
+const field_separator = '.';
+const field_separator_str = [1]u8{field_separator};
 
 pub const RecordingConfig = struct {
     atomic_types: []const type = &.{},
@@ -738,89 +740,122 @@ fn getFieldPointerRecursive(
     return getFieldPointerRecursive(Pointer, next_pointer, next_access);
 }
 
+const GetLocalFieldsState = struct {
+    fields_buffer: []LocalField,
+    fields_len: *usize,
+    atomic_type_usage: []bool,
+    atomic_path_usage: []bool,
+};
+
 inline fn getLocalFields(comptime Frame: type, comptime config: *const RecordingConfig) []const LocalField {
     comptime {
         @setEvalBranchQuota(100000);
-        var buffer: [max_number_of_fields]LocalField = undefined;
-        var len: usize = 0;
-        getLocalFieldsRecursive(Frame, config, "", &.{}, &buffer, &len);
-        const array = buffer[0..len].*;
-        return &array;
+
+        var fields_buffer: [max_number_of_fields]LocalField = undefined;
+        var fields_len: usize = 0;
+        var atomic_type_usage = [1]bool{false} ** config.atomic_types.len;
+        var atomic_path_usage = [1]bool{false} ** config.atomic_paths.len;
+
+        const field = LocalField{
+            .path = "",
+            .access = &.{},
+            .Type = Frame,
+        };
+        const state = GetLocalFieldsState{
+            .fields_buffer = &fields_buffer,
+            .fields_len = &fields_len,
+            .atomic_type_usage = &atomic_type_usage,
+            .atomic_path_usage = &atomic_path_usage,
+        };
+        getLocalFieldsRecursive(config, &field, &state);
+
+        for (atomic_type_usage, 0..) |is_used, index| {
+            if (!is_used) {
+                const Type = config.atomic_types[index];
+                @compileError("Unused atomic type in configuration: " ++ @typeName(Type));
+            }
+        }
+        for (atomic_path_usage, 0..) |is_used, index| {
+            if (!is_used) {
+                const path = config.atomic_paths[index];
+                @compileError("Unused atomic path in configuration: " ++ path);
+            }
+        }
+
+        const fields = fields_buffer[0..fields_len].*;
+        return &fields;
     }
 }
 
 fn getLocalFieldsRecursive(
-    comptime Type: type,
     comptime config: *const RecordingConfig,
-    path: []const u8,
-    access: []const AccessElement,
-    buffer: []LocalField,
-    len: *usize,
+    field: *const LocalField,
+    state: *const GetLocalFieldsState,
 ) void {
-    for (config.atomic_types) |AtomicType| {
-        if (AtomicType != Type) {
+    for (config.atomic_types, 0..) |AtomicType, index| {
+        if (AtomicType != field.Type) {
             continue;
         }
-        const field = LocalField{ .path = path, .access = access, .Type = Type };
-        appendLocalField(&field, buffer, len);
+        addLocalField(field, state);
+        state.atomic_type_usage[index] = true;
         return;
     }
-    for (config.atomic_paths) |pattern| {
-        if (!doesPathMatchPattern(path, pattern)) {
+    for (config.atomic_paths, 0..) |pattern, index| {
+        if (!doesPathMatchPattern(field.path, pattern)) {
             continue;
         }
-        const field = LocalField{ .path = path, .access = access, .Type = Type };
-        appendLocalField(&field, buffer, len);
+        addLocalField(field, state);
+        state.atomic_path_usage[index] = true;
         return;
     }
-    const type_info = @typeInfo(Type);
-    switch (type_info) {
+    switch (@typeInfo(field.Type)) {
         .void => {},
         .bool, .int, .float, .@"enum", .optional, .@"union" => {
-            const field = LocalField{ .path = path, .access = access, .Type = Type };
-            appendLocalField(&field, buffer, len);
+            addLocalField(field, state);
         },
         .@"struct" => |*info| if (info.layout == .@"packed") {
-            const field = LocalField{ .path = path, .access = access, .Type = Type };
-            appendLocalField(&field, buffer, len);
+            addLocalField(field, state);
         } else {
-            for (info.fields) |*field| {
-                const field_path = if (path.len == 0) field.name else path ++ "." ++ field.name;
-                const field_access = access ++ &[1]AccessElement{.{ .name = field.name }};
-                getLocalFieldsRecursive(field.type, config, field_path, field_access, buffer, len);
+            for (info.fields) |*struct_field| {
+                const sub_field = LocalField{
+                    .path = if (field.path.len == 0) block: {
+                        break :block struct_field.name;
+                    } else block: {
+                        break :block field.path ++ field_separator_str ++ struct_field.name;
+                    },
+                    .access = field.access ++ &[1]AccessElement{.{ .name = struct_field.name }},
+                    .Type = struct_field.type,
+                };
+                getLocalFieldsRecursive(config, &sub_field, state);
             }
         },
         .array => |*info| {
             inline for (0..info.len) |index| {
-                const field_path = if (path.len == 0) block: {
-                    break :block std.fmt.comptimePrint("{}", .{index});
-                } else block: {
-                    break :block std.fmt.comptimePrint("{s}.{}", .{ path, index });
+                const sub_field = LocalField{
+                    .path = if (field.path.len == 0) block: {
+                        break :block std.fmt.comptimePrint("{}", .{index});
+                    } else block: {
+                        break :block std.fmt.comptimePrint("{s}{s}{}", .{ field.path, field_separator_str, index });
+                    },
+                    .access = field.access ++ &[1]AccessElement{.{ .index = index }},
+                    .Type = info.child,
                 };
-                const field_access = access ++ &[1]AccessElement{.{ .index = index }};
-                getLocalFieldsRecursive(
-                    info.child,
-                    config,
-                    field_path,
-                    field_access,
-                    buffer,
-                    len,
-                );
+                getLocalFieldsRecursive(config, &sub_field, state);
             }
         },
-        else => @compileError("Unsupported type: " ++ @typeName(Type)),
+        else => @compileError("Unsupported type: " ++ @typeName(field.Type)),
     }
 }
 
-fn appendLocalField(element: *const LocalField, buffer: []LocalField, len: *usize) void {
-    if (len.* >= buffer.len) {
+fn addLocalField(field: *const LocalField, state: *const GetLocalFieldsState) void {
+    if (state.fields_len.* >= state.fields_buffer.len) {
         @compileError("Maximum number of fields exceeded.");
     }
-    if (element.path.len > max_field_path_len) {
+    if (field.path.len > max_field_path_len) {
         @compileError("Maximum size of field path exceeded.");
     }
-    buffer[len.*] = element.*;
-    len.* += 1;
+    state.fields_buffer[state.fields_len.*] = field.*;
+    state.fields_len.* += 1;
 }
 
 fn doesPathMatchPattern(path: []const u8, pattern: []const u8) bool {
@@ -842,7 +877,7 @@ fn doesPathMatchPattern(path: []const u8, pattern: []const u8) bool {
                 pattern_index += 1;
             },
             .wildcard => {
-                if (path_char == '.') {
+                if (path_char == field_separator) {
                     state = .normal;
                     pattern_index += 1;
                 }
