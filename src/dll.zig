@@ -88,6 +88,32 @@ pub fn DllMain(
     }
 }
 
+pub fn selfEject() void {
+    const thread = std.Thread.spawn(.{}, struct {
+        fn call() void {
+            const module = sdk.os.Module.getLocal(module_name) catch |err| {
+                sdk.misc.error_context.append("Failed to find self module.", .{});
+                sdk.misc.error_context.append("Failed to self eject.", .{});
+                sdk.misc.error_context.logError(err);
+                return;
+            };
+            const success = w32.FreeLibrary(module.handle);
+            if (success == 0) {
+                sdk.misc.error_context.new("{f}", .{sdk.os.Error.getLast()});
+                sdk.misc.error_context.append("FreeLibrary returned 0.", .{});
+                sdk.misc.error_context.append("Failed to self eject.", .{});
+                return;
+            }
+        }
+    }.call, .{}) catch |err| {
+        sdk.misc.error_context.new("Failed to spawn ejection thread.", .{});
+        sdk.misc.error_context.append("Failed to self eject.", .{});
+        sdk.misc.error_context.logError(err);
+        return;
+    };
+    thread.detach();
+}
+
 fn createModuleHandleSharedValue(module_handle: w32.HINSTANCE) !sdk.os.SharedValue(w32.HINSTANCE) {
     const shared_value = sdk.os.SharedValue(w32.HINSTANCE).create(module_name) catch |err| {
         sdk.misc.error_context.append("Failed to create shared value named: {s}", .{module_name});

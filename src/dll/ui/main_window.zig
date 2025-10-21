@@ -18,6 +18,7 @@ pub const MainWindow = struct {
     view: ui.View = .{},
     controls: ui.Controls(.{}) = .{},
     controls_height: f32 = 0,
+    is_exit_confirm_open: bool = false,
 
     const Self = @This();
     const QuadrantContext = struct {
@@ -109,14 +110,60 @@ pub const MainWindow = struct {
         }
         defer imgui.igEndMenuBar();
 
+        var exit_irony_clicked = false;
+        if (imgui.igBeginMenu("File", true)) {
+            defer imgui.igEndMenu();
+            if (imgui.igMenuItem_Bool("New", null, false, true)) {
+                // TODO implement
+            }
+            if (imgui.igMenuItem_Bool("Open", null, false, true)) {
+                // TODO implement
+            }
+            if (imgui.igMenuItem_Bool("Save", null, false, true)) {
+                // TODO implement
+            }
+            if (imgui.igMenuItem_Bool("Save As", null, false, true)) {
+                // TODO implement
+            }
+            imgui.igSeparator();
+            if (imgui.igMenuItem_Bool("Close Window", null, false, true)) {
+                self.is_open = false;
+                sdk.ui.toasts.send(.default, null, "Main window closed. Press [Tab] to open it again.", .{});
+            }
+            exit_irony_clicked = imgui.igMenuItem_Bool("Exit Irony", null, false, true);
+        }
+
+        if (exit_irony_clicked) {
+            self.is_exit_confirm_open = true;
+            imgui.igOpenPopup_Str("Exit Irony?", 0);
+        }
+        if (imgui.igBeginPopupModal("Exit Irony?", &self.is_exit_confirm_open, imgui.ImGuiWindowFlags_AlwaysAutoResize)) {
+            defer imgui.igEndPopup();
+            imgui.igText("Are you sure you want to exit from Irony?");
+            imgui.igText("This will remove Irony from the game process.");
+            imgui.igText("Any recorded data that is not saved will be lost.");
+            imgui.igSeparator();
+            if (imgui.igButton("Exit", .{})) {
+                dll.selfEject();
+                imgui.igCloseCurrentPopup();
+            }
+            imgui.igSameLine(0, -1);
+            imgui.igSetItemDefaultFocus();
+            if (imgui.igButton("Cancel", .{})) {
+                imgui.igCloseCurrentPopup();
+            }
+        }
+
         if (imgui.igBeginMenu("Camera", true)) {
             defer imgui.igEndMenu();
             self.view.camera.drawMenuBar();
         }
 
         if (imgui.igMenuItem_Bool(ui.SettingsWindow.name, null, false, true)) {
-            self.settings_window.is_open = true;
-            imgui.igSetWindowFocus_Str(ui.SettingsWindow.name);
+            self.settings_window.is_open = !self.settings_window.is_open;
+            if (self.settings_window.is_open) {
+                imgui.igSetWindowFocus_Str(ui.SettingsWindow.name);
+            }
         }
 
         if (imgui.igBeginMenu("Help", true)) {
