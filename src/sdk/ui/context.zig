@@ -13,6 +13,7 @@ pub const Context = struct {
     allocator: std.mem.Allocator,
     old_allocator: ?std.mem.Allocator,
     imgui_context: *imgui.ImGuiContext,
+    file_dialog_context: *imgui.ImGuiFileDialog,
     ini_file_path: ?[:0]const u8,
     test_allocation: if (builtin.is_test) *u8 else void,
 
@@ -124,12 +125,18 @@ pub const Context = struct {
         }
         errdefer ui.backend.ImGui_ImplDX12_Shutdown();
 
+        const file_dialog_context = imgui.IGFD_Create() orelse {
+            misc.error_context.new("IGFD_Create returned null.", .{});
+            return error.ImguiError;
+        };
+
         const test_allocation = if (builtin.is_test) try std.testing.allocator.create(u8) else {};
 
         return .{
             .allocator = allocator,
             .old_allocator = old_allocator,
             .imgui_context = imgui_context,
+            .file_dialog_context = file_dialog_context,
             .ini_file_path = ini_file_path,
             .test_allocation = test_allocation,
         };
@@ -137,6 +144,7 @@ pub const Context = struct {
 
     pub fn deinit(self: *const Self) void {
         imgui.igSetCurrentContext(self.imgui_context);
+        imgui.IGFD_Destroy(self.file_dialog_context);
         ui.backend.ImGui_ImplDX12_Shutdown();
         ui.backend.ImGui_ImplWin32_Shutdown();
         imgui.igGetIO_Nil().*.ConfigInputTrickleEventQueue = true;

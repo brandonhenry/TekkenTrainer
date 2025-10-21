@@ -200,7 +200,7 @@ fn minhookDependency(
     return module;
 }
 
-// C++ dependency: imgui (imgui, cimgui, imgui_test_engine, cimgui_test_engine)
+// C++ dependency: imgui (imgui, cimgui, imgui_test_engine, cimgui_test_engine, imgui_file_dialog)
 fn imguiDependency(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -210,6 +210,7 @@ fn imguiDependency(
     const files = b.addWriteFiles();
     _ = files.addCopyDirectory(b.dependency("cimgui", .{}).path("."), ".", .{});
     _ = files.addCopyDirectory(b.dependency("imgui", .{}).path("."), "./imgui", .{});
+    _ = files.addCopyDirectory(b.dependency("imgui_file_dialog", .{}).path("."), "./imgui_file_dialog", .{});
     if (use_test_engine) {
         _ = files.addCopyDirectory(
             b.dependency("imgui_test_engine", .{}).path("./imgui_test_engine"),
@@ -217,6 +218,19 @@ fn imguiDependency(
             .{},
         );
         _ = files.addCopyDirectory(b.dependency("cimgui_test_engine", .{}).path("."), ".", .{});
+    }
+    if (use_test_engine) {
+        _ = files.add(
+            "root.h",
+            "#include \"cimgui_test_engine.h\"" ++ "\n" ++
+                "#include \"imgui_file_dialog/ImGuiFileDialog.h\"",
+        );
+    } else {
+        _ = files.add(
+            "root.h",
+            "#include \"cimgui.h\"" ++ "\n" ++
+                "#include \"imgui_file_dialog/ImGuiFileDialog.h\"",
+        );
     }
     const directory = files.getDirectory();
     const library = b.addLibrary(.{
@@ -241,6 +255,7 @@ fn imguiDependency(
         "./imgui/imgui_widgets.cpp",
         "./imgui/backends/imgui_impl_dx12.cpp",
         "./imgui/backends/imgui_impl_win32.cpp",
+        "./imgui_file_dialog/ImGuiFileDialog.cpp",
     } });
     if (use_test_engine) {
         library.addCSourceFiles(.{ .root = directory, .files = &.{
@@ -276,9 +291,8 @@ fn imguiDependency(
     }
     library.linkLibC();
     library.linkLibCpp();
-    const root_source_file = if (use_test_engine) "cimgui_test_engine.h" else "cimgui.h";
     const translate_c = b.addTranslateC(.{
-        .root_source_file = directory.path(b, root_source_file),
+        .root_source_file = directory.path(b, "root.h"),
         .target = target,
         .optimize = optimize,
     });

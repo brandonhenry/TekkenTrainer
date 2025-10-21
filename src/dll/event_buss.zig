@@ -186,7 +186,7 @@ pub const EventBuss = struct {
         sdk.ui.toasts.draw();
         if (game_memory) |memory| {
             if (self.settings_task.peek()) |settings| {
-                self.main_window.draw(base_dir, settings, memory, &self.core.controller);
+                self.main_window.draw(ui_context, base_dir, settings, memory, &self.core.controller);
             } else {
                 ui.drawMessageWindow("Loading", "Loading settings...", .center);
             }
