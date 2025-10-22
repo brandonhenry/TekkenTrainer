@@ -127,6 +127,10 @@ pub const Camera = struct {
     }
 
     pub fn drawMenuBar(self: *Self) void {
+        if (!imgui.igBeginMenu("Camera", true)) {
+            return;
+        }
+        defer imgui.igEndMenu();
         if (imgui.igMenuItem_Bool("Follow Ingame Camera", null, self.follow_target == .ingame_camera, true)) {
             self.follow_target = .ingame_camera;
         }
