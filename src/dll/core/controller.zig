@@ -18,6 +18,8 @@ pub const Controller = struct {
         pause: PauseState,
         playback: PlaybackState,
         scrub: ScrubState,
+        load: LoadState,
+        save: SaveState,
     };
     pub const LiveState = struct {
         frame: model.Frame,
@@ -47,6 +49,16 @@ pub const Controller = struct {
         backward,
         neutral,
     };
+    pub const LoadState = struct {
+        task: LoadTask,
+        frame_index: ?usize,
+    };
+    pub const LoadTask = sdk.misc.Task(?[]model.Frame);
+    pub const SaveState = struct {
+        task: SaveTask,
+        frame_index: ?usize,
+    };
+    pub const SaveTask = sdk.misc.Task(void);
 
     pub const frame_time = 1.0 / 60.0;
     pub const min_scrub_speed = 1.0;
@@ -63,7 +75,7 @@ pub const Controller = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        self.stop();
+        self.cleanUpModeState();
         self.recording.deinit(self.allocator);
     }
 
@@ -122,6 +134,36 @@ pub const Controller = struct {
                 state.frame_progress += speed * delta_time / frame_time;
                 state.scrubbing_time += delta_time;
                 self.applyFrameProgress(&state.frame_progress, &state.frame_index, context, onFrameChange);
+            },
+            .load => |*state| if (state.task.peek()) |task_result| {
+                if (task_result.* != null) {
+                    self.cleanUpModeState();
+                    self.mode = .{ .pause = .{
+                        .frame_index = 0,
+                        .is_frame_processed = false,
+                    } };
+                } else if (state.frame_index) |frame_index| {
+                    self.cleanUpModeState();
+                    self.mode = .{ .pause = .{
+                        .frame_index = frame_index,
+                        .is_frame_processed = false,
+                    } };
+                } else {
+                    self.cleanUpModeState();
+                    self.mode = .{ .live = .{ .frame = .{} } };
+                }
+            },
+            .save => |*state| if (state.task == .completed) {
+                if (state.frame_index) |frame_index| {
+                    self.cleanUpModeState();
+                    self.mode = .{ .pause = .{
+                        .frame_index = frame_index,
+                        .is_frame_processed = false,
+                    } };
+                } else {
+                    self.cleanUpModeState();
+                    self.mode = .{ .live = .{ .frame = .{} } };
+                }
             },
             else => {},
         }
@@ -204,10 +246,10 @@ pub const Controller = struct {
                     break :block .{ state.frame_index, state.is_frame_processed };
                 }
             },
-            .playback => return,
             .scrub => |*state| .{ state.frame_index, state.is_frame_processed },
+            .playback, .load, .save => return,
         };
-        self.flushSegment();
+        self.cleanUpModeState();
         self.mode = .{ .playback = .{
             .frame_index = index,
             .frame_progress = 0.5,
@@ -222,12 +264,12 @@ pub const Controller = struct {
         const is_frame_processed = switch (self.mode) {
             .live => false,
             .record => true,
-            .pause => return,
             .playback => |*state| state.is_frame_processed,
             .scrub => |*state| state.is_frame_processed,
+            .pause, .load, .save => return,
         };
         const index = self.getCurrentFrameIndex() orelse 0;
-        self.flushSegment();
+        self.cleanUpModeState();
         self.mode = .{ .pause = .{
             .frame_index = index,
             .is_frame_processed = is_frame_processed,
@@ -235,15 +277,15 @@ pub const Controller = struct {
     }
 
     pub fn stop(self: *Self) void {
-        if (self.mode == .live) {
+        if (self.mode == .live or self.mode == .load or self.mode == .save) {
             return;
         }
-        self.flushSegment();
+        self.cleanUpModeState();
         self.mode = .{ .live = .{ .frame = .{} } };
     }
 
     pub fn record(self: *Self) void {
-        if (self.mode == .record) {
+        if (self.mode == .record or self.mode == .load or self.mode == .save) {
             return;
         }
         const segment_start = if (self.getCurrentFrameIndex()) |index| block: {
@@ -251,6 +293,7 @@ pub const Controller = struct {
         } else block: {
             break :block self.recording.items.len;
         };
+        self.cleanUpModeState();
         self.mode = .{ .record = .{
             .segment = .empty,
             .segment_start_index = segment_start,
@@ -285,8 +328,9 @@ pub const Controller = struct {
                 state.direction = direction;
                 return;
             },
+            .load, .save => return,
         };
-        self.flushSegment();
+        self.cleanUpModeState();
         self.mode = .{ .scrub = .{
             .direction = direction,
             .frame_index = index,
@@ -297,24 +341,122 @@ pub const Controller = struct {
     }
 
     pub fn clear(self: *Self) void {
-        if (self.getTotalFrames() == 0) {
+        if (self.getTotalFrames() == 0 or self.mode == .load or self.mode == .save) {
             return;
         }
-        self.flushSegment();
+        self.cleanUpModeState();
         self.recording.clearAndFree(self.allocator);
         self.mode = .{ .live = .{ .frame = .{} } };
     }
 
-    fn flushSegment(self: *Self) void {
-        const state: *RecordState = switch (self.mode) {
-            .record => |*state| state,
-            else => return,
-        };
-        self.recording.insertSlice(self.allocator, state.segment_start_index, state.segment.items) catch |err| {
-            sdk.misc.error_context.new("Failed to insert the recorded segment into the recording.", .{});
+    pub fn load(self: *Self, file_path: []const u8) void {
+        if (self.mode == .load or self.mode == .save) {
+            return;
+        }
+        std.log.info("Loading recording... {s}", .{file_path});
+        const file_path_buffer: [sdk.os.max_file_path_length]u8 = undefined;
+        const file_path_copy = std.fmt.bufPrint(file_path_buffer, "{s}", .{file_path}) catch |err| {
+            sdk.misc.error_context.new("Failed to copy file path to buffer.", .{});
+            sdk.misc.error_context.append("Failed to load recording: {}", .{file_path});
             sdk.misc.error_context.logError(err);
+            return;
         };
-        state.segment.deinit(self.allocator);
+        std.log.debug("Spawning load recording task...", .{});
+        const task = LoadTask.spawn(self.allocator, struct {
+            fn call(
+                allocator: std.mem.Allocator,
+                path_buffer: [sdk.os.max_file_path_length]u8,
+                path_len: usize,
+            ) ?[]model.Frame {
+                std.log.debug("Load recording task spawned.", .{});
+                const path = path_buffer[0..path_len];
+                if (sdk.fs.loadRecording(model.Frame, allocator, path, &.{})) |frames| {
+                    std.log.info("Recording loaded.", .{});
+                    sdk.ui.toasts.send(.success, null, "Recording loaded successfully.", .{});
+                    return frames;
+                } else |err| {
+                    sdk.misc.error_context.append("Failed to load recording: {s}", .{path});
+                    sdk.misc.error_context.logError(err);
+                    return null;
+                }
+            }
+        }.call, .{ self.allocator, file_path_buffer, file_path_copy.len }) catch |err| {
+            sdk.misc.error_context.append("Failed to spawn load recording task.", .{});
+            sdk.misc.error_context.append("Failed to load recording: {s}", .{file_path});
+            sdk.misc.error_context.logError(err);
+            return;
+        };
+        const frame_index = self.getCurrentFrameIndex();
+        self.cleanUpModeState();
+        self.mode = .{ .load = .{
+            .task = task,
+            .frame_index = frame_index,
+        } };
+    }
+
+    pub fn save(self: *Self, file_path: []const u8) void {
+        if (self.mode == .load or self.mode == .save) {
+            return;
+        }
+        std.log.info("Saving recording... {s}", .{file_path});
+        const file_path_buffer: [sdk.os.max_file_path_length]u8 = undefined;
+        const file_path_copy = std.fmt.bufPrint(file_path_buffer, "{s}", .{file_path}) catch |err| {
+            sdk.misc.error_context.new("Failed to copy file path to buffer.", .{});
+            sdk.misc.error_context.append("Failed to save recording: {}", .{file_path});
+            sdk.misc.error_context.logError(err);
+            return;
+        };
+        std.log.debug("Spawning save recording task...", .{});
+        const task = SaveTask.spawn(self.allocator, struct {
+            fn call(
+                frames: []const model.Frame,
+                path_buffer: [sdk.os.max_file_path_length]u8,
+                path_len: usize,
+            ) void {
+                std.log.debug("Save recording task spawned.", .{});
+                const path = path_buffer[0..path_len];
+                if (sdk.fs.saveRecording(model.Frame, frames, path, &.{})) {
+                    std.log.info("Recording saved.", .{});
+                    sdk.ui.toasts.send(.success, null, "Recording saved successfully.", .{});
+                } else |err| {
+                    sdk.misc.error_context.append("Failed to save recording: {s}", .{path});
+                    sdk.misc.error_context.logError(err);
+                }
+            }
+        }.call, .{ &self.recording.items, file_path_buffer, file_path_copy.len }) catch |err| {
+            sdk.misc.error_context.append("Failed to spawn save recording task.", .{});
+            sdk.misc.error_context.append("Failed to save recording: {s}", .{file_path});
+            sdk.misc.error_context.logError(err);
+            return;
+        };
+        const frame_index = self.getCurrentFrameIndex();
+        self.cleanUpModeState();
+        self.mode = .{ .save = .{
+            .task = task,
+            .frame_index = frame_index,
+        } };
+    }
+
+    fn cleanUpModeState(self: *Self) void {
+        switch (self.mode) {
+            .live, .pause, .playback, .scrub => {},
+            .record => |*state| {
+                self.recording.insertSlice(self.allocator, state.segment_start_index, state.segment.items) catch |err| {
+                    sdk.misc.error_context.new("Failed to insert the recorded segment into the recording.", .{});
+                    sdk.misc.error_context.logError(err);
+                };
+                state.segment.deinit(self.allocator);
+            },
+            .load => |*state| {
+                if (state.task.join().*) |frames| {
+                    self.recording.clearAndFree(self.allocator);
+                    self.recording = .fromOwnedSlice(frames);
+                }
+            },
+            .save => |*state| {
+                _ = state.task.join();
+            },
+        }
     }
 
     pub fn getTotalFrames(self: *const Self) usize {
@@ -340,13 +482,14 @@ pub const Controller = struct {
                 state.frame_progress = 0.5;
                 state.frame_index = index;
             },
-            else => {
-                self.flushSegment();
+            .live, .record => {
+                self.cleanUpModeState();
                 self.mode = .{ .pause = .{
                     .frame_index = index,
                     .is_frame_processed = false,
                 } };
             },
+            .load, .save => return,
         }
     }
 
@@ -364,6 +507,8 @@ pub const Controller = struct {
             .pause => |*state| state.frame_index,
             .playback => |*state| state.frame_index,
             .scrub => |*state| state.frame_index,
+            .load => |*state| state.frame_index orelse return null,
+            .save => |*state| state.frame_index orelse return null,
         };
         const total = self.getTotalFrames();
         if (index < total) {
@@ -1445,3 +1590,5 @@ test "should scrub staying on the same place when scrubbing in neutral direction
     try testing.expect(controller.getCurrentFrame() != null);
     try testing.expectEqual(frame_3, controller.getCurrentFrame().?.*);
 }
+
+// TODO Add tests for saving and loading.

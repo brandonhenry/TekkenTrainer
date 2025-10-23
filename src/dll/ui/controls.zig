@@ -126,6 +126,10 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn drawSeekbar(controller: *config.Controller) void {
+            const disabled = isSeekbarDisabled(controller);
+            if (disabled) imgui.igBeginDisabled(true);
+            defer if (disabled) imgui.igEndDisabled();
+
             const current = controller.getCurrentFrameIndex() orelse 0;
             var value: i32 = @intCast(current);
             const total: i32 = @intCast(controller.getTotalFrames());
@@ -141,6 +145,12 @@ pub fn Controls(comptime config: ControlsConfig) type {
                 const new_value: usize = @intCast(value);
                 controller.setCurrentFrameIndex(new_value);
             }
+        }
+
+        fn isSeekbarDisabled(controller: *const config.Controller) bool {
+            return controller.mode == .save or
+                controller.mode == .load or
+                controller.getTotalFrames() == 0;
         }
 
         fn drawPlayButton(controller: *config.Controller) void {
@@ -167,6 +177,8 @@ pub fn Controls(comptime config: ControlsConfig) type {
         fn isPlayDisabled(controller: *const config.Controller) bool {
             return controller.mode == .scrub or
                 controller.mode == .playback or
+                controller.mode == .save or
+                controller.mode == .load or
                 controller.getTotalFrames() == 0;
         }
 
@@ -194,6 +206,8 @@ pub fn Controls(comptime config: ControlsConfig) type {
         fn isPauseDisabled(controller: *const config.Controller) bool {
             return controller.mode == .scrub or
                 controller.mode == .pause or
+                controller.mode == .save or
+                controller.mode == .load or
                 controller.getTotalFrames() == 0;
         }
 
@@ -219,7 +233,10 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isStopDisabled(controller: *const config.Controller) bool {
-            return controller.mode == .scrub or controller.mode == .live;
+            return controller.mode == .scrub or
+                controller.mode == .live or
+                controller.mode == .save or
+                controller.mode == .load;
         }
 
         fn drawRecordButton(controller: *config.Controller) void {
@@ -244,7 +261,10 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isRecordDisabled(controller: *const config.Controller) bool {
-            return controller.mode == .scrub or controller.mode == .record;
+            return controller.mode == .scrub or
+                controller.mode == .record or
+                controller.mode == .save or
+                controller.mode == .load;
         }
 
         fn drawRewindButton(self: *Self, controller: *config.Controller) void {
@@ -276,7 +296,9 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isRewindDisabled(controller: *const config.Controller) bool {
-            return controller.getTotalFrames() == 0;
+            return controller.mode == .save or
+                controller.mode == .load or
+                controller.getTotalFrames() == 0;
         }
 
         fn startRewind(self: *Self, controller: *config.Controller) void {
@@ -327,7 +349,9 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isFastForwardDisabled(controller: *const config.Controller) bool {
-            return controller.getTotalFrames() == 0;
+            return controller.mode == .save or
+                controller.mode == .load or
+                controller.getTotalFrames() == 0;
         }
 
         fn startFastForward(self: *Self, controller: *config.Controller) void {
@@ -373,7 +397,7 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isPreviousFrameDisabled(controller: *const config.Controller) bool {
-            if (controller.mode == .scrub) {
+            if (controller.mode == .scrub or controller.mode == .save or controller.mode == .load) {
                 return true;
             }
             const current = controller.getCurrentFrameIndex();
@@ -414,7 +438,7 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isNextFrameDisabled(controller: *const config.Controller) bool {
-            if (controller.mode == .scrub) {
+            if (controller.mode == .scrub or controller.mode == .save or controller.mode == .load) {
                 return true;
             }
             const current = controller.getCurrentFrameIndex();
@@ -453,7 +477,10 @@ pub fn Controls(comptime config: ControlsConfig) type {
         }
 
         fn isClearDisabled(controller: *const config.Controller) bool {
-            return controller.mode == .scrub or controller.getTotalFrames() == 0;
+            return controller.mode == .scrub or
+                controller.mode == .save or
+                controller.mode == .load or
+                controller.getTotalFrames() == 0;
         }
 
         fn drawSpeedButton(controller: *config.Controller) void {
@@ -522,6 +549,8 @@ const MockController = struct {
         pause,
         playback,
         scrub,
+        load,
+        save,
     };
     pub const ScrubDirection = enum {
         forward,
@@ -1547,3 +1576,5 @@ test "should change playback speed when speed UI and F10,F11 keys are used" {
     const context = try sdk.ui.getTestingContext();
     try context.runTest(.{}, Test.guiFunction, Test.testFunction);
 }
+
+// TODO test with save/load controller mode.
