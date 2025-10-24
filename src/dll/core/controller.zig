@@ -64,6 +64,9 @@ pub const Controller = struct {
     pub const min_scrub_speed = 1.0;
     pub const max_scrub_speed = 6.0;
     pub const scrub_ramp_up_time = 10.0;
+    pub const serialization_config = sdk.fs.RecordingConfig{
+        .atomic_types = &.{model.HitLine},
+    };
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -370,7 +373,7 @@ pub const Controller = struct {
             ) ?[]model.Frame {
                 std.log.debug("Load recording task spawned.", .{});
                 const path = path_buffer[0..path_len];
-                if (sdk.fs.loadRecording(model.Frame, allocator, path, &.{})) |frames| {
+                if (sdk.fs.loadRecording(model.Frame, allocator, path, &serialization_config)) |frames| {
                     std.log.info("Recording loaded.", .{});
                     sdk.ui.toasts.send(.success, null, "Recording loaded successfully.", .{});
                     return frames;
@@ -415,7 +418,7 @@ pub const Controller = struct {
             ) void {
                 std.log.debug("Save recording task spawned.", .{});
                 const path = path_buffer[0..path_len];
-                if (sdk.fs.saveRecording(model.Frame, frames, path, &.{})) {
+                if (sdk.fs.saveRecording(model.Frame, frames, path, &serialization_config)) {
                     std.log.info("Recording saved.", .{});
                     sdk.ui.toasts.send(.success, null, "Recording saved successfully.", .{});
                 } else |err| {
