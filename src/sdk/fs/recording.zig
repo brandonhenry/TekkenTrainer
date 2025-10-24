@@ -219,7 +219,10 @@ fn readInitialValues(
     var frame = default_frame;
     for (remote_fields) |*remote_field| {
         const local_index = remote_field.local_index orelse {
-            reader.interface.toss(remote_field.size);
+            reader.interface.discardAll(remote_field.size) catch |err| {
+                misc.error_context.append("Failed to discard unknown field's data.", .{});
+                return err;
+            };
             continue;
         };
         inline for (local_fields, 0..) |*local_field, index| {
@@ -348,7 +351,10 @@ fn readFrames(
             }
             const remote_field = remote_fields[remote_index];
             const local_index = remote_field.local_index orelse {
-                reader.interface.toss(remote_field.size);
+                reader.interface.discardAll(remote_field.size) catch |err| {
+                    misc.error_context.append("Failed to discard unknown field's data.", .{});
+                    return err;
+                };
                 continue;
             };
             inline for (local_fields, 0..) |*local_field, index| {
@@ -589,7 +595,10 @@ fn readValue(comptime Type: type, reader: *std.fs.File.Reader) anyerror!Type {
             };
             switch (byte) {
                 0 => {
-                    reader.interface.toss(serializedSizeOf(info.child));
+                    reader.interface.discardAll(serializedSizeOf(info.child)) catch |err| {
+                        misc.error_context.append("Failed to discard null optional's payload.", .{});
+                        return err;
+                    };
                     return null;
                 },
                 1 => return readValue(info.child, reader) catch |err| {
@@ -658,7 +667,10 @@ fn readValue(comptime Type: type, reader: *std.fs.File.Reader) anyerror!Type {
                         return err;
                     };
                     const padding_size = serializedSizeOf(Type) - serializedSizeOf(Tag) - serializedSizeOf(Payload);
-                    reader.interface.toss(padding_size);
+                    reader.interface.discardAll(padding_size) catch |err| {
+                        misc.error_context.append("Failed to discard union's padding.", .{});
+                        return err;
+                    };
                     return @unionInit(Type, field.name, payload);
                 }
             }
