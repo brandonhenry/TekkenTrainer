@@ -15,11 +15,21 @@ pub const FrameWindow = struct {
         if (!self.is_open) {
             return;
         }
+
+        const display_size = imgui.igGetIO_Nil().*.DisplaySize;
+        imgui.igSetNextWindowPos(
+            .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
+            imgui.ImGuiCond_FirstUseEver,
+            .{ .x = 0.5, .y = 0.5 },
+        );
+        imgui.igSetNextWindowSize(.{ .x = 600, .y = 600 }, imgui.ImGuiCond_FirstUseEver);
+
         const render_content = imgui.igBegin(name, &self.is_open, imgui.ImGuiWindowFlags_HorizontalScrollbar);
         defer imgui.igEnd();
         if (!render_content) {
             return;
         }
+
         if (frame) |f| {
             inline for (@typeInfo(model.Frame).@"struct".fields) |*field| {
                 ui.drawData(field.name, &@field(f, field.name));

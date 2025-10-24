@@ -46,10 +46,23 @@ pub const MainWindow = struct {
         self.handleFirstDraw();
         self.handleOpenKey();
         self.controls.handleKeybinds(controller);
+
+        imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowMinSize, .{ .x = 240, .y = 200 });
+        defer imgui.igPopStyleVar(1);
+
         if (!self.is_open) {
             return;
         }
         self.drawSecondaryWindows(base_dir, settings, game_memory, controller);
+
+        const display_size = imgui.igGetIO_Nil().*.DisplaySize;
+        imgui.igSetNextWindowPos(
+            .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
+            imgui.ImGuiCond_FirstUseEver,
+            .{ .x = 0.5, .y = 0.5 },
+        );
+        imgui.igSetNextWindowSize(.{ .x = 960, .y = 640 }, imgui.ImGuiCond_FirstUseEver);
+
         const render_content = imgui.igBegin("Irony", &self.is_open, imgui.ImGuiWindowFlags_MenuBar);
         defer imgui.igEnd();
         if (!render_content) {

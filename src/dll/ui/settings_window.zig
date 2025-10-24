@@ -18,12 +18,15 @@ pub const SettingsWindow = struct {
         if (!self.is_open) {
             return;
         }
-        imgui.igSetNextWindowSizeConstraints(
-            .{ .x = 128, .y = 128 },
-            .{ .x = std.math.inf(f32), .y = std.math.inf(f32) },
-            null,
-            null,
+
+        const display_size = imgui.igGetIO_Nil().*.DisplaySize;
+        imgui.igSetNextWindowPos(
+            .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
+            imgui.ImGuiCond_FirstUseEver,
+            .{ .x = 0.5, .y = 0.5 },
         );
+        imgui.igSetNextWindowSize(.{ .x = 720, .y = 480 }, imgui.ImGuiCond_FirstUseEver);
+
         const render_content = imgui.igBegin(name, &self.is_open, imgui.ImGuiWindowFlags_HorizontalScrollbar);
         defer imgui.igEnd();
         if (!render_content) {
