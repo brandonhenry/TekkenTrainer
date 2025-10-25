@@ -15,7 +15,7 @@ pub const Settings = struct {
     const Self = @This();
     const file_name = "settings.json";
 
-    pub fn load(base_dir: *const sdk.io.BaseDir) !Self {
+    pub fn load(base_dir: *const sdk.misc.BaseDir) !Self {
         var buffer: [sdk.os.max_file_path_length]u8 = undefined;
         const file_path = base_dir.getPath(&buffer, file_name) catch |err| {
             sdk.misc.error_context.append("Failed to construct file path.", .{});
@@ -24,7 +24,7 @@ pub const Settings = struct {
         return sdk.io.loadSettings(Self, file_path);
     }
 
-    pub fn save(self: *const Self, base_dir: *const sdk.io.BaseDir) !void {
+    pub fn save(self: *const Self, base_dir: *const sdk.misc.BaseDir) !void {
         var buffer: [sdk.os.max_file_path_length]u8 = undefined;
         const file_path = base_dir.getPath(&buffer, file_name) catch |err| {
             sdk.misc.error_context.append("Failed to construct file path.", .{});
@@ -378,7 +378,7 @@ test "Settings.load should load the same settings that Settings.save saves" {
             .thickness = 123.0,
         },
     };
-    const base_dir = try sdk.io.BaseDir.fromStr("./test_assets");
+    const base_dir = try sdk.misc.BaseDir.fromStr("./test_assets");
     try expected_settings.save(&base_dir);
     defer std.fs.cwd().deleteFile("./test_assets/settings.json") catch @panic("Failed to cleanup test file.");
     const actual_settings = try Settings.load(&base_dir);

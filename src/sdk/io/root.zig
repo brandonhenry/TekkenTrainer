@@ -1,4 +1,3 @@
-pub const BaseDir = @import("base_dir.zig").BaseDir;
 pub const saveRecording = @import("recording.zig").saveRecording;
 pub const loadRecording = @import("recording.zig").loadRecording;
 pub const RecordingConfig = @import("recording.zig").RecordingConfig;

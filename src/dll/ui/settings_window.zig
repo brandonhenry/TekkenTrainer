@@ -14,7 +14,7 @@ pub const SettingsWindow = struct {
     pub const name = "Settings";
     const default_settings = model.Settings{};
 
-    pub fn draw(self: *Self, base_dir: *const sdk.io.BaseDir, settings: *model.Settings) void {
+    pub fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         if (!self.is_open) {
             return;
         }
@@ -45,10 +45,10 @@ pub const SettingsWindow = struct {
         self.save_button.draw(base_dir, settings);
     }
 
-    pub fn drawNavigationLayout(self: *Self, base_dir: *const sdk.io.BaseDir, settings: *model.Settings) void {
+    pub fn drawNavigationLayout(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         const Context = struct {
             self: *Self,
-            base_dir: *const sdk.io.BaseDir,
+            base_dir: *const sdk.misc.BaseDir,
             settings: *model.Settings,
         };
         const context = Context{
@@ -158,7 +158,7 @@ const MiscSettings = struct {
 
     pub fn draw(
         self: *Self,
-        base_dir: *const sdk.io.BaseDir,
+        base_dir: *const sdk.misc.BaseDir,
         settings: *model.Settings,
         default_settings: *const model.Settings,
     ) void {
@@ -177,7 +177,7 @@ const SaveButton = struct {
 
     const Self = @This();
 
-    fn draw(self: *Self, base_dir: *const sdk.io.BaseDir, settings: *model.Settings) void {
+    fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         var content_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&content_size);
 
@@ -193,14 +193,14 @@ const SaveButton = struct {
         self.height = size.y;
     }
 
-    fn saveSettings(base_dir: *const sdk.io.BaseDir, settings: *model.Settings) void {
+    fn saveSettings(base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         is_loading.store(true, .seq_cst);
         std.log.info("Saving settings...", .{});
         std.log.debug("Spawning settings save thread...", .{});
         const thread = std.Thread.spawn(
             .{},
             struct {
-                fn call(dir: sdk.io.BaseDir, settings_to_save: model.Settings) void {
+                fn call(dir: sdk.misc.BaseDir, settings_to_save: model.Settings) void {
                     std.log.debug("Settings save thread started.", .{});
                     if (settings_to_save.save(&dir)) {
                         std.log.info("Settings saved.", .{});
@@ -233,7 +233,7 @@ const ReloadButton = struct {
 
     const Self = @This();
 
-    fn draw(self: *Self, base_dir: *const sdk.io.BaseDir, settings: *model.Settings) void {
+    fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         const loading = is_loading.load(.seq_cst);
         imgui.igBeginDisabled(loading);
         defer imgui.igEndDisabled();
@@ -260,14 +260,14 @@ const ReloadButton = struct {
         checkLoadedSettings(settings);
     }
 
-    fn loadSettings(base_dir: *const sdk.io.BaseDir) void {
+    fn loadSettings(base_dir: *const sdk.misc.BaseDir) void {
         is_loading.store(true, .seq_cst);
         std.log.info("Loading settings...", .{});
         std.log.debug("Spawning settings load thread...", .{});
         const thread = std.Thread.spawn(
             .{},
             struct {
-                fn call(dir: sdk.io.BaseDir) void {
+                fn call(dir: sdk.misc.BaseDir) void {
                     std.log.debug("Settings load thread started.", .{});
                     if (model.Settings.load(&dir)) |settings| {
                         loaded_settings = settings;

@@ -3,7 +3,6 @@ const builtin = @import("builtin");
 const w32 = @import("win32").everything;
 const imgui = @import("imgui");
 const misc = @import("../misc/root.zig");
-const io = @import("../io/root.zig");
 const dx12 = @import("../dx12/root.zig");
 const ui = @import("root.zig");
 
@@ -23,7 +22,7 @@ pub const Context = struct {
         comptime buffer_count: usize,
         comptime srv_heap_size: usize,
         allocator: std.mem.Allocator,
-        base_dir: ?*const io.BaseDir,
+        base_dir: ?*const misc.BaseDir,
         window: w32.HWND,
         device: *const w32.ID3D12Device,
         command_queue: *const w32.ID3D12CommandQueue,

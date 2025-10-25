@@ -9,7 +9,6 @@ test {
     _ = @import("sdk/hooking/hook.zig");
     _ = @import("sdk/hooking/main_hooks.zig");
 
-    _ = @import("sdk/io/base_dir.zig");
     _ = @import("sdk/io/recording.zig");
     _ = @import("sdk/io/settings.zig");
 
@@ -37,6 +36,7 @@ test {
     _ = @import("sdk/memory/struct_proxy.zig");
     _ = @import("sdk/memory/struct_with_offsets.zig");
 
+    _ = @import("sdk/misc/base_dir.zig");
     _ = @import("sdk/misc/circular_buffer.zig");
     _ = @import("sdk/misc/error_context.zig");
     _ = @import("sdk/misc/meta.zig");
