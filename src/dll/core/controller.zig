@@ -9,6 +9,8 @@ pub const Controller = struct {
     recording: Recording,
     mode: Mode,
     playback_speed: f32,
+    contains_unsaved_changes: bool,
+    did_last_save_or_load_succeed: bool,
 
     const Self = @This();
     pub const Recording = std.ArrayList(model.Frame);
@@ -58,7 +60,7 @@ pub const Controller = struct {
         task: SaveTask,
         frame_index: ?usize,
     };
-    pub const SaveTask = sdk.misc.Task(void);
+    pub const SaveTask = sdk.misc.Task(?void);
 
     pub const frame_time = 1.0 / 60.0;
     pub const min_scrub_speed = 1.0;
@@ -74,6 +76,8 @@ pub const Controller = struct {
             .recording = .empty,
             .mode = .{ .live = .{ .frame = .{} } },
             .playback_speed = 1.0,
+            .contains_unsaved_changes = false,
+            .did_last_save_or_load_succeed = false,
         };
     }
 
@@ -101,6 +105,7 @@ pub const Controller = struct {
                     sdk.misc.error_context.logError(err);
                     return;
                 };
+                self.contains_unsaved_changes = true;
                 if (onFrameChange) |callback| {
                     callback(context, &state.segment.items[state.segment.items.len - 1]);
                 }
@@ -349,6 +354,7 @@ pub const Controller = struct {
         }
         self.cleanUpModeState();
         self.recording.clearAndFree(self.allocator);
+        self.contains_unsaved_changes = false;
         self.mode = .{ .live = .{ .frame = .{} } };
     }
 
@@ -415,7 +421,7 @@ pub const Controller = struct {
                 frames: []const model.Frame,
                 path_buffer: [sdk.os.max_file_path_length]u8,
                 path_len: usize,
-            ) void {
+            ) ?void {
                 std.log.debug("Save recording task spawned.", .{});
                 const path = path_buffer[0..path_len];
                 if (sdk.fs.saveRecording(model.Frame, frames, path, &serialization_config)) {
@@ -424,6 +430,7 @@ pub const Controller = struct {
                 } else |err| {
                     sdk.misc.error_context.append("Failed to save recording: {s}", .{path});
                     sdk.misc.error_context.logError(err);
+                    return null;
                 }
             }
         }.call, .{ self.recording.items, file_path_buffer, file_path_copy.len }) catch |err| {
@@ -454,10 +461,19 @@ pub const Controller = struct {
                 if (state.task.join().*) |frames| {
                     self.recording.clearAndFree(self.allocator);
                     self.recording = .fromOwnedSlice(frames);
+                    self.contains_unsaved_changes = false;
+                    self.did_last_save_or_load_succeed = true;
+                } else {
+                    self.did_last_save_or_load_succeed = false;
                 }
             },
             .save => |*state| {
-                _ = state.task.join();
+                if (state.task.join().* != null) {
+                    self.contains_unsaved_changes = false;
+                    self.did_last_save_or_load_succeed = true;
+                } else {
+                    self.did_last_save_or_load_succeed = false;
+                }
             },
         }
     }

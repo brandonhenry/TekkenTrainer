@@ -31,8 +31,9 @@ pub const MainWindow = struct {
         self.view.processFrame(settings, frame);
     }
 
-    pub fn update(self: *Self, delta_time: f32) void {
+    pub fn update(self: *Self, delta_time: f32, controller: *core.Controller) void {
         self.view.update(delta_time);
+        self.file_menu.update(controller, &self.is_open);
     }
 
     pub fn draw(
@@ -129,7 +130,7 @@ pub const MainWindow = struct {
         }
         defer imgui.igEndMenuBar();
 
-        self.file_menu.draw(base_dir, &self.is_open, file_dialog_context, controller);
+        self.file_menu.draw(base_dir, file_dialog_context, controller);
         self.view.camera.drawMenuBar();
 
         if (imgui.igMenuItem_Bool(ui.SettingsWindow.name, null, false, true)) {

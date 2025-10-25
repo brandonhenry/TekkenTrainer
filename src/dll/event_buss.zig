@@ -176,7 +176,7 @@ pub const EventBuss = struct {
         const delta_time = self.timer.measureDeltaTime();
         self.core.update(delta_time, self, processFrame);
         sdk.ui.toasts.update(delta_time);
-        self.main_window.update(delta_time);
+        self.main_window.update(delta_time, &self.core.controller);
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;

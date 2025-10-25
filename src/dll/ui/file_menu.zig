@@ -6,18 +6,18 @@ const core = @import("../core/root.zig");
 const model = @import("../model/root.zig");
 
 pub const FileMenu = struct {
-    current_file_path_buffer: [sdk.os.max_file_path_length]u8 = undefined,
-    current_file_path_len: usize = 0,
-    selected_file_path_buffer: [sdk.os.max_file_path_length]u8 = undefined,
-    selected_file_path_len: usize = 0,
-    unsaved_changes: bool = false,
-    saved_total_frames: usize = 0,
-    action: Action = .no_action,
-    progress: Progress = .no_progress,
+    action: Action = .idle,
+    progress: Progress = .start,
+    menu_bar: MenuBar = .{},
+    unsaved_dialog: UnsavedDialog = .{},
+    save_dialog: FileDialog = .{ .type = .save },
+    open_dialog: FileDialog = .{ .type = .open },
+    file_path_buffer: [sdk.os.max_file_path_length]u8 = undefined,
+    file_path_len: usize = 0,
 
     const Self = @This();
     const Action = enum {
-        no_action,
+        idle,
         new,
         open,
         save,
@@ -25,323 +25,375 @@ pub const FileMenu = struct {
         exit,
     };
     const Progress = enum {
-        no_progress,
+        start,
         unsaved_dialog,
+        save_dialog,
         save_in_progress,
-        file_picker,
-        ready,
-        action_in_progress,
+        open_dialog,
+        open_in_progress,
+        finnish,
     };
+
+    pub fn update(self: *Self, controller: *core.Controller, is_main_window_open: *bool) void {
+        if (self.menu_bar.action == .close_window and is_main_window_open.* == true) {
+            is_main_window_open.* = false;
+            sdk.ui.toasts.send(.default, null, "Main window closed. Press [Tab] to open it again.", .{});
+        }
+
+        var action = self.action;
+        defer self.action = action;
+        var progress = self.progress;
+        defer self.progress = progress;
+
+        if (action == .idle) {
+            switch (self.menu_bar.action) {
+                .no_action, .close_window => {},
+                .new => action = .new,
+                .open => action = .open,
+                .save => action = .save,
+                .save_as => action = .save_as,
+                .exit => action = .exit,
+            }
+        }
+
+        const unsaved_changes = controller.contains_unsaved_changes;
+        if (action != .idle and progress == .start) {
+            progress = switch (action) {
+                .idle => unreachable,
+                .new, .exit => if (unsaved_changes) .unsaved_dialog else .finnish,
+                .open => if (unsaved_changes) .unsaved_dialog else .open_dialog,
+                .save => if (self.file_path_len == 0) .save_dialog else .save_in_progress,
+                .save_as => .save_dialog,
+            };
+        }
+
+        if (progress == .unsaved_dialog) {
+            switch (self.unsaved_dialog.action) {
+                .no_action => {},
+                .save => progress = if (self.file_path_len == 0) .save_dialog else .save_in_progress,
+                .dont_save => switch (action) {
+                    .idle, .save, .save_as => unreachable,
+                    .new, .exit => progress = .finnish,
+                    .open => progress = .open_dialog,
+                },
+                .cancel => {
+                    action = .idle;
+                    progress = .start;
+                },
+            }
+        }
+
+        if (progress == .save_dialog) {
+            switch (self.save_dialog.action) {
+                .no_action => {},
+                .proceed => progress = .save_in_progress,
+                .cancel => {
+                    action = .idle;
+                    progress = .start;
+                },
+            }
+        }
+
+        if (self.progress != .save_in_progress and progress == .save_in_progress) {
+            const path = self.save_dialog.getLastSelectedPath() orelse self.getFilePath() orelse unreachable;
+            controller.save(path);
+        }
+
+        if (progress == .save_in_progress and controller.mode != .save) {
+            if (controller.did_last_save_or_load_succeed) {
+                switch (action) {
+                    .idle => unreachable,
+                    .new, .save, .save_as, .exit => progress = .finnish,
+                    .open => progress = .open_dialog,
+                }
+                if (self.save_dialog.last_selected_path_len > 0) {
+                    self.file_path_buffer = self.save_dialog.last_selected_path_buffer;
+                    self.file_path_len = self.save_dialog.last_selected_path_len;
+                }
+            } else {
+                action = .idle;
+                progress = .start;
+            }
+            self.save_dialog.last_selected_path_len = 0;
+        }
+
+        if (progress == .open_dialog) {
+            switch (self.open_dialog.action) {
+                .no_action => {},
+                .proceed => progress = .open_in_progress,
+                .cancel => {
+                    action = .idle;
+                    progress = .start;
+                },
+            }
+        }
+
+        if (self.progress != .open_in_progress and progress == .open_in_progress) {
+            const path = self.open_dialog.getLastSelectedPath() orelse unreachable;
+            controller.load(path);
+        }
+
+        if (progress == .open_in_progress and controller.mode != .load) {
+            if (controller.did_last_save_or_load_succeed) {
+                progress = .finnish;
+                if (self.open_dialog.last_selected_path_len > 0) {
+                    self.file_path_buffer = self.open_dialog.last_selected_path_buffer;
+                    self.file_path_len = self.open_dialog.last_selected_path_len;
+                }
+            } else {
+                action = .idle;
+                progress = .start;
+            }
+            self.open_dialog.last_selected_path_len = 0;
+        }
+
+        if (progress == .finnish) {
+            switch (action) {
+                .idle => unreachable,
+                .open, .save, .save_as => {},
+                .new => {
+                    controller.clear();
+                    self.file_path_len = 0;
+                },
+                .exit => dll.selfEject(),
+            }
+            action = .idle;
+            progress = .start;
+        }
+    }
 
     pub fn draw(
         self: *Self,
         base_dir: *const sdk.fs.BaseDir,
-        is_main_window_open: *bool,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
     ) void {
-        if (controller.getTotalFrames() != self.saved_total_frames) {
-            self.unsaved_changes = true;
+        self.menu_bar.draw(self.action == .idle, controller.getTotalFrames() == 0);
+        self.unsaved_dialog.draw(self.progress == .unsaved_dialog);
+        self.save_dialog.draw(file_dialog_context, base_dir, self.getFilePath(), self.progress == .save_dialog);
+        self.open_dialog.draw(file_dialog_context, base_dir, self.getFilePath(), self.progress == .open_dialog);
+    }
+
+    pub fn getFilePath(self: *const Self) ?[:0]const u8 {
+        if (self.file_path_len == 0) {
+            return null;
         }
+        return self.file_path_buffer[0..self.file_path_len :0];
+    }
 
-        var action = self.action;
-        var progress = self.progress;
-        defer {
-            self.action = if (progress == .no_progress) .no_action else action;
-            self.progress = progress;
+    pub fn getFileName(self: *const Self) ?[:0]const u8 {
+        const path = self.getFilePath() orelse return null;
+        const index = std.mem.lastIndexOfAny(u8, path, &.{ '/', '\\' }) orelse return path;
+        return path[(index + 1)..];
+    }
+};
+
+const MenuBar = struct {
+    action: Action = .no_action,
+
+    const Self = @This();
+    pub const Action = enum {
+        no_action,
+        new,
+        open,
+        save,
+        save_as,
+        close_window,
+        exit,
+    };
+
+    fn draw(self: *Self, is_idle: bool, is_recording_empty: bool) void {
+        var action = Action.no_action;
+        defer self.action = action;
+
+        if (!imgui.igBeginMenu("File", true)) {
+            return;
         }
+        defer imgui.igEndMenu();
 
-        if (imgui.igBeginMenu("File", true)) {
-            defer imgui.igEndMenu();
-
-            imgui.igBeginDisabled(action != .no_action);
-
-            imgui.igBeginDisabled(controller.getTotalFrames() == 0);
-            if (imgui.igMenuItem_Bool("New", null, false, true)) {
-                action = .new;
-            }
-            imgui.igEndDisabled();
-
-            if (imgui.igMenuItem_Bool("Open", null, false, true)) {
-                action = .open;
-            }
-
-            imgui.igBeginDisabled(controller.getTotalFrames() == 0);
-            if (imgui.igMenuItem_Bool("Save", null, false, true)) {
-                action = .save;
-            }
-            if (imgui.igMenuItem_Bool("Save As", null, false, true)) {
-                action = .save_as;
-            }
-            imgui.igEndDisabled();
-
-            imgui.igEndDisabled();
-
-            imgui.igSeparator();
-
-            if (imgui.igMenuItem_Bool("Close Window", null, false, true)) {
-                is_main_window_open.* = false;
-                sdk.ui.toasts.send(.default, null, "Main window closed. Press [Tab] to open it again.", .{});
-            }
-
-            imgui.igBeginDisabled(action != .no_action);
-            if (imgui.igMenuItem_Bool("Exit Irony", null, false, true)) {
-                action = .exit;
-            }
-            imgui.igEndDisabled();
+        imgui.igBeginDisabled(!is_idle);
+        imgui.igBeginDisabled(is_recording_empty);
+        if (imgui.igMenuItem_Bool("New", null, false, true)) {
+            action = .new;
         }
-        if (action != self.action) {
-            switch (self.unsaved_changes) {
-                true => switch (action) {
-                    .no_action => {},
-                    .new, .open, .exit => progress = .unsaved_dialog,
-                    .save_as => progress = .file_picker,
-                    .save => progress = if (self.getCurrentFilePath() == null) .file_picker else .ready,
-                },
-                false => switch (action) {
-                    .no_action => {},
-                    .new, .exit => progress = .ready,
-                    .open, .save_as => progress = .file_picker,
-                    .save => progress = if (self.getCurrentFilePath() == null) .file_picker else .ready,
-                },
-            }
+        imgui.igEndDisabled();
+        if (imgui.igMenuItem_Bool("Open", null, false, true)) {
+            action = .open;
         }
+        imgui.igBeginDisabled(is_recording_empty);
+        if (imgui.igMenuItem_Bool("Save", null, false, true)) {
+            action = .save;
+        }
+        if (imgui.igMenuItem_Bool("Save As", null, false, true)) {
+            action = .save_as;
+        }
+        imgui.igEndDisabled();
+        imgui.igEndDisabled();
+        imgui.igSeparator();
+        if (imgui.igMenuItem_Bool("Close Window", null, false, true)) {
+            action = .close_window;
+        }
+        imgui.igBeginDisabled(!is_idle);
+        if (imgui.igMenuItem_Bool("Exit Irony", null, false, true)) {
+            action = .exit;
+        }
+        imgui.igEndDisabled();
+    }
+};
 
-        if (progress != self.progress and progress == .unsaved_dialog) {
+const UnsavedDialog = struct {
+    is_open: bool = false,
+    action: Action = .no_action,
+
+    const Self = @This();
+    pub const Action = enum { no_action, save, dont_save, cancel };
+
+    pub fn draw(self: *Self, is_open: bool) void {
+        defer self.is_open = is_open;
+        var action = Action.no_action;
+        defer self.action = action;
+
+        if (!self.is_open and is_open) {
             imgui.igOpenPopup_Str("Unsaved Changes", 0);
         }
-        var is_unsaved_dialog_open = progress == .unsaved_dialog;
-        if (imgui.igBeginPopupModal(
+
+        var remains_open = self.is_open or is_open;
+        if (!imgui.igBeginPopupModal(
             "Unsaved Changes",
-            &is_unsaved_dialog_open,
+            &remains_open,
             imgui.ImGuiWindowFlags_AlwaysAutoResize,
         )) {
-            const ConfirmChoice = enum {
-                no_choice,
-                save,
-                dont_save,
-                cancel,
-            };
-            var choice = ConfirmChoice.no_choice;
-            defer imgui.igEndPopup();
-            imgui.igText("Do you want to save changes of current file before continuing?");
-            imgui.igText("Any recorded data that is not saved will be lost.");
-            imgui.igSeparator();
-            if (imgui.igButton("Save", .{})) {
-                choice = .save;
-            }
-            imgui.igSameLine(0, -1);
-            imgui.igSetItemDefaultFocus();
-            if (imgui.igButton("Don't Save", .{})) {
-                choice = .dont_save;
-            }
-            imgui.igSameLine(0, -1);
-            imgui.igSetItemDefaultFocus();
-            if (imgui.igButton("Cancel", .{})) {
-                choice = .cancel;
-            }
-            if (!is_unsaved_dialog_open) {
-                choice = .cancel;
-            }
-            switch (choice) {
-                .no_choice => {},
-                .save => if (self.getCurrentFilePath()) |path| {
-                    controller.save(path);
-                    progress = .save_in_progress;
-                } else {
-                    // TODO Here one would need to display save as.
-                    progress = .no_progress;
-                },
-                .dont_save => switch (action) {
-                    .no_action, .save, .save_as => unreachable,
-                    .new, .exit => progress = .ready,
-                    .open => progress = .file_picker,
-                },
-                .cancel => progress = .no_progress,
-            }
-            if (choice != .no_choice) {
-                imgui.igCloseCurrentPopup();
-            }
+            return;
         }
+        defer imgui.igEndPopup();
 
-        if (progress == .save_in_progress and controller.mode != .save) {
-            switch (action) {
-                .no_action, .save => unreachable,
-                .new, .exit => progress = .ready,
-                .open, .save_as => progress = .file_picker,
-            }
+        imgui.igText("Do you want to save changes of current file before continuing?");
+        imgui.igText("Any recorded data that is not saved will be lost.");
+        imgui.igSeparator();
+        if (imgui.igButton("Save", .{})) {
+            action = .save;
         }
+        imgui.igSameLine(0, -1);
+        imgui.igSetItemDefaultFocus();
+        if (imgui.igButton("Don't Save", .{})) {
+            action = .dont_save;
+        }
+        imgui.igSameLine(0, -1);
+        imgui.igSetItemDefaultFocus();
+        if (imgui.igButton("Cancel", .{})) {
+            action = .cancel;
+        }
+        if (!remains_open) {
+            action = .cancel;
+        }
+        if (!is_open) {
+            imgui.igCloseCurrentPopup();
+        }
+    }
+};
 
-        if (progress != self.progress and progress == .file_picker) {
+const FileDialog = struct {
+    type: Type,
+    is_open: bool = false,
+    action: Action = .no_action,
+    last_selected_path_buffer: [sdk.os.max_file_path_length]u8 = undefined,
+    last_selected_path_len: usize = 0,
+
+    const Self = @This();
+    pub const Action = enum { no_action, proceed, cancel };
+    pub const Type = enum { save, open };
+
+    pub fn draw(
+        self: *Self,
+        context: *imgui.ImGuiFileDialog,
+        base_dir: *const sdk.fs.BaseDir,
+        current_path: ?[:0]const u8,
+        is_open: bool,
+    ) void {
+        defer self.is_open = is_open;
+
+        if (!self.is_open and is_open) {
             var config = imgui.IGFD_FileDialog_Config_Get();
-            config.path = base_dir.get();
             config.countSelectionMax = 1;
-            const title = switch (action) {
-                .no_action, .new, .exit => unreachable,
-                .open => block: {
-                    config.path = base_dir.get().ptr;
-                    config.flags = imgui.ImGuiFileDialogFlags_None;
-                    break :block "Open";
-                },
-                .save_as, .save => block: {
-                    if (self.getCurrentFilePath()) |path| {
+            config.flags = imgui.ImGuiFileDialogFlags_Modal;
+            switch (self.type) {
+                .save => {
+                    if (current_path) |path| {
                         config.filePathName = path.ptr;
                     } else {
                         config.fileName = "recording.irony";
                         config.path = base_dir.get();
                     }
-                    config.flags = imgui.ImGuiFileDialogFlags_ConfirmOverwrite;
-                    break :block "Save As";
+                    config.flags |= imgui.ImGuiFileDialogFlags_ConfirmOverwrite;
                 },
-            };
+                .open => {
+                    config.path = base_dir.get();
+                },
+            }
             imgui.IGFD_OpenDialog(
-                file_dialog_context,
-                "dialog",
-                title,
+                context,
+                switch (self.type) {
+                    .save => "save_dialog",
+                    .open => "open_dialog",
+                },
+                switch (self.type) {
+                    .save => "Save AS",
+                    .open => "Open",
+                },
                 "irony recordings (*.irony){.irony}",
                 config,
             );
         }
+        if (self.is_open and !is_open) {
+            defer imgui.IGFD_CloseDialog(context);
+        }
+
         const display_size = imgui.igGetIO_Nil().*.DisplaySize;
-        if (imgui.IGFD_DisplayDialog(
-            file_dialog_context,
-            "dialog",
+        const has_action = imgui.IGFD_DisplayDialog(
+            context,
+            switch (self.type) {
+                .save => "save_dialog",
+                .open => "open_dialog",
+            },
             imgui.ImGuiWindowFlags_NoCollapse,
             .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
             .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
-        )) {
-            if (imgui.IGFD_IsOk(file_dialog_context)) {
-                const c_path = imgui.IGFD_GetFilePathName(file_dialog_context, imgui.IGFD_ResultMode_AddIfNoFileExt);
-                defer std.c.free(c_path);
-                const path = std.mem.sliceTo(c_path, 0);
-                if (self.setSelectedFilePath(path)) {
-                    progress = .ready;
-                } else |err| {
-                    sdk.misc.error_context.append("Failed to set selected path to: {s}", .{path});
-                    sdk.misc.error_context.logError(err);
-                    progress = .no_progress;
-                }
-            } else {
-                progress = .no_progress;
-            }
-            imgui.IGFD_CloseDialog(file_dialog_context);
+        );
+        if (!has_action or !is_open) {
+            self.action = .no_action;
+            return;
+        }
+        if (!imgui.IGFD_IsOk(context)) {
+            self.action = .cancel;
+            return;
         }
 
-        if (progress == .ready) {
-            switch (action) {
-                .no_action => unreachable,
-                .new => {
-                    controller.clear();
-                    self.current_file_path_len = 0;
-                    progress = .no_progress;
-                },
-                .open => {
-                    if (self.getSelectedFilePath()) |path| {
-                        controller.load(path);
-                        progress = .action_in_progress;
-                    } else {
-                        std.log.err("No selected file to open from.", .{});
-                        progress = .no_progress;
-                    }
-                },
-                .save => {
-                    if (self.getSelectedFilePath()) |path| {
-                        controller.save(path);
-                        progress = .action_in_progress;
-                    } else if (self.getCurrentFilePath()) |path| {
-                        controller.save(path);
-                        progress = .action_in_progress;
-                    } else {
-                        std.log.err("No file path to save to.", .{});
-                        progress = .no_progress;
-                    }
-                },
-                .save_as => {
-                    if (self.getSelectedFilePath()) |path| {
-                        controller.save(path);
-                        progress = .action_in_progress;
-                    } else {
-                        std.log.err("No file path to save to.", .{});
-                        progress = .no_progress;
-                    }
-                },
-                .exit => {
-                    dll.selfEject();
-                    progress = .no_progress;
-                },
-            }
-        }
+        const c_path = imgui.IGFD_GetFilePathName(context, imgui.IGFD_ResultMode_AddIfNoFileExt);
+        defer std.c.free(c_path);
+        const path = std.mem.sliceTo(c_path, 0);
 
-        if (progress == .action_in_progress and controller.mode != .save and controller.mode != .load) {
-            progress = .no_progress;
-        }
-
-        if (progress != self.progress and progress == .no_progress) {
-            if (self.getSelectedFilePath()) |selected_path| {
-                self.setCurrentFilePath(selected_path) catch |err| {
-                    sdk.misc.error_context.append("Failed to set current file path to: {s}", .{selected_path});
-                    sdk.misc.error_context.logError(err);
-                };
-                self.selected_file_path_len = 0;
-            }
-            self.unsaved_changes = false;
-            self.saved_total_frames = controller.getTotalFrames();
-        }
-    }
-
-    fn setCurrentFilePath(self: *Self, new_path: []const u8) !void {
-        if (new_path.len + 1 >= self.current_file_path_buffer.len) {
-            sdk.misc.error_context.new(
-                "Path exceeded the path buffer size ({}): {s}",
-                .{ self.current_file_path_buffer.len, new_path },
+        if (path.len + 1 >= self.last_selected_path_buffer.len) {
+            std.log.err(
+                "Selected path exceeded the path buffer size ({}): {s}",
+                .{ self.last_selected_path_buffer.len, path },
             );
-            return error.NoSpaceLeft;
+            self.action = .no_action;
+            return;
         }
-        for (0..new_path.len) |index| {
-            self.current_file_path_buffer[index] = new_path[index];
+
+        for (0..path.len) |index| {
+            self.last_selected_path_buffer[index] = path[index];
         }
-        self.current_file_path_buffer[new_path.len] = 0;
-        self.current_file_path_len = new_path.len;
+        self.last_selected_path_buffer[path.len] = 0;
+        self.last_selected_path_len = path.len;
+
+        self.action = .proceed;
     }
 
-    pub fn getCurrentFilePath(self: *const Self) ?[:0]const u8 {
-        if (self.current_file_path_len == 0) {
+    fn getLastSelectedPath(self: *const Self) ?[:0]const u8 {
+        if (self.last_selected_path_len == 0) {
             return null;
         }
-        return self.current_file_path_buffer[0..self.current_file_path_len :0];
-    }
-
-    pub fn getCurrentFileName(self: *const Self) ?[:0]const u8 {
-        const path = self.getCurrentFilePath() orelse return null;
-        const index = std.mem.lastIndexOfAny(u8, path, &.{ '/', '\\' }) orelse return path;
-        return path[(index + 1)..];
-    }
-
-    fn setSelectedFilePath(self: *Self, new_path: []const u8) !void {
-        if (new_path.len + 1 >= self.selected_file_path_buffer.len) {
-            sdk.misc.error_context.new(
-                "Path exceeded the path buffer size ({}): {s}",
-                .{ self.selected_file_path_buffer.len, new_path },
-            );
-            return error.NoSpaceLeft;
-        }
-        for (0..new_path.len) |index| {
-            self.selected_file_path_buffer[index] = new_path[index];
-        }
-        self.selected_file_path_buffer[new_path.len] = 0;
-        self.selected_file_path_len = new_path.len;
-    }
-
-    fn getSelectedFilePath(self: *const Self) ?[:0]const u8 {
-        if (self.selected_file_path_len == 0) {
-            return null;
-        }
-        return self.selected_file_path_buffer[0..self.selected_file_path_len :0];
-    }
-
-    fn getSelectedFileName(self: *const Self) ?[:0]const u8 {
-        const path = self.getSelectedFilePath() orelse return null;
-        const index = std.mem.lastIndexOfAny(u8, path, &.{ '/', '\\' }) orelse return path;
-        return path[(index + 1)..];
+        return self.last_selected_path_buffer[0..self.last_selected_path_len :0];
     }
 };
