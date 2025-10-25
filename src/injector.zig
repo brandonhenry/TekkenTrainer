@@ -78,24 +78,24 @@ fn getOnlyInjectMode() bool {
     return args.len >= 2;
 }
 
-fn findBaseDir() sdk.fs.BaseDir {
+fn findBaseDir() sdk.io.BaseDir {
     const main_module = sdk.os.Module.getMain() catch |err| {
         sdk.misc.error_context.append("Failed to get process main module.", .{});
         sdk.misc.error_context.append("Failed find base directory.", .{});
         sdk.misc.error_context.logError(err);
         std.log.info("Defaulting base directory to working directory.", .{});
-        return sdk.fs.BaseDir.working_dir;
+        return sdk.io.BaseDir.working_dir;
     };
-    return sdk.fs.BaseDir.fromModule(&main_module) catch |err| {
+    return sdk.io.BaseDir.fromModule(&main_module) catch |err| {
         sdk.misc.error_context.append("Failed to find base directory from main module.", .{});
         sdk.misc.error_context.append("Failed find base directory.", .{});
         sdk.misc.error_context.logError(err);
         std.log.info("Defaulting base directory to working directory.", .{});
-        return sdk.fs.BaseDir.working_dir;
+        return sdk.io.BaseDir.working_dir;
     };
 }
 
-fn startFileLogging(base_dir: *const sdk.fs.BaseDir) !void {
+fn startFileLogging(base_dir: *const sdk.io.BaseDir) !void {
     var buffer: [sdk.os.max_file_path_length]u8 = undefined;
     const file_path = base_dir.getPath(&buffer, log_file_name) catch |err| {
         sdk.misc.error_context.append("Failed to find log file path.", .{});
@@ -109,7 +109,7 @@ fn startFileLogging(base_dir: *const sdk.fs.BaseDir) !void {
 
 var injected_module: ?injector.InjectedModule = null;
 
-pub fn onProcessOpen(base_dir: *const sdk.fs.BaseDir, process: *const sdk.os.Process) bool {
+pub fn onProcessOpen(base_dir: *const sdk.io.BaseDir, process: *const sdk.os.Process) bool {
     std.log.debug("Getting full path of \"{s}\"...", .{module_name});
     var buffer: [sdk.os.max_file_path_length]u8 = undefined;
     const full_path = base_dir.getPath(&buffer, module_name) catch |err| {
@@ -146,7 +146,7 @@ pub fn onProcessOpen(base_dir: *const sdk.fs.BaseDir, process: *const sdk.os.Pro
     return true;
 }
 
-pub fn onProcessClose(base_dir: *const sdk.fs.BaseDir) void {
+pub fn onProcessClose(base_dir: *const sdk.io.BaseDir) void {
     _ = base_dir;
     const module = injected_module orelse {
         std.log.info("Nothing to eject.", .{});

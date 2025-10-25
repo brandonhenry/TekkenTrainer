@@ -39,7 +39,7 @@ pub const MainWindow = struct {
     pub fn draw(
         self: *Self,
         ui_context: *const sdk.ui.Context,
-        base_dir: *const sdk.fs.BaseDir,
+        base_dir: *const sdk.io.BaseDir,
         settings: *model.Settings,
         game_memory: *const game.Memory,
         controller: *core.Controller,
@@ -108,7 +108,7 @@ pub const MainWindow = struct {
 
     fn drawSecondaryWindows(
         self: *Self,
-        base_dir: *const sdk.fs.BaseDir,
+        base_dir: *const sdk.io.BaseDir,
         settings: *model.Settings,
         game_memory: *const game.Memory,
         controller: *const core.Controller,
@@ -121,7 +121,7 @@ pub const MainWindow = struct {
 
     fn drawMenuBar(
         self: *Self,
-        base_dir: *const sdk.fs.BaseDir,
+        base_dir: *const sdk.io.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
     ) void {

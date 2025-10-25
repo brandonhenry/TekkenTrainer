@@ -6,12 +6,12 @@ test {
     _ = @import("sdk/dx12/misc.zig");
     _ = @import("sdk/dx12/testing_context.zig");
 
-    _ = @import("sdk/fs/base_dir.zig");
-    _ = @import("sdk/fs/recording.zig");
-    _ = @import("sdk/fs/settings.zig");
-
     _ = @import("sdk/hooking/hook.zig");
     _ = @import("sdk/hooking/main_hooks.zig");
+
+    _ = @import("sdk/io/base_dir.zig");
+    _ = @import("sdk/io/recording.zig");
+    _ = @import("sdk/io/settings.zig");
 
     _ = @import("sdk/log/buffer.zig");
     _ = @import("sdk/log/composite.zig");

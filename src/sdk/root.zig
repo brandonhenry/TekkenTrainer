@@ -1,6 +1,6 @@
 pub const dx12 = @import("dx12/root.zig");
-pub const fs = @import("fs/root.zig");
 pub const hooking = @import("hooking/root.zig");
+pub const io = @import("io/root.zig");
 pub const log = @import("log/root.zig");
 pub const math = @import("math/root.zig");
 pub const memory = @import("memory/root.zig");

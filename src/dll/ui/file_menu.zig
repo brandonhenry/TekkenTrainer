@@ -164,7 +164,7 @@ pub const FileMenu = struct {
 
     pub fn draw(
         self: *Self,
-        base_dir: *const sdk.fs.BaseDir,
+        base_dir: *const sdk.io.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
     ) void {
@@ -300,7 +300,7 @@ const FileDialog = struct {
     pub fn draw(
         self: *Self,
         context: *imgui.ImGuiFileDialog,
-        base_dir: *const sdk.fs.BaseDir,
+        base_dir: *const sdk.io.BaseDir,
         current_path: ?[:0]const u8,
         is_open: bool,
     ) void {
