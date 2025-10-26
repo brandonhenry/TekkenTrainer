@@ -174,8 +174,8 @@ pub const Camera = struct {
     }
 
     fn calculateIngameCameraLookAtMatrix(frame: *const model.Frame, direction: ui.ViewDirection) ?sdk.math.Mat4 {
-        const left_player = frame.getPlayerBySide(.left).position orelse return null;
-        const right_player = frame.getPlayerBySide(.right).position orelse return null;
+        const left_player = frame.getPlayerBySide(.left).getPosition() orelse return null;
+        const right_player = frame.getPlayerBySide(.right).getPosition() orelse return null;
         const camera = frame.camera orelse return null;
         const eye = left_player.add(right_player).scale(0.5);
         const difference_2d = eye.swizzle("xy").subtract(camera.position.swizzle("xy"));
@@ -194,8 +194,8 @@ pub const Camera = struct {
     }
 
     fn calculatePlayersLookAtMatrix(frame: *const model.Frame, direction: ui.ViewDirection) ?sdk.math.Mat4 {
-        const left_player = frame.getPlayerBySide(.left).position orelse return null;
-        const right_player = frame.getPlayerBySide(.right).position orelse return null;
+        const left_player = frame.getPlayerBySide(.left).getPosition() orelse return null;
+        const right_player = frame.getPlayerBySide(.right).getPosition() orelse return null;
         const eye = left_player.add(right_player).scale(0.5);
         const difference_2d = right_player.swizzle("xy").subtract(left_player.swizzle("xy"));
         const player_dir = if (!difference_2d.isZero(0)) difference_2d.normalize().extend(0) else sdk.math.Vec3.plus_x;

@@ -124,7 +124,6 @@ pub const Capturer = struct {
             .health = if (player.health) |*health| health.convert() else null,
             .rage = captureRage(player),
             .heat = captureHeat(player),
-            .position = capturePlayerPosition(player),
             .rotation = capturePlayerRotation(player),
             .hurt_cylinders = captureHurtCylinders(player),
             .collision_spheres = captureCollisionSpheres(player),
@@ -306,16 +305,6 @@ pub const Capturer = struct {
         } else {
             return .available;
         }
-    }
-
-    fn capturePlayerPosition(player: *const sdk.misc.Partial(game.Player)) ?sdk.math.Vec3 {
-        if (player.collision_spheres) |*spheres| {
-            return spheres.lower_torso.convert().center;
-        }
-        if (player.hurt_cylinders) |*cylinders| {
-            return cylinders.upper_torso.convert().center;
-        }
-        return null;
     }
 
     fn capturePlayerRotation(player: *const sdk.misc.Partial(game.Player)) ?f32 {
@@ -875,96 +864,6 @@ test "should capture heat correctly" {
     );
     try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_1).heat);
     try testing.expectEqual(null, frame_2.getPlayerById(.player_2).heat);
-}
-
-test "should capture player position correctly" {
-    const zero_cylinder = game.HurtCylinders.Element.fromConverted(.{
-        .center = sdk.math.Vec3.zero,
-        .multiplier = 1.0,
-        .half_height = 0.0,
-        .radius = 0.0,
-        .squared_radius = 0.0,
-        ._padding = undefined,
-    });
-    const zero_sphere = game.CollisionSpheres.Element.fromConverted(.{
-        .center = sdk.math.Vec3.zero,
-        .multiplier = 1.0,
-        .radius = 0.0,
-        ._padding = undefined,
-    });
-    var capturer = Capturer{};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{
-            .hurt_cylinders = .{
-                .left_ankle = zero_cylinder,
-                .right_ankle = zero_cylinder,
-                .left_hand = zero_cylinder,
-                .right_hand = zero_cylinder,
-                .left_knee = zero_cylinder,
-                .right_knee = zero_cylinder,
-                .left_elbow = zero_cylinder,
-                .right_elbow = zero_cylinder,
-                .head = zero_cylinder,
-                .left_shoulder = zero_cylinder,
-                .right_shoulder = zero_cylinder,
-                .upper_torso = .fromConverted(.{
-                    .center = .fromArray(.{ 4, 5, 6 }),
-                    .multiplier = 1.0,
-                    .half_height = 0.0,
-                    .radius = 0.0,
-                    .squared_radius = 0.0,
-                    ._padding = undefined,
-                }),
-                .left_pelvis = zero_cylinder,
-                .right_pelvis = zero_cylinder,
-            },
-            .collision_spheres = .{
-                .neck = zero_sphere,
-                .left_elbow = zero_sphere,
-                .right_elbow = zero_sphere,
-                .lower_torso = .fromConverted(.{
-                    .center = .fromArray(.{ 4, 5, 6 }),
-                    .multiplier = 1.0,
-                    .radius = 0.0,
-                    ._padding = undefined,
-                }),
-                .left_knee = zero_sphere,
-                .right_knee = zero_sphere,
-                .left_ankle = zero_sphere,
-                .right_ankle = zero_sphere,
-            },
-        },
-        .player_2 = .{
-            .hurt_cylinders = .{
-                .left_ankle = zero_cylinder,
-                .right_ankle = zero_cylinder,
-                .left_hand = zero_cylinder,
-                .right_hand = zero_cylinder,
-                .left_knee = zero_cylinder,
-                .right_knee = zero_cylinder,
-                .left_elbow = zero_cylinder,
-                .right_elbow = zero_cylinder,
-                .head = zero_cylinder,
-                .left_shoulder = zero_cylinder,
-                .right_shoulder = zero_cylinder,
-                .upper_torso = .fromConverted(.{
-                    .center = .fromArray(.{ 7, 8, 9 }),
-                    .multiplier = 1.0,
-                    .half_height = 0.0,
-                    .radius = 0.0,
-                    .squared_radius = 0.0,
-                    ._padding = undefined,
-                }),
-                .left_pelvis = zero_cylinder,
-                .right_pelvis = zero_cylinder,
-            },
-            .collision_spheres = null,
-        },
-    });
-    try testing.expect(frame.getPlayerById(.player_1).position != null);
-    try testing.expect(frame.getPlayerById(.player_2).position != null);
-    try testing.expectEqual(.{ 4, 5, 6 }, frame.getPlayerById(.player_1).position.?.array);
-    try testing.expectEqual(.{ 7, 8, 9 }, frame.getPlayerById(.player_2).position.?.array);
 }
 
 test "should capture player rotation correctly" {

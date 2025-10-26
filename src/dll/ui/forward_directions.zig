@@ -17,7 +17,7 @@ pub fn drawForwardDirections(
             continue;
         }
         const player = frame.getPlayerById(player_id);
-        const position = player.position orelse continue;
+        const position = player.getPosition() orelse continue;
         const rotation = player.rotation orelse continue;
         const delta = sdk.math.Vec3.plus_x.scale(player_settings.length).rotateZ(rotation);
         const line = sdk.math.LineSegment3{

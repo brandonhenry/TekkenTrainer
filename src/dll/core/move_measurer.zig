@@ -77,7 +77,7 @@ pub const MoveMeasurer = struct {
     }
 
     fn findReferencePoint(state: *const PlayerState, player: *const model.Player) ?sdk.math.Vec2 {
-        const position = if (player.position) |p| p.swizzle("xy") else return null;
+        const position = if (player.getPosition()) |p| p.swizzle("xy") else return null;
         const rotation = player.rotation orelse return null;
         const cylinders = state.previous_frame_hurt_cylinders orelse return null;
         const direction = sdk.math.Vec2.plus_x.rotateZ(rotation);
@@ -170,7 +170,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 99,
                 .animation_total_frames = 99,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 0, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 0, 0 }), .radius = 0.0 }),
                 .rotation = std.math.pi,
                 .hurt_cylinders = hurtCylinders(0),
                 .hit_lines = hitLines(.{}),
@@ -189,7 +189,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 1,
                 .animation_total_frames = 5,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 1, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(1),
                 .hit_lines = hitLines(.{}),
@@ -208,7 +208,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 2,
                 .animation_total_frames = 5,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 2, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(2),
                 .hit_lines = hitLines(.{
@@ -230,7 +230,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 3,
                 .animation_total_frames = 5,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 3, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 3, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(3),
                 .hit_lines = hitLines(.{
@@ -251,7 +251,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 4,
                 .animation_total_frames = 5,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 2, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 2, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(2),
                 .hit_lines = hitLines(.{}),
@@ -270,7 +270,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 5,
                 .animation_total_frames = 5,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 1, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(1),
                 .hit_lines = hitLines(.{}),
@@ -289,7 +289,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 1,
                 .animation_total_frames = 2,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 1, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(1),
                 .hit_lines = hitLines(.{}),
@@ -308,7 +308,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 2,
                 .animation_total_frames = 2,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 1, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(1),
                 .hit_lines = hitLines(.{}),
@@ -327,7 +327,7 @@ test "should set min_attack_z, max_attack_z, attack_range, recovery_range to cor
             .{
                 .animation_frame = 1,
                 .animation_total_frames = 99,
-                .position = sdk.math.Vec3.fromArray(.{ 0, 1, 0 }),
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 1, 0 }), .radius = 0.0 }),
                 .rotation = 0.5 * std.math.pi,
                 .hurt_cylinders = hurtCylinders(1),
                 .hit_lines = hitLines(.{}),

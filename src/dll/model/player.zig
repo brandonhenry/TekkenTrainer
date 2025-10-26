@@ -72,13 +72,22 @@ pub const Player = struct {
     health: ?i32 = null,
     rage: ?model.Rage = null,
     heat: ?model.Heat = null,
-    position: ?sdk.math.Vec3 = null,
     rotation: ?f32 = null,
     hurt_cylinders: ?model.HurtCylinders = null,
     collision_spheres: ?model.CollisionSpheres = null,
     hit_lines: model.HitLines = .{},
 
     const Self = @This();
+
+    pub fn getPosition(self: *const Self) ?sdk.math.Vec3 {
+        if (self.collision_spheres) |*spheres| {
+            return spheres.get(.lower_torso).center;
+        }
+        if (self.hurt_cylinders) |*cylinders| {
+            return cylinders.get(.upper_torso).cylinder.center;
+        }
+        return null;
+    }
 
     pub fn getSkeleton(self: *const Self) ?model.Skeleton {
         const cylinders: *const model.HurtCylinders = if (self.hurt_cylinders) |*c| c else return null;
@@ -207,8 +216,8 @@ pub const Player = struct {
     }
 
     pub fn getDistanceTo(self: *const Self, other: *const Self) ?f32 {
-        const self_position = if (self.position) |p| p.swizzle("xy") else return null;
-        const other_position = if (other.position) |p| p.swizzle("xy") else return null;
+        const self_position = if (self.getPosition()) |p| p.swizzle("xy") else return null;
+        const other_position = if (other.getPosition()) |p| p.swizzle("xy") else return null;
         const self_cylinders = self.hurt_cylinders orelse return null;
         const other_cylinders = other.hurt_cylinders orelse return null;
 
@@ -242,8 +251,8 @@ pub const Player = struct {
     }
 
     pub fn getAngleTo(self: *const Self, other: *const Self) ?f32 {
-        const self_position = self.position orelse return null;
-        const other_position = other.position orelse return null;
+        const self_position = self.getPosition() orelse return null;
+        const other_position = other.getPosition() orelse return null;
         const other_rotation = other.rotation orelse return null;
         const difference_2d = self_position.swizzle("xy").subtract(other_position.swizzle("xy"));
         const difference_rotation = std.math.atan2(difference_2d.y(), difference_2d.x());
@@ -310,6 +319,73 @@ test "PlayerSide.getOther should return correct value" {
 test "PlayerRole.getOther should return correct value" {
     try testing.expectEqual(PlayerRole.secondary, PlayerRole.main.getOther());
     try testing.expectEqual(PlayerRole.main, PlayerRole.secondary.getOther());
+}
+
+test "Player.getPosition should return correct value" {
+    const zero_cylinder = model.HurtCylinder{ .cylinder = .{ .center = .zero, .half_height = 0.0, .radius = 0.0 } };
+    const zero_sphere = model.CollisionSphere{ .center = .zero, .radius = 0.0 };
+    const player_1 = model.Player{
+        .hurt_cylinders = .init(.{
+            .left_ankle = zero_cylinder,
+            .right_ankle = zero_cylinder,
+            .left_hand = zero_cylinder,
+            .right_hand = zero_cylinder,
+            .left_knee = zero_cylinder,
+            .right_knee = zero_cylinder,
+            .left_elbow = zero_cylinder,
+            .right_elbow = zero_cylinder,
+            .head = zero_cylinder,
+            .left_shoulder = zero_cylinder,
+            .right_shoulder = zero_cylinder,
+            .upper_torso = .{ .cylinder = .{
+                .center = .fromArray(.{ 4, 5, 6 }),
+                .radius = 0.0,
+                .half_height = 0.0,
+            } },
+            .left_pelvis = zero_cylinder,
+            .right_pelvis = zero_cylinder,
+        }),
+        .collision_spheres = .init(.{
+            .neck = zero_sphere,
+            .left_elbow = zero_sphere,
+            .right_elbow = zero_sphere,
+            .lower_torso = .{
+                .center = .fromArray(.{ 4, 5, 6 }),
+                .radius = 0.0,
+            },
+            .left_knee = zero_sphere,
+            .right_knee = zero_sphere,
+            .left_ankle = zero_sphere,
+            .right_ankle = zero_sphere,
+        }),
+    };
+    const player_2 = model.Player{
+        .hurt_cylinders = .init(.{
+            .left_ankle = zero_cylinder,
+            .right_ankle = zero_cylinder,
+            .left_hand = zero_cylinder,
+            .right_hand = zero_cylinder,
+            .left_knee = zero_cylinder,
+            .right_knee = zero_cylinder,
+            .left_elbow = zero_cylinder,
+            .right_elbow = zero_cylinder,
+            .head = zero_cylinder,
+            .left_shoulder = zero_cylinder,
+            .right_shoulder = zero_cylinder,
+            .upper_torso = .{ .cylinder = .{
+                .center = .fromArray(.{ 7, 8, 9 }),
+                .half_height = 0.0,
+                .radius = 0.0,
+            } },
+            .left_pelvis = zero_cylinder,
+            .right_pelvis = zero_cylinder,
+        }),
+        .collision_spheres = null,
+    };
+    try testing.expect(player_1.getPosition() != null);
+    try testing.expectEqual(.{ 4, 5, 6 }, player_1.getPosition().?.array);
+    try testing.expect(player_2.getPosition() != null);
+    try testing.expectEqual(.{ 7, 8, 9 }, player_2.getPosition().?.array);
 }
 
 test "Player.getSkeleton should return correct value" {
@@ -544,7 +620,7 @@ test "Player.getFrameAdvantage should return correct value" {
 
 test "Player.getDistanceTo should return correct value" {
     const player_1 = Player{
-        .position = .fromArray(.{ -5, 0, 0 }),
+        .collision_spheres = .initFill(.{ .center = .fromArray(.{ -5, 0, 0 }), .radius = 0.0 }),
         .hurt_cylinders = .init(.{
             .left_ankle = .{ .cylinder = .{ .center = .fromArray(.{ -5, 0, 0 }), .radius = 1, .half_height = 1 } },
             .right_ankle = .{ .cylinder = .{ .center = .fromArray(.{ -5, 0, 0 }), .radius = 1, .half_height = 1 } },
@@ -563,7 +639,7 @@ test "Player.getDistanceTo should return correct value" {
         }),
     };
     const player_2 = Player{
-        .position = .fromArray(.{ 5, 0, 0 }),
+        .collision_spheres = .initFill(.{ .center = .fromArray(.{ 5, 0, 0 }), .radius = 0.0 }),
         .hurt_cylinders = .init(.{
             .left_ankle = .{ .cylinder = .{ .center = .fromArray(.{ 5, 0, 0 }), .radius = 1, .half_height = 1 } },
             .right_ankle = .{ .cylinder = .{ .center = .fromArray(.{ 5, 0, 0 }), .radius = 1, .half_height = 1 } },
@@ -584,7 +660,7 @@ test "Player.getDistanceTo should return correct value" {
     try testing.expectEqual(6.0, player_1.getDistanceTo(&player_2));
     try testing.expectEqual(6.0, player_2.getDistanceTo(&player_1));
     var player_3 = player_1;
-    player_3.position = null;
+    player_3.hurt_cylinders = null;
     var player_4 = player_2;
     player_4.hurt_cylinders = null;
     try testing.expectEqual(null, player_2.getDistanceTo(&player_3));
@@ -594,10 +670,22 @@ test "Player.getDistanceTo should return correct value" {
 }
 
 test "Player.getAngleTo should return correct value" {
-    const player_1 = Player{ .position = .fromArray(.{ 0, 0, 0 }), .rotation = 0 };
-    const player_2 = Player{ .position = .fromArray(.{ 1, 0, 0 }), .rotation = -std.math.pi };
-    const player_3 = Player{ .position = .fromArray(.{ 0, 1, 0 }), .rotation = -std.math.pi };
-    const player_4 = Player{ .position = .fromArray(.{ 1, 1, 0 }), .rotation = null };
+    const player_1 = Player{
+        .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 0, 0 }), .radius = 0.0 }),
+        .rotation = 0,
+    };
+    const player_2 = Player{
+        .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 0, 0 }), .radius = 0.0 }),
+        .rotation = -std.math.pi,
+    };
+    const player_3 = Player{
+        .collision_spheres = .initFill(.{ .center = .fromArray(.{ 0, 1, 0 }), .radius = 0.0 }),
+        .rotation = -std.math.pi,
+    };
+    const player_4 = Player{
+        .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 1, 0 }), .radius = 0.0 }),
+        .rotation = null,
+    };
 
     try testing.expect(player_2.getAngleTo(&player_1) != null);
     try testing.expect(player_3.getAngleTo(&player_1) != null);
