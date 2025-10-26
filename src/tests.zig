@@ -111,6 +111,7 @@ test {
     _ = @import("dll/ui/settings_window.zig");
     _ = @import("dll/ui/shapes.zig");
     _ = @import("dll/ui/skeletons.zig");
+    _ = @import("dll/ui/ui.zig");
     _ = @import("dll/ui/view.zig");
 
     _ = struct {

@@ -34,12 +34,7 @@ pub const FileMenu = struct {
         finnish,
     };
 
-    pub fn update(self: *Self, controller: *core.Controller, is_main_window_open: *bool) void {
-        if (self.menu_bar.action == .close_window and is_main_window_open.* == true) {
-            is_main_window_open.* = false;
-            sdk.ui.toasts.send(.default, null, "Main window closed. Press [Tab] to open it again.", .{});
-        }
-
+    pub fn update(self: *Self, controller: *core.Controller) void {
         var action = self.action;
         defer self.action = action;
         var progress = self.progress;
@@ -47,7 +42,7 @@ pub const FileMenu = struct {
 
         if (action == .idle) {
             switch (self.menu_bar.action) {
-                .no_action, .close_window => {},
+                .no_action, .close_ui => {},
                 .new => action = .new,
                 .open => action = .open,
                 .save => action = .save,
@@ -167,11 +162,17 @@ pub const FileMenu = struct {
         base_dir: *const sdk.misc.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
+        is_ui_open: *bool,
     ) void {
         self.menu_bar.draw(self.action == .idle, controller.getTotalFrames() == 0);
         self.unsaved_dialog.draw(self.progress == .unsaved_dialog);
         self.save_dialog.draw(file_dialog_context, base_dir, self.getFilePath(), self.progress == .save_dialog);
         self.open_dialog.draw(file_dialog_context, base_dir, self.getFilePath(), self.progress == .open_dialog);
+
+        if (self.menu_bar.action == .close_ui and is_ui_open.*) {
+            is_ui_open.* = false;
+            sdk.ui.toasts.send(.default, null, "UI closed. Press [Tab] to open it again.", .{});
+        }
     }
 
     pub fn getFilePath(self: *const Self) ?[:0]const u8 {
@@ -192,7 +193,7 @@ const MenuBar = struct {
         open,
         save,
         save_as,
-        close_window,
+        close_ui,
         exit,
     };
 
@@ -224,8 +225,8 @@ const MenuBar = struct {
         imgui.igEndDisabled();
         imgui.igEndDisabled();
         imgui.igSeparator();
-        if (imgui.igMenuItem_Bool("Close Window", null, false, true)) {
-            action = .close_window;
+        if (imgui.igMenuItem_Bool("Close UI", null, false, true)) {
+            action = .close_ui;
         }
         imgui.igBeginDisabled(!is_idle);
         if (imgui.igMenuItem_Bool("Exit Irony", null, false, true)) {

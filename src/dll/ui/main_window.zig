@@ -1,23 +1,15 @@
 const std = @import("std");
 const imgui = @import("imgui");
-const dll = @import("../../dll.zig");
 const sdk = @import("../../sdk/root.zig");
 const core = @import("../core/root.zig");
-const game = @import("../game/root.zig");
 const model = @import("../model/root.zig");
 const ui = @import("root.zig");
 
 pub const MainWindow = struct {
-    is_first_draw: bool = true,
-    is_open: bool = false,
-    settings_window: ui.SettingsWindow = .{},
-    logs_window: ui.LogsWindow = .{},
-    game_memory_window: ui.GameMemoryWindow = .{},
-    frame_window: ui.FrameWindow = .{},
     quadrant_layout: ui.QuadrantLayout = .{},
     view: ui.View = .{},
-    file_menu: ui.FileMenu = .{},
     controls: ui.Controls(.{}) = .{},
+    file_menu: ui.FileMenu = .{},
     controls_height: f32 = 0,
 
     const Self = @This();
@@ -33,29 +25,21 @@ pub const MainWindow = struct {
 
     pub fn update(self: *Self, delta_time: f32, controller: *core.Controller) void {
         self.view.update(delta_time);
-        self.file_menu.update(controller, &self.is_open);
+        self.file_menu.update(controller);
+    }
+
+    pub fn handleKeybinds(self: *Self, controller: *core.Controller) void {
+        self.controls.handleKeybinds(controller);
     }
 
     pub fn draw(
         self: *Self,
-        ui_context: *const sdk.ui.Context,
+        ui_instance: *ui.Ui,
         base_dir: *const sdk.misc.BaseDir,
-        settings: *model.Settings,
-        game_memory: *const game.Memory,
+        file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
+        settings: *model.Settings,
     ) void {
-        self.handleFirstDraw();
-        self.handleOpenKey();
-        self.controls.handleKeybinds(controller);
-
-        imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowMinSize, .{ .x = 240, .y = 200 });
-        defer imgui.igPopStyleVar(1);
-
-        if (!self.is_open) {
-            return;
-        }
-        self.drawSecondaryWindows(base_dir, settings, game_memory, controller);
-
         const display_size = imgui.igGetIO_Nil().*.DisplaySize;
         imgui.igSetNextWindowPos(
             .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
@@ -64,12 +48,18 @@ pub const MainWindow = struct {
         );
         imgui.igSetNextWindowSize(.{ .x = 960, .y = 640 }, imgui.ImGuiCond_FirstUseEver);
 
-        const render_content = imgui.igBegin("Irony", &self.is_open, imgui.ImGuiWindowFlags_MenuBar);
+        var title_buffer: [260]u8 = undefined;
+        const asterisk = if (controller.contains_unsaved_changes) "*" else "";
+        const file_name = if (self.file_menu.getFilePath()) |path| sdk.os.pathToFileName(path) else "untitled.irony";
+        const title = std.fmt.bufPrintZ(&title_buffer, "Irony - {s}{s}", .{ asterisk, file_name }) catch "Irony";
+
+        const render_content = imgui.igBegin(title, &ui_instance.is_open, imgui.ImGuiWindowFlags_MenuBar);
         defer imgui.igEnd();
         if (!render_content) {
             return;
         }
-        self.drawMenuBar(base_dir, ui_context.file_dialog_context, controller);
+
+        self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller);
         if (imgui.igBeginChild_Str("views", .{ .x = 0, .y = -self.controls_height }, 0, 0)) {
             const context = QuadrantContext{
                 .self = self,
@@ -92,35 +82,9 @@ pub const MainWindow = struct {
         imgui.igEndChild();
     }
 
-    fn handleFirstDraw(self: *Self) void {
-        if (!self.is_first_draw) {
-            return;
-        }
-        sdk.ui.toasts.send(.success, null, "Irony initialized. Press [Tab] to open the Irony window.", .{});
-        self.is_first_draw = false;
-    }
-
-    fn handleOpenKey(self: *Self) void {
-        if (imgui.igIsKeyPressed_Bool(imgui.ImGuiKey_Tab, false)) {
-            self.is_open = !self.is_open;
-        }
-    }
-
-    fn drawSecondaryWindows(
-        self: *Self,
-        base_dir: *const sdk.misc.BaseDir,
-        settings: *model.Settings,
-        game_memory: *const game.Memory,
-        controller: *const core.Controller,
-    ) void {
-        self.settings_window.draw(base_dir, settings);
-        self.logs_window.draw(dll.buffer_logger);
-        self.game_memory_window.draw(game_memory);
-        self.frame_window.draw(controller.getCurrentFrame());
-    }
-
     fn drawMenuBar(
         self: *Self,
+        ui_instance: *ui.Ui,
         base_dir: *const sdk.misc.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
@@ -130,12 +94,12 @@ pub const MainWindow = struct {
         }
         defer imgui.igEndMenuBar();
 
-        self.file_menu.draw(base_dir, file_dialog_context, controller);
+        self.file_menu.draw(base_dir, file_dialog_context, controller, &ui_instance.is_open);
         self.view.camera.drawMenuBar();
 
         if (imgui.igMenuItem_Bool(ui.SettingsWindow.name, null, false, true)) {
-            self.settings_window.is_open = !self.settings_window.is_open;
-            if (self.settings_window.is_open) {
+            ui_instance.settings_window.is_open = !ui_instance.settings_window.is_open;
+            if (ui_instance.settings_window.is_open) {
                 imgui.igSetWindowFocus_Str(ui.SettingsWindow.name);
             }
         }
@@ -143,15 +107,15 @@ pub const MainWindow = struct {
         if (imgui.igBeginMenu("Help", true)) {
             defer imgui.igEndMenu();
             if (imgui.igMenuItem_Bool(ui.LogsWindow.name, null, false, true)) {
-                self.logs_window.is_open = true;
+                ui_instance.logs_window.is_open = true;
                 imgui.igSetWindowFocus_Str(ui.LogsWindow.name);
             }
             if (imgui.igMenuItem_Bool(ui.GameMemoryWindow.name, null, false, true)) {
-                self.game_memory_window.is_open = true;
+                ui_instance.game_memory_window.is_open = true;
                 imgui.igSetWindowFocus_Str(ui.GameMemoryWindow.name);
             }
             if (imgui.igMenuItem_Bool(ui.FrameWindow.name, null, false, true)) {
-                self.frame_window.is_open = true;
+                ui_instance.frame_window.is_open = true;
                 imgui.igSetWindowFocus_Str(ui.FrameWindow.name);
             }
         }

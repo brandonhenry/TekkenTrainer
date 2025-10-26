@@ -13,7 +13,7 @@ pub const EventBuss = struct {
     ui_context: ?sdk.ui.Context,
     settings_task: SettingsTask,
     core: core.Core,
-    main_window: ui.MainWindow,
+    ui: ui.Ui,
 
     const Self = @This();
     const Dx12Context = sdk.dx12.Context(buffer_count, srv_heap_size);
@@ -107,7 +107,7 @@ pub const EventBuss = struct {
             .ui_context = ui_context,
             .settings_task = settings_task,
             .core = c,
-            .main_window = .{},
+            .ui = .{},
         };
     }
 
@@ -154,7 +154,7 @@ pub const EventBuss = struct {
 
     fn processFrame(self: *Self, frame: *const model.Frame) void {
         const settings = self.settings_task.peek() orelse return;
-        self.main_window.processFrame(settings, frame);
+        self.ui.processFrame(settings, frame);
     }
 
     pub fn tick(self: *Self, game_memory: *const game.Memory) void {
@@ -175,27 +175,20 @@ pub const EventBuss = struct {
 
         const delta_time = self.timer.measureDeltaTime();
         self.core.update(delta_time, self, processFrame);
-        sdk.ui.toasts.update(delta_time);
-        self.main_window.update(delta_time, &self.core.controller);
+        self.ui.update(delta_time, &self.core.controller);
 
         const dx12_context = if (self.dx12_context) |*context| context else return;
         const ui_context = if (self.ui_context) |*context| context else return;
 
         ui_context.newFrame();
         imgui.igGetIO_Nil().*.MouseDrawCursor = true;
-        sdk.ui.toasts.draw();
-        if (game_memory) |memory| {
-            if (self.settings_task.peek()) |settings| {
-                self.main_window.draw(ui_context, base_dir, settings, memory, &self.core.controller);
-            } else {
-                ui.drawMessageWindow("Loading", "Loading settings...", .center);
-            }
-        } else {
-            ui.drawMessageWindow("Loading", "Searching for memory addresses and offsets...", .center);
-        }
-        if (self.core.controller.mode == .record) {
-            ui.drawMessageWindow("Recording", "⏺ Recording...", .top);
-        }
+        self.ui.draw(
+            ui_context,
+            base_dir,
+            self.settings_task.peek(),
+            game_memory,
+            &self.core.controller,
+        );
         ui_context.endFrame();
 
         const buffer_context = sdk.dx12.beforeRender(buffer_count, srv_heap_size, dx12_context, swap_chain) catch |err| {

@@ -19,6 +19,7 @@ pub const drawMessageWindow = @import("message_window.zig").drawMessageWindow;
 pub const NavigationLayout = @import("navigation_layout.zig").NavigationLayout;
 pub const QuadrantLayout = @import("quadrant-layout.zig").QuadrantLayout;
 pub const SettingsWindow = @import("settings_window.zig").SettingsWindow;
+pub const Ui = @import("ui.zig").Ui;
 pub const ViewDirection = @import("view.zig").ViewDirection;
 pub const View = @import("view.zig").View;
 pub const drawLine = @import("shapes.zig").drawLine;
