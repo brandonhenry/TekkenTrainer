@@ -61,7 +61,8 @@ pub const ProcessId = struct {
             var buffer: [os.max_file_path_length]u8 = undefined;
             const size = process.getFilePath(&buffer) catch |err| {
                 misc.error_context.append("Failed to get file path for process with ID: {f}", .{process_id});
-                return err;
+                misc.error_context.logWarning(err);
+                continue;
             };
             const path = buffer[0..size];
             const name = os.pathToFileName(path);
