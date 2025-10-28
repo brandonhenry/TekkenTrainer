@@ -55,6 +55,7 @@ var mutex = std.Thread.Mutex{};
 var consumer_condition = std.Thread.Condition{};
 var producer_condition = std.Thread.Condition{};
 var pending_event: ?Event = null;
+var listening_to_events = std.atomic.Value(bool).init(false);
 
 pub fn DllMain(
     module_handle: w32.HINSTANCE,
@@ -248,12 +249,18 @@ pub fn main() void {
         std.log.info("Game hooks de-initialized.", .{});
     }
 
-    const State = enum { starting_up, up, shutting_down, down };
+    const State = enum { starting_up, up, shutting_down };
     var state = State.starting_up;
     var event_buss: ?dll.EventBuss = null;
     var window_procedure: ?sdk.os.WindowProcedure = null;
 
-    while (state != .down) {
+    listening_to_events.store(true, .seq_cst);
+    defer {
+        listening_to_events.store(false, .seq_cst);
+        producer_condition.broadcast();
+    }
+
+    while (true) {
         consumer_condition.wait(&mutex);
         const event = pending_event orelse continue;
         defer {
@@ -307,9 +314,8 @@ pub fn main() void {
                         std.log.info("Nothing to de-initialize.", .{});
                     }
 
-                    state = .down;
+                    break;
                 },
-                .down => {},
             },
             .tick => {
                 if (event_buss) |*buss| {
@@ -385,15 +391,24 @@ fn performMemorySearch(allocator: std.mem.Allocator, dir: *const sdk.misc.BaseDi
 }
 
 fn sendEvent(event: *const Event) void {
+    if (!listening_to_events.load(.seq_cst)) {
+        return;
+    }
     mutex.lock();
     defer mutex.unlock();
     while (pending_event != null) {
         producer_condition.wait(&mutex);
+        if (!listening_to_events.load(.seq_cst)) {
+            return;
+        }
     }
     pending_event = event.*;
     consumer_condition.signal();
     while (pending_event != null) {
         producer_condition.wait(&mutex);
+        if (!listening_to_events.load(.seq_cst)) {
+            return;
+        }
     }
 }
 
@@ -462,5 +477,8 @@ fn windowProcedure(
     if (result) |r| {
         return r;
     }
-    return w32.CallWindowProcW(window_procedure.?.original, window, u_msg, w_param, l_param);
+    if (window_procedure) |procedure| {
+        return w32.CallWindowProcW(procedure.original, window, u_msg, w_param, l_param);
+    }
+    return 0;
 }
