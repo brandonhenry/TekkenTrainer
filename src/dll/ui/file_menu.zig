@@ -150,7 +150,7 @@ pub const FileMenu = struct {
                     controller.clear();
                     self.file_path_len = 0;
                 },
-                .exit => dll.selfEject(),
+                .exit => dll.selfShutDown(),
             }
             action = .idle;
             progress = .start;

@@ -4,7 +4,6 @@ const sdk = @import("sdk/root.zig");
 const dll = @import("dll/root.zig");
 
 pub const module_name = "irony.dll";
-
 pub const log_file_name = "irony.log";
 pub const buffer_logger = sdk.log.BufferLogger(.{});
 pub const file_logger = sdk.log.FileLogger(.{});
@@ -132,20 +131,14 @@ pub fn DllMain(
     }
 }
 
-pub fn selfEject() void {
+pub fn selfShutDown() void {
     const thread = std.Thread.spawn(.{}, struct {
         fn call() void {
-            const success = w32.FreeLibrary(dll_module.handle);
-            if (success == 0) {
-                sdk.misc.error_context.new("{f}", .{sdk.os.Error.getLast()});
-                sdk.misc.error_context.append("FreeLibrary returned 0.", .{});
-                sdk.misc.error_context.append("Failed to self eject.", .{});
-                return;
-            }
+            w32.FreeLibraryAndExitThread(dll_module.handle, 0);
         }
     }.call, .{}) catch |err| {
-        sdk.misc.error_context.new("Failed to spawn ejection thread.", .{});
-        sdk.misc.error_context.append("Failed to self eject.", .{});
+        sdk.misc.error_context.new("Failed to spawn shut down thread.", .{});
+        sdk.misc.error_context.append("Failed to shut down.", .{});
         sdk.misc.error_context.logError(err);
         return;
     };
