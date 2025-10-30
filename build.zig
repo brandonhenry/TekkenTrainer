@@ -220,16 +220,14 @@ fn imguiDependency(
         _ = files.addCopyDirectory(b.dependency("cimgui_test_engine", .{}).path("."), ".", .{});
     }
     if (use_test_engine) {
-        _ = files.add(
-            "root.h",
-            "#include \"cimgui_test_engine.h\"" ++ "\n" ++
-                "#include \"imgui_file_dialog/ImGuiFileDialog.h\"",
+        _ = files.add("root.h",
+            \\#include "cimgui_test_engine.h"
+            \\#include "imgui_file_dialog/ImGuiFileDialog.h"
         );
     } else {
-        _ = files.add(
-            "root.h",
-            "#include \"cimgui.h\"" ++ "\n" ++
-                "#include \"imgui_file_dialog/ImGuiFileDialog.h\"",
+        _ = files.add("root.h",
+            \\#include "cimgui.h"
+            \\#include "imgui_file_dialog/ImGuiFileDialog.h"
         );
     }
     const directory = files.getDirectory();
