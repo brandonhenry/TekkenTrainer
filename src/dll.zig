@@ -41,6 +41,7 @@ const Event = union(enum) {
         out_result: *?w32.LRESULT,
     };
 };
+const ListeningToEvents = enum(u8) { none, all, only_present };
 
 const dx12_hooks = sdk.dx12.Hooks(onPresent, beforeResize, afterResize);
 const game_hooks = dll.game.Hooks(onTick);
@@ -57,7 +58,7 @@ var producer_mutex = std.Thread.Mutex{};
 var consumer_condition = std.Thread.Condition{};
 var producer_condition = std.Thread.Condition{};
 var pending_event: ?Event = null;
-var listening_to_events = std.atomic.Value(bool).init(false);
+var listening_to_events = std.atomic.Value(ListeningToEvents).init(.none);
 
 pub fn DllMain(
     module_handle: w32.HINSTANCE,
@@ -253,13 +254,11 @@ pub fn main() void {
     var event_buss: ?dll.EventBuss = null;
     var window_procedure: ?sdk.os.WindowProcedure = null;
 
+    defer producer_condition.broadcast();
     pending_event_mutex.lock();
-    listening_to_events.store(true, .seq_cst);
-    defer {
-        listening_to_events.store(false, .seq_cst);
-        pending_event_mutex.unlock();
-        producer_condition.broadcast();
-    }
+    defer pending_event_mutex.unlock();
+    listening_to_events.store(.all, .seq_cst);
+    defer listening_to_events.store(.none, .seq_cst);
 
     while (true) {
         consumer_condition.wait(&pending_event_mutex);
@@ -343,7 +342,9 @@ pub fn main() void {
                 }
             },
             .shut_down => {
+                listening_to_events.store(.only_present, .seq_cst);
                 state = .shutting_down;
+                producer_condition.broadcast();
             },
         }
     }
@@ -392,16 +393,22 @@ fn performMemorySearch(allocator: std.mem.Allocator, dir: *const sdk.misc.BaseDi
 }
 
 fn sendEvent(event: *const Event) void {
-    if (!listening_to_events.load(.seq_cst)) {
+    if (!isListeningToEvent(event)) {
         return;
     }
     producer_mutex.lock();
     defer producer_mutex.unlock();
+    if (!isListeningToEvent(event)) {
+        return;
+    }
     pending_event_mutex.lock();
     defer pending_event_mutex.unlock();
+    if (!isListeningToEvent(event)) {
+        return;
+    }
     while (pending_event != null) {
         producer_condition.wait(&pending_event_mutex);
-        if (!listening_to_events.load(.seq_cst)) {
+        if (!isListeningToEvent(event)) {
             return;
         }
     }
@@ -409,10 +416,15 @@ fn sendEvent(event: *const Event) void {
     consumer_condition.signal();
     while (pending_event != null) {
         producer_condition.wait(&pending_event_mutex);
-        if (!listening_to_events.load(.seq_cst)) {
+        if (!isListeningToEvent(event)) {
             return;
         }
     }
+}
+
+fn isListeningToEvent(event: *const Event) bool {
+    const listening_to = listening_to_events.load(.seq_cst);
+    return listening_to == .all or (event.* == .present and listening_to == .only_present);
 }
 
 fn onPresent(
