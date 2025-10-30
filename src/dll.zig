@@ -407,7 +407,7 @@ fn sendEvent(event: *const Event) void {
         return;
     }
     while (pending_event != null) {
-        producer_condition.wait(&pending_event_mutex);
+        producer_condition.timedWait(&pending_event_mutex, 10 * std.time.ns_per_ms) catch {};
         if (!isListeningToEvent(event)) {
             return;
         }
@@ -415,7 +415,7 @@ fn sendEvent(event: *const Event) void {
     pending_event = event.*;
     consumer_condition.signal();
     while (pending_event != null) {
-        producer_condition.wait(&pending_event_mutex);
+        producer_condition.timedWait(&pending_event_mutex, 10 * std.time.ns_per_ms) catch {};
         if (!isListeningToEvent(event)) {
             return;
         }
