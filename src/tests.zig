@@ -7,8 +7,6 @@ test {
     _ = @import("sdk/dx12/misc.zig");
     _ = @import("sdk/dx12/testing_context.zig");
 
-    _ = @import("sdk/hooking/hook.zig");
-
     _ = @import("sdk/io/recording.zig");
     _ = @import("sdk/io/settings.zig");
 
@@ -25,6 +23,7 @@ test {
 
     _ = @import("sdk/memory/bitfield.zig");
     _ = @import("sdk/memory/converted_value.zig");
+    _ = @import("sdk/memory/hooking.zig");
     _ = @import("sdk/memory/misc.zig");
     _ = @import("sdk/memory/pattern.zig");
     _ = @import("sdk/memory/pattern_cache.zig");

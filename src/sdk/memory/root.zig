@@ -1,9 +1,11 @@
 pub const BitfieldMember = @import("bitfield.zig").BitfieldMember;
 pub const Bitfield = @import("bitfield.zig").Bitfield;
 pub const converted_value_tag = @import("converted_value.zig").converted_value_tag;
+pub const ConvertedValue = @import("converted_value.zig").ConvertedValue;
+pub const hooking = @import("hooking.zig").hooking;
+pub const Hook = @import("hooking.zig").Hook;
 pub const dereferenceMisaligned = @import("misc.zig").dereferenceMisaligned;
 pub const resolveRelativeOffset = @import("misc.zig").resolveRelativeOffset;
-pub const ConvertedValue = @import("converted_value.zig").ConvertedValue;
 pub const Pattern = @import("pattern.zig").Pattern;
 pub const PatternCache = @import("pattern_cache.zig").PatternCache;
 pub const pointer_tag = @import("pointer.zig").pointer_tag;

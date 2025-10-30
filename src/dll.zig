@@ -182,7 +182,7 @@ pub fn main() void {
     }
 
     std.log.debug("Initializing hooking...", .{});
-    sdk.hooking.init() catch |err| {
+    sdk.memory.hooking.init() catch |err| {
         sdk.misc.error_context.append("Failed to initialize hooking.", .{});
         sdk.misc.error_context.logError(err);
         return;
@@ -190,7 +190,7 @@ pub fn main() void {
     std.log.info("Hooking initialized.", .{});
     defer {
         std.log.debug("De-initializing hooking...", .{});
-        if (sdk.hooking.deinit()) {
+        if (sdk.memory.hooking.deinit()) {
             std.log.info("Hooking de-initialized.", .{});
         } else |err| {
             sdk.misc.error_context.append("Failed to de-initialize hooking.", .{});

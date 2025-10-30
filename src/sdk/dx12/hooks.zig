@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const w32 = @import("win32").everything;
 const misc = @import("../misc/root.zig");
-const hooking = @import("../hooking/root.zig");
+const memory = @import("../memory/root.zig");
 const dx12 = @import("root.zig");
 
 pub const OnHookEvent = fn (
@@ -14,9 +14,9 @@ pub const OnHookEvent = fn (
 
 pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, afterResize: *const OnHookEvent) type {
     return struct {
-        var execute_command_lists_hook: ?hooking.Hook(dx12.Functions.ExecuteCommandLists) = null;
-        var resize_buffers_hook: ?hooking.Hook(dx12.Functions.ResizeBuffers) = null;
-        var present_hook: ?hooking.Hook(dx12.Functions.Present) = null;
+        var execute_command_lists_hook: ?memory.Hook(dx12.Functions.ExecuteCommandLists) = null;
+        var resize_buffers_hook: ?memory.Hook(dx12.Functions.ResizeBuffers) = null;
+        var present_hook: ?memory.Hook(dx12.Functions.Present) = null;
         var g_command_queue: ?*const w32.ID3D12CommandQueue = null;
         var active_hook_calls = std.atomic.Value(u8).init(0);
 
@@ -29,7 +29,7 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
             std.log.info("DX12 functions found.", .{});
 
             std.log.debug("Creating the execute command lists hook...", .{});
-            execute_command_lists_hook = hooking.Hook(dx12.Functions.ExecuteCommandLists).create(
+            execute_command_lists_hook = memory.Hook(dx12.Functions.ExecuteCommandLists).create(
                 dx12_functions.executeCommandLists,
                 onExecuteCommandLists,
             ) catch |err| {
@@ -46,7 +46,7 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
             }
 
             std.log.debug("Creating the resize buffers hook...", .{});
-            resize_buffers_hook = hooking.Hook(dx12.Functions.ResizeBuffers).create(
+            resize_buffers_hook = memory.Hook(dx12.Functions.ResizeBuffers).create(
                 dx12_functions.resizeBuffers,
                 onResizeBuffers,
             ) catch |err| {
@@ -63,7 +63,7 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
             }
 
             std.log.debug("Creating the present hook...", .{});
-            present_hook = hooking.Hook(dx12.Functions.Present).create(
+            present_hook = memory.Hook(dx12.Functions.Present).create(
                 dx12_functions.present,
                 onPresentInternal,
             ) catch |err| {
@@ -282,8 +282,8 @@ test "should call correct callbacks at correct times" {
     const dx12_context = try dx12.TestingContext.init();
     defer dx12_context.deinit();
 
-    try hooking.init();
-    defer hooking.deinit() catch @panic("Failed to de-initialize hooking.");
+    try memory.hooking.init();
+    defer memory.hooking.deinit() catch @panic("Failed to de-initialize hooking.");
 
     const OnPresent = struct {
         var times_called: usize = 0;

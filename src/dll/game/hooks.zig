@@ -10,8 +10,8 @@ pub fn Hooks(onTick: *const fn () void) type {
         pub var last_camera_manager_address: usize = 0;
         var active_hook_calls = std.atomic.Value(u8).init(0);
 
-        const TickHook = sdk.hooking.Hook(game.TickFunction);
-        const UpdateCameraHook = sdk.hooking.Hook(game.UpdateCameraFunction);
+        const TickHook = sdk.memory.Hook(game.TickFunction);
+        const UpdateCameraHook = sdk.memory.Hook(game.UpdateCameraFunction);
 
         pub fn init(game_functions: *const game.Memory.Functions) void {
             std.log.debug("Creating tick hook...", .{});
@@ -134,8 +134,8 @@ test "should call onTick and original when tick function is called" {
     };
     const hooks = Hooks(OnTick.call);
 
-    try sdk.hooking.init();
-    defer sdk.hooking.deinit() catch @panic("Failed to de-initialize hooking.");
+    try sdk.memory.hooking.init();
+    defer sdk.memory.hooking.deinit() catch @panic("Failed to de-initialize hooking.");
     hooks.init(&.{ .tick = Tick.call });
     defer hooks.deinit();
 
@@ -163,8 +163,8 @@ test "should call original and set last_camera_manager_address to the latest val
     }.call;
     const hooks = Hooks(onTick);
 
-    try sdk.hooking.init();
-    defer sdk.hooking.deinit() catch @panic("Failed to de-initialize hooking.");
+    try sdk.memory.hooking.init();
+    defer sdk.memory.hooking.deinit() catch @panic("Failed to de-initialize hooking.");
     hooks.init(&.{ .updateCamera = UpdateCamera.call });
     defer hooks.deinit();
 
