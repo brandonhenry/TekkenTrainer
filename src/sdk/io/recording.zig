@@ -305,60 +305,64 @@ fn findFieldChanges(
     number_of_changes: FieldIndex,
     field_changed: [fields.len]bool,
 } {
+    const parent_indices = comptime block: {
+        var array: [fields.len]?FieldIndex = undefined;
+        for (&array, fields) |*element, *field| {
+            element.* = field.parent_index;
+        }
+        break :block array;
+    };
     var number_of_changes: FieldIndex = 0;
     var field_changed: [fields.len]bool = [1]bool{false} ** fields.len;
     inline for (fields, 0..) |*field, field_index| {
         var ancestor_changed = false;
-        var ancestor_index = field.parent_index;
+        var ancestor_index = parent_indices[field_index];
         while (ancestor_index) |index| {
             if (field_changed[index]) {
                 ancestor_changed = true;
                 break;
             }
-            inline for (fields, 0..) |*current_field, current_index| {
-                if (current_index == index) {
-                    ancestor_index = current_field.parent_index;
-                }
-            }
+            ancestor_index = parent_indices[index];
         }
-        const maybe_field_pointer_1 = getConstFieldPointer(frame_1, field) catch null;
-        const maybe_field_pointer_2 = getConstFieldPointer(frame_2, field) catch null;
-        if (!ancestor_changed and // Ancestor change supplies changes for all descendants. No need to duplicate changes.
-            maybe_field_pointer_1 != null and // If the field is not accessible there is no way to store it's change.
-            maybe_field_pointer_2 != null) // Ancestor fields provide values when descendants change accessability.
-        {
-            const field_pointer_1 = maybe_field_pointer_1.?;
-            const field_pointer_2 = maybe_field_pointer_2.?;
-            if (!field.has_children) { // Leaf nodes are the regular nodes that change when their raw value changes.
-                if (!areValuesEqual(field_pointer_1.*, field_pointer_2.*)) {
-                    field_changed[field_index] = true;
-                    number_of_changes += 1;
+        if (!ancestor_changed) { // Ancestor change supplies changes for all descendants. No need to duplicate changes.
+            if (getConstFieldPointer(frame_1, field) catch null) |field_pointer_1| {
+                if (getConstFieldPointer(frame_2, field) catch null) |field_pointer_2| {
+                    if (!field.has_children) { // Leaf nodes are the regular nodes that change when their raw value changes.
+                        if (!areValuesEqual(field_pointer_1.*, field_pointer_2.*)) {
+                            field_changed[field_index] = true;
+                            number_of_changes += 1;
+                        }
+                    } else switch (@typeInfo(field.Type)) { // Only optionals and tagged unions can have children.
+                        .optional => {
+                            // Optional root nodes need to change only when transitioning from and to a null value.
+                            // If only the payload changes, descendant nodes are responsible to store these changes.
+                            const changed = (field_pointer_1.* == null and field_pointer_2.* != null) or
+                                (field_pointer_1.* != null and field_pointer_2.* == null);
+                            if (changed) {
+                                field_changed[field_index] = true;
+                                number_of_changes += 1;
+                            }
+                        },
+                        .@"union" => |*info| {
+                            // Tagged union root node needs to change only when union's tag changes.
+                            // If only the payload changes, descendant nodes are responsible to store these changes.
+                            if (info.tag_type == null) {
+                                @compileError(
+                                    "Expected optional type or a tagged union but got: " ++ @typeName(field.Type),
+                                );
+                            }
+                            const tag_1 = std.meta.activeTag(field_pointer_1.*);
+                            const tag_2 = std.meta.activeTag(field_pointer_2.*);
+                            if (tag_1 != tag_2) {
+                                field_changed[field_index] = true;
+                                number_of_changes += 1;
+                            }
+                        },
+                        else => @compileError(
+                            "Expected optional type or a tagged union but got: " ++ @typeName(field.Type),
+                        ),
+                    }
                 }
-            } else switch (@typeInfo(field.Type)) { // Only optionals and tagged unions can have children.
-                .optional => {
-                    // Optional root nodes need to change only when transitioning from and to a null value.
-                    // If only the payload changes, descendant nodes are responsible to store these changes.
-                    const changed = (field_pointer_1.* == null and field_pointer_2.* != null) or
-                        (field_pointer_1.* != null and field_pointer_2.* == null);
-                    if (changed) {
-                        field_changed[field_index] = true;
-                        number_of_changes += 1;
-                    }
-                },
-                .@"union" => |*info| {
-                    // Tagged union root node needs to change only when union's tag changes.
-                    // If only the payload changes, descendant nodes are responsible to store these changes.
-                    if (info.tag_type == null) {
-                        @compileError("Expected optional type or a tagged union but got: " ++ @typeName(field.Type));
-                    }
-                    const tag_1 = std.meta.activeTag(field_pointer_1.*);
-                    const tag_2 = std.meta.activeTag(field_pointer_2.*);
-                    if (tag_1 != tag_2) {
-                        field_changed[field_index] = true;
-                        number_of_changes += 1;
-                    }
-                },
-                else => @compileError("Expected optional type or a tagged union but got: " ++ @typeName(field.Type)),
             }
         }
     }
