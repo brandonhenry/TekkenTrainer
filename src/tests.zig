@@ -7,6 +7,7 @@ test {
     _ = @import("sdk/dx12/misc.zig");
     _ = @import("sdk/dx12/testing_context.zig");
 
+    _ = @import("sdk/io/bit.zig");
     _ = @import("sdk/io/recording.zig");
     _ = @import("sdk/io/settings.zig");
 

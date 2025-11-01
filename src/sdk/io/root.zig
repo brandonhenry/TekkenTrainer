@@ -1,3 +1,5 @@
+pub const BitWriter = @import("bit.zig").BitWriter;
+pub const BitReader = @import("bit.zig").BitReader;
 pub const saveRecording = @import("recording.zig").saveRecording;
 pub const loadRecording = @import("recording.zig").loadRecording;
 pub const RecordingConfig = @import("recording.zig").RecordingConfig;
