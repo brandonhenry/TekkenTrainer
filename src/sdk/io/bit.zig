@@ -8,6 +8,7 @@ pub const BitWriter = struct {
     byte_writer: *std.io.Writer,
     bit_buffer: u8 = 0,
     bit_offset: u3 = 0,
+    absolute_position: usize = 0,
 
     const Self = @This();
 
@@ -24,6 +25,7 @@ pub const BitWriter = struct {
             try self.byte_writer.writeByte(self.bit_buffer);
             self.bit_offset = 0;
         }
+        self.absolute_position += 1;
     }
 
     pub fn writeInt(self: *Self, comptime Type: type, value: Type) !void {
@@ -42,6 +44,7 @@ pub const BitWriter = struct {
         try self.byte_writer.writeAll(container_bytes[0..number_of_bytes_to_write]);
         self.bit_offset +%= (info.value_size_in_bits % std.mem.byte_size_in_bits);
         self.bit_buffer = container_bytes[number_of_bytes_to_write];
+        self.absolute_position += info.value_size_in_bits;
     }
 
     pub fn writeFloat(self: *Self, comptime Type: type, value: Type) !void {
@@ -57,6 +60,7 @@ pub const BitWriter = struct {
     pub fn writeBytes(self: *Self, bytes: []const u8) !void {
         if (self.bit_offset == 0) {
             try self.byte_writer.writeAll(bytes);
+            self.absolute_position += bytes.len * std.mem.byte_size_in_bits;
             return;
         }
         const half_words_count = bytes.len / @sizeOf(HalfUsize);
@@ -84,11 +88,13 @@ pub const BitWriter = struct {
             self.bit_buffer = masked_buffer;
         }
         self.bit_offset +%= @intCast(number_of_bits % std.mem.byte_size_in_bits);
+        self.absolute_position += number_of_bits;
     }
 
     pub fn flush(self: *Self) !void {
         if (self.bit_offset > 0) {
             try self.byte_writer.writeByte(self.bit_buffer);
+            self.absolute_position += std.mem.byte_size_in_bits - @as(usize, self.bit_offset);
             self.bit_offset = 0;
         }
         return self.byte_writer.flush();
@@ -98,6 +104,7 @@ pub const BitWriter = struct {
 pub const BitReader = struct {
     byte_reader: *std.io.Reader,
     bit_offset: u3 = 0,
+    absolute_position: usize = 0,
 
     const Self = @This();
 
@@ -112,6 +119,7 @@ pub const BitReader = struct {
             self.byte_reader.toss(1);
             self.bit_offset = 0;
         }
+        self.absolute_position += 1;
         return value;
     }
 
@@ -135,6 +143,7 @@ pub const BitReader = struct {
         const bytes_to_toss = (@as(usize, self.bit_offset) + info.value_size_in_bits) / std.mem.byte_size_in_bits;
         self.byte_reader.toss(bytes_to_toss);
         self.bit_offset +%= (info.value_size_in_bits % std.mem.byte_size_in_bits);
+        self.absolute_position += info.value_size_in_bits;
         return value;
     }
 
@@ -151,6 +160,7 @@ pub const BitReader = struct {
     pub fn readBytes(self: *Self, buffer: []u8) !void {
         if (self.bit_offset == 0) {
             try self.byte_reader.readSliceAll(buffer);
+            self.absolute_position += buffer.len * std.mem.byte_size_in_bits;
             return;
         }
         const half_words_count = buffer.len / @sizeOf(HalfUsize);
@@ -168,6 +178,7 @@ pub const BitReader = struct {
         const bytes_to_skip = (number_of_bits + self.bit_offset) / std.mem.byte_size_in_bits;
         try self.byte_reader.discardAll(bytes_to_skip);
         self.bit_offset +%= @intCast(number_of_bits % std.mem.byte_size_in_bits);
+        self.absolute_position += number_of_bits;
     }
 };
 
@@ -450,4 +461,39 @@ test "BitReader.skip should skip correct number of bits" {
     try testing.expectEqual(true, reader.readBool());
     try reader.skip(32);
     try testing.expectEqual(true, reader.readBool());
+}
+
+test "BitWriter.absolute_position and BitReader.absolute_position should have correct values" {
+    var buffer: [8]u8 = undefined;
+
+    var byte_writer = std.io.Writer.fixed(&buffer);
+    var writer = BitWriter{ .byte_writer = &byte_writer };
+    try testing.expectEqual(0, writer.absolute_position);
+    try writer.writeBool(false);
+    try testing.expectEqual(1, writer.absolute_position);
+    try writer.writeInt(u3, 0);
+    try testing.expectEqual(4, writer.absolute_position);
+    try writer.writeFloat(f32, 0);
+    try testing.expectEqual(36, writer.absolute_position);
+    try writer.writeBytes(&.{ 0, 0, 0 });
+    try testing.expectEqual(60, writer.absolute_position);
+    try writer.writeZeroes(3);
+    try testing.expectEqual(63, writer.absolute_position);
+    try writer.flush();
+    try testing.expectEqual(64, writer.absolute_position);
+
+    var bytes: [3]u8 = undefined;
+    var byte_reader = std.io.Reader.fixed(&buffer);
+    var reader = BitReader{ .byte_reader = &byte_reader };
+    try testing.expectEqual(0, reader.absolute_position);
+    _ = try reader.readBool();
+    try testing.expectEqual(1, reader.absolute_position);
+    _ = try reader.readInt(u3);
+    try testing.expectEqual(4, reader.absolute_position);
+    _ = try reader.readFloat(f32);
+    try testing.expectEqual(36, reader.absolute_position);
+    try reader.readBytes(&bytes);
+    try testing.expectEqual(60, reader.absolute_position);
+    try reader.skip(3);
+    try testing.expectEqual(63, reader.absolute_position);
 }
