@@ -51,7 +51,11 @@ pub const MainWindow = struct {
         var title_buffer: [260]u8 = undefined;
         const asterisk = if (controller.contains_unsaved_changes) "*" else "";
         const file_name = if (self.file_menu.getFilePath()) |path| sdk.os.pathToFileName(path) else "untitled.irony";
-        const title = std.fmt.bufPrintZ(&title_buffer, "Irony - {s}{s}", .{ asterisk, file_name }) catch "Irony";
+        const title = std.fmt.bufPrintZ(
+            &title_buffer,
+            "Irony - {s}{s}###main_window",
+            .{ asterisk, file_name },
+        ) catch "Irony###main_window";
 
         const render_content = imgui.igBegin(title, &ui_instance.is_open, imgui.ImGuiWindowFlags_MenuBar);
         defer imgui.igEnd();
