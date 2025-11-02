@@ -222,11 +222,13 @@ fn imguiDependency(
     if (use_test_engine) {
         _ = files.add("root.h",
             \\#include "cimgui_test_engine.h"
+            \\#define USE_STD_FILESYSTEM
             \\#include "imgui_file_dialog/ImGuiFileDialog.h"
         );
     } else {
         _ = files.add("root.h",
             \\#include "cimgui.h"
+            \\#define USE_STD_FILESYSTEM
             \\#include "imgui_file_dialog/ImGuiFileDialog.h"
         );
     }
