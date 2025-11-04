@@ -11,7 +11,7 @@ const AllocatorWrapper = struct {
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
             .allocator = allocator,
-            .map = std.AutoHashMap([*]align(alignment) u8, usize).init(allocator),
+            .map = .init(allocator),
         };
     }
 

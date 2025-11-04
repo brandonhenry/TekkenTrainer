@@ -154,9 +154,9 @@ fn libCTimeDependency(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Module {
-    const file = b.addWriteFile(
-        "time.h",
-        "#define _POSIX_C_SOURCE 200809L\n#include <time.h>",
+    const file = b.addWriteFile("time.h",
+        \\#define _POSIX_C_SOURCE 200809L
+        \\#include <time.h>
     ).getDirectory().path(b, "time.h");
     const translate_c = b.addTranslateC(.{
         .root_source_file = file,
@@ -181,12 +181,7 @@ fn minhookDependency(
     const module = translate_c.createModule();
     module.addIncludePath(dependency.path("include"));
     module.addCSourceFiles(.{
-        .root = .{
-            .dependency = .{
-                .dependency = dependency,
-                .sub_path = "src",
-            },
-        },
+        .root = dependency.path("src"),
         .files = &.{
             "buffer.c",
             "hook.c",
@@ -222,13 +217,11 @@ fn imguiDependency(
     if (use_test_engine) {
         _ = files.add("root.h",
             \\#include "cimgui_test_engine.h"
-            \\#define USE_STD_FILESYSTEM
             \\#include "imgui_file_dialog/ImGuiFileDialog.h"
         );
     } else {
         _ = files.add("root.h",
             \\#include "cimgui.h"
-            \\#define USE_STD_FILESYSTEM
             \\#include "imgui_file_dialog/ImGuiFileDialog.h"
         );
     }
@@ -289,6 +282,7 @@ fn imguiDependency(
         library.root_module.addCMacro("IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL", "1");
         library.root_module.addCMacro("IM_DEBUG_BREAK()", "IM_ASSERT(0)");
     }
+    library.root_module.addCMacro("USE_STD_FILESYSTEM", "1");
     library.linkLibC();
     library.linkLibCpp();
     const translate_c = b.addTranslateC(.{
