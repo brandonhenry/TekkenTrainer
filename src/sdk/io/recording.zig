@@ -67,7 +67,7 @@ pub fn saveRecording(
     defer encoder.deinit();
     var encoded_buffer: [buffer_size]u8 = undefined;
     var encoder_writer = encoder.writer(&encoded_buffer);
-    var bit_writer = io.BitWriter{ .byte_writer = &encoder_writer };
+    var bit_writer = io.BitWriter{ .dest_writer = &encoder_writer };
 
     const fields = getLocalFields(Frame, config);
     writeFieldList(&bit_writer, fields) catch |err| {
@@ -122,7 +122,7 @@ pub fn loadRecording(
     defer decoder.deinit();
     var decoder_buffer: [buffer_size]u8 = undefined;
     var decoder_reader = decoder.reader(&decoder_buffer);
-    var bit_reader = io.BitReader{ .byte_reader = &decoder_reader };
+    var bit_reader = io.BitReader{ .src_reader = &decoder_reader };
 
     const local_fields = getLocalFields(Frame, config);
     var remote_fields_buffer: [max_number_of_fields]RemoteField = undefined;
