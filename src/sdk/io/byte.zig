@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const misc = @import("../misc/root.zig");
 
 pub const ByteWriter = struct {
     dest_writer: *std.io.Writer,
@@ -13,7 +14,10 @@ pub const ByteWriter = struct {
             false => 0,
             true => 1,
         };
-        try self.dest_writer.writeByte(byte);
+        self.dest_writer.writeByte(byte) catch |err| {
+            misc.error_context.new("Failed to write byte to the destination: {}", .{byte});
+            return err;
+        };
         self.absolute_position += 1;
     }
 
@@ -33,7 +37,13 @@ pub const ByteWriter = struct {
             .bits = write_bytes * std.mem.byte_size_in_bits,
         } });
         const write_value: WriteType = @intCast(value);
-        try self.dest_writer.writeInt(WriteType, write_value, self.endian);
+        self.dest_writer.writeInt(WriteType, write_value, self.endian) catch |err| {
+            misc.error_context.new(
+                "Failed to write int to the destination: {} ({s})",
+                .{ write_value, @typeName(WriteType) },
+            );
+            return err;
+        };
         self.absolute_position += write_bytes;
     }
 
@@ -44,7 +54,10 @@ pub const ByteWriter = struct {
         };
         const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
         const int_value: IntType = @bitCast(value);
-        return self.writeInt(IntType, int_value);
+        return self.writeInt(IntType, int_value) catch |err| {
+            misc.error_context.new("Failed to write int: {} ({s})", .{ int_value, @typeName(IntType) });
+            return err;
+        };
     }
 
     pub fn writeEnum(self: *Self, comptime Type: type, value: Type) !void {
@@ -54,23 +67,35 @@ pub const ByteWriter = struct {
         };
         const IntType = info.tag_type;
         const int_value: IntType = @intFromEnum(value);
-        return self.writeInt(IntType, int_value);
+        return self.writeInt(IntType, int_value) catch |err| {
+            misc.error_context.new("Failed to write int: {} ({s})", .{ int_value, @typeName(IntType) });
+            return err;
+        };
     }
 
     pub fn writeBytes(self: *Self, bytes: []const u8) !void {
-        try self.dest_writer.writeAll(bytes);
+        self.dest_writer.writeAll(bytes) catch |err| {
+            misc.error_context.new("Failed to write {} bytes to the destination.", .{bytes.len});
+            return err;
+        };
         self.absolute_position += bytes.len;
     }
 
     pub fn writeZeroes(self: *Self, number_of_bytes: usize) !void {
         for (0..number_of_bytes) |_| {
-            try self.dest_writer.writeByte(0);
+            self.dest_writer.writeByte(0) catch |err| {
+                misc.error_context.new("Failed to write {} zero bytes to the destination.", .{number_of_bytes});
+                return err;
+            };
             self.absolute_position += 1;
         }
     }
 
     pub fn flush(self: *Self) !void {
-        try self.dest_writer.flush();
+        self.dest_writer.flush() catch |err| {
+            misc.error_context.new("Failed to flush the destination.", .{});
+            return err;
+        };
     }
 };
 
@@ -82,13 +107,19 @@ pub const ByteReader = struct {
     const Self = @This();
 
     pub fn readBool(self: *Self) !bool {
-        const byte = try self.src_reader.takeByte();
-        self.absolute_position += 1;
-        return switch (byte) {
-            0 => false,
-            1 => true,
-            else => error.InvalidValue,
+        const byte = self.src_reader.takeByte() catch |err| {
+            misc.error_context.new("Failed to take byte from source.", .{});
+            return err;
         };
+        self.absolute_position += 1;
+        switch (byte) {
+            0 => return false,
+            1 => return true,
+            else => {
+                misc.error_context.new("Invalid byte value for bool: {}", .{byte});
+                return error.InvalidValue;
+            },
+        }
     }
 
     pub fn readInt(self: *Self, comptime Type: type) !Type {
@@ -106,9 +137,15 @@ pub const ByteReader = struct {
             .signedness = info.signedness,
             .bits = read_bytes * std.mem.byte_size_in_bits,
         } });
-        const read_value = try self.src_reader.takeInt(ReadType, self.endian);
+        const read_value = self.src_reader.takeInt(ReadType, self.endian) catch |err| {
+            misc.error_context.new("Failed to take int from source. ({s})", .{@typeName(ReadType)});
+            return err;
+        };
         self.absolute_position += read_bytes;
-        return std.math.cast(Type, read_value) orelse error.InvalidValue;
+        return std.math.cast(Type, read_value) orelse {
+            misc.error_context.new("Failed to cast {} to {s}.", .{ read_value, @typeName(Type) });
+            return error.InvalidValue;
+        };
     }
 
     pub fn readFloat(self: *Self, comptime Type: type) !Type {
@@ -117,7 +154,10 @@ pub const ByteReader = struct {
             else => @compileError("Expecting Type to be a float type but got: " ++ @typeName(Type)),
         };
         const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
-        const int_value = try self.readInt(IntType);
+        const int_value = self.readInt(IntType) catch |err| {
+            misc.error_context.new("Failed to read int. ({s})", .{@typeName(IntType)});
+            return err;
+        };
         return @bitCast(int_value);
     }
 
@@ -127,22 +167,35 @@ pub const ByteReader = struct {
             else => @compileError("Expecting Type to be a enum type but got: " ++ @typeName(Type)),
         };
         const IntType = info.tag_type;
-        const int_value = try self.readInt(IntType);
+        const int_value = self.readInt(IntType) catch |err| {
+            misc.error_context.new("Failed to read int. ({s})", .{@typeName(IntType)});
+            return err;
+        };
         inline for (info.fields) |*field| {
             if (field.value == int_value) {
                 return @enumFromInt(int_value);
             }
         }
+        misc.error_context.new(
+            "Integer value {} ({s}) does not match any enum variants. ({s})",
+            .{ int_value, @typeName(IntType), @typeName(Type) },
+        );
         return error.InvalidValue;
     }
 
     pub fn readBytes(self: *Self, buffer: []u8) !void {
-        try self.src_reader.readSliceAll(buffer);
+        self.src_reader.readSliceAll(buffer) catch |err| {
+            misc.error_context.new("Failed to read {} bytes from source.", .{buffer.len});
+            return err;
+        };
         self.absolute_position += buffer.len;
     }
 
     pub fn skip(self: *Self, number_of_bytes: usize) !void {
-        try self.src_reader.discardAll(number_of_bytes);
+        self.src_reader.discardAll(number_of_bytes) catch |err| {
+            misc.error_context.new("Failed to discard {} bytes from the source.", .{number_of_bytes});
+            return err;
+        };
         self.absolute_position += number_of_bytes;
     }
 };

@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const misc = @import("../misc/root.zig");
 
 const native_endian = builtin.target.cpu.arch.endian();
 const HalfUsize = @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(usize) / 2 } });
@@ -22,7 +23,10 @@ pub const BitWriter = struct {
         if (self.bit_offset < 7) {
             self.bit_offset += 1;
         } else {
-            try self.dest_writer.writeByte(self.bit_buffer);
+            self.dest_writer.writeByte(self.bit_buffer) catch |err| {
+                misc.error_context.new("Failed to write byte to the destination: {}", .{self.bit_buffer});
+                return err;
+            };
             self.bit_offset = 0;
         }
         self.absolute_position += 1;
@@ -41,7 +45,10 @@ pub const BitWriter = struct {
         const masked_buffer = self.bit_buffer & buffer_mask;
         container_bytes[0] |= masked_buffer;
         const number_of_bytes_to_write = (@as(usize, self.bit_offset) + info.value_size_in_bits) / std.mem.byte_size_in_bits;
-        try self.dest_writer.writeAll(container_bytes[0..number_of_bytes_to_write]);
+        self.dest_writer.writeAll(container_bytes[0..number_of_bytes_to_write]) catch |err| {
+            misc.error_context.new("Failed to write {} bytes to the destination.", .{number_of_bytes_to_write});
+            return err;
+        };
         self.bit_offset +%= (info.value_size_in_bits % std.mem.byte_size_in_bits);
         self.bit_buffer = container_bytes[number_of_bytes_to_write];
         self.absolute_position += info.value_size_in_bits;
@@ -54,23 +61,35 @@ pub const BitWriter = struct {
         };
         const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
         const int_value: IntType = @bitCast(value);
-        return self.writeInt(IntType, int_value);
+        self.writeInt(IntType, int_value) catch |err| {
+            misc.error_context.new("Failed to bit write integer: {} ({s})", .{ int_value, @typeName(IntType) });
+            return err;
+        };
     }
 
     pub fn writeBytes(self: *Self, bytes: []const u8) !void {
         if (self.bit_offset == 0) {
-            try self.dest_writer.writeAll(bytes);
+            self.dest_writer.writeAll(bytes) catch |err| {
+                misc.error_context.new("Failed to write {} bytes to the destination.", .{bytes.len});
+                return err;
+            };
             self.absolute_position += bytes.len * std.mem.byte_size_in_bits;
             return;
         }
         const half_words_count = bytes.len / @sizeOf(HalfUsize);
         const half_words = std.mem.bytesAsSlice(HalfUsize, bytes[0..(@sizeOf(HalfUsize) * half_words_count)]);
         for (half_words) |word| {
-            try self.writeInt(HalfUsize, word);
+            self.writeInt(HalfUsize, word) catch |err| {
+                misc.error_context.new("Failed to bit write half word: {} ({s})", .{ word, @typeName(HalfUsize) });
+                return err;
+            };
         }
         const remainder = bytes[(@sizeOf(HalfUsize) * half_words_count)..bytes.len];
         for (remainder) |byte| {
-            try self.writeInt(u8, byte);
+            self.writeInt(u8, byte) catch |err| {
+                misc.error_context.new("Failed to bit write remainder byte: {} ({s})", .{ byte, @typeName(u8) });
+                return err;
+            };
         }
     }
 
@@ -79,10 +98,16 @@ pub const BitWriter = struct {
         const masked_buffer = self.bit_buffer & buffer_mask;
         const bytes_to_write = (number_of_bits + self.bit_offset) / std.mem.byte_size_in_bits;
         if (bytes_to_write > 0) {
-            try self.dest_writer.writeByte(masked_buffer);
+            self.dest_writer.writeByte(masked_buffer) catch |err| {
+                misc.error_context.new("Failed to write byte to the destination: {}", .{masked_buffer});
+                return err;
+            };
             self.bit_buffer = 0;
             for (0..(bytes_to_write - 1)) |_| {
-                try self.dest_writer.writeByte(0);
+                self.dest_writer.writeByte(0) catch |err| {
+                    misc.error_context.new("Failed to write {} zero bytes to the destination.", .{bytes_to_write});
+                    return err;
+                };
             }
         } else {
             self.bit_buffer = masked_buffer;
@@ -93,11 +118,17 @@ pub const BitWriter = struct {
 
     pub fn flush(self: *Self) !void {
         if (self.bit_offset > 0) {
-            try self.dest_writer.writeByte(self.bit_buffer);
+            self.dest_writer.writeByte(self.bit_buffer) catch |err| {
+                misc.error_context.new("Failed to write byte to the destination: {}", .{self.bit_buffer});
+                return err;
+            };
             self.absolute_position += std.mem.byte_size_in_bits - @as(usize, self.bit_offset);
             self.bit_offset = 0;
         }
-        try self.dest_writer.flush();
+        self.dest_writer.flush() catch |err| {
+            misc.error_context.new("Failed to flush the destination.", .{});
+            return err;
+        };
     }
 };
 
@@ -109,7 +140,10 @@ pub const BitReader = struct {
     const Self = @This();
 
     pub fn readBool(self: *Self) !bool {
-        const byte = try self.src_reader.peekByte();
+        const byte = self.src_reader.peekByte() catch |err| {
+            misc.error_context.new("Failed to peek byte from source.", .{});
+            return err;
+        };
         const mask = @shlExact(@as(u8, 1), self.bit_offset);
         const masked_byte = byte & mask;
         const value = masked_byte != 0;
@@ -134,7 +168,10 @@ pub const BitReader = struct {
             container_bytes.* = slice.*;
         } else if (self.src_reader.peekArray(info.container_size_in_bytes - 1)) |slice| {
             container_bytes.* = slice.* ++ .{0};
-        } else |err| return err;
+        } else |err| {
+            misc.error_context.new("Failed to peek {} bytes from source.", .{info.container_size_in_bytes - 1});
+            return err;
+        }
         container >>= self.bit_offset;
         const mask = ~((~@as(info.ContainerType, 0)) << info.value_size_in_bits);
         container &= mask;
@@ -153,30 +190,45 @@ pub const BitReader = struct {
             else => @compileError("Expecting Type to be a float type but got: " ++ @typeName(Type)),
         };
         const IntType = @Type(.{ .int = .{ .signedness = .unsigned, .bits = info.bits } });
-        const int_value = try self.readInt(IntType);
+        const int_value = self.readInt(IntType) catch |err| {
+            misc.error_context.new("Failed to bit read integer. ({s})", .{@typeName(IntType)});
+            return err;
+        };
         return @bitCast(int_value);
     }
 
     pub fn readBytes(self: *Self, buffer: []u8) !void {
         if (self.bit_offset == 0) {
-            try self.src_reader.readSliceAll(buffer);
+            self.src_reader.readSliceAll(buffer) catch |err| {
+                misc.error_context.new("Failed to read {} bytes from the source.", .{buffer.len});
+                return err;
+            };
             self.absolute_position += buffer.len * std.mem.byte_size_in_bits;
             return;
         }
         const half_words_count = buffer.len / @sizeOf(HalfUsize);
         const half_words = std.mem.bytesAsSlice(HalfUsize, buffer[0..(@sizeOf(HalfUsize) * half_words_count)]);
         for (half_words) |*half_word| {
-            half_word.* = try self.readInt(HalfUsize);
+            half_word.* = self.readInt(HalfUsize) catch |err| {
+                misc.error_context.new("Failed to bit read half word. ({s})", .{@typeName(HalfUsize)});
+                return err;
+            };
         }
         const remainder = buffer[(@sizeOf(HalfUsize) * half_words_count)..buffer.len];
         for (remainder) |*byte| {
-            byte.* = try self.readInt(u8);
+            byte.* = self.readInt(u8) catch |err| {
+                misc.error_context.new("Failed to bit read remainder byte. ({s})", .{@typeName(u8)});
+                return err;
+            };
         }
     }
 
     pub fn skip(self: *Self, number_of_bits: usize) !void {
         const bytes_to_skip = (number_of_bits + self.bit_offset) / std.mem.byte_size_in_bits;
-        try self.src_reader.discardAll(bytes_to_skip);
+        self.src_reader.discardAll(bytes_to_skip) catch |err| {
+            misc.error_context.new("Failed to discard {} bytes from source.", .{bytes_to_skip});
+            return err;
+        };
         self.bit_offset +%= @intCast(number_of_bits % std.mem.byte_size_in_bits);
         self.absolute_position += number_of_bits;
     }

@@ -81,7 +81,7 @@ pub fn saveRecording(
     };
 
     bit_writer.flush() catch |err| {
-        misc.error_context.new("Failed to flush bit writer.", .{});
+        misc.error_context.append("Failed to flush bit writer.", .{});
         return err;
     };
     file_writer.end() catch |err| {
@@ -141,22 +141,22 @@ pub fn loadRecording(
 
 fn writeFieldList(writer: *io.BitWriter, comptime fields: []const LocalField) !void {
     writer.writeInt(FieldIndex, @intCast(fields.len)) catch |err| {
-        misc.error_context.new("Failed to write number of fields: {}", .{fields.len});
+        misc.error_context.append("Failed to write number of fields: {}", .{fields.len});
         return err;
     };
     inline for (fields) |*field| {
         errdefer misc.error_context.append("Failed to write field: {s}", .{field.path});
         writer.writeInt(FieldPathLength, @intCast(field.path.len)) catch |err| {
-            misc.error_context.new("Failed to write the size of field path: {}", .{field.path.len});
+            misc.error_context.append("Failed to write the size of field path: {}", .{field.path.len});
             return err;
         };
         writer.writeBytes(field.path) catch |err| {
-            misc.error_context.new("Failed to write the field path: {s}", .{field.path});
+            misc.error_context.append("Failed to write the field path: {s}", .{field.path});
             return err;
         };
         const bit_size: FieldBitSize = serializedBitSizeOf(field.Type);
         writer.writeInt(FieldBitSize, bit_size) catch |err| {
-            misc.error_context.new("Failed to write the field bit size: {}", .{bit_size});
+            misc.error_context.append("Failed to write the field bit size: {}", .{bit_size});
             return err;
         };
     }
@@ -168,7 +168,7 @@ fn readFieldList(
     comptime local_fields: []const LocalField,
 ) ![]RemoteField {
     const remote_fields_len = reader.readInt(FieldIndex) catch |err| {
-        misc.error_context.new("Failed to read number of fields.", .{});
+        misc.error_context.append("Failed to read number of fields.", .{});
         return err;
     };
     if (remote_fields_len > remote_fields_buffer.len) {
@@ -181,17 +181,17 @@ fn readFieldList(
     for (0..remote_fields_len) |index| {
         errdefer misc.error_context.append("Failed to read field: {}", .{index});
         const path_len = reader.readInt(FieldPathLength) catch |err| {
-            misc.error_context.new("Failed to read the size of the field path.", .{});
+            misc.error_context.append("Failed to read the size of the field path.", .{});
             return err;
         };
         var path_buffer: [max_field_path_len]u8 = undefined;
         const path = path_buffer[0..path_len];
         reader.readBytes(path) catch |err| {
-            misc.error_context.new("Failed to read the field path.", .{});
+            misc.error_context.append("Failed to read the field path.", .{});
             return err;
         };
         const remote_bit_size = reader.readInt(FieldBitSize) catch |err| {
-            misc.error_context.new("Failed to read the field bit size. Field path is: {s}", .{path});
+            misc.error_context.append("Failed to read the field bit size. Field path is: {s}", .{path});
             return err;
         };
         inline for (local_fields, 0..) |*local_field, local_index| {
@@ -220,7 +220,7 @@ fn writeFrames(
     comptime fields: []const LocalField,
 ) !void {
     writer.writeInt(NumberOfFrames, @intCast(frames.len)) catch |err| {
-        misc.error_context.new("Failed to write number of frames: {}", .{frames.len});
+        misc.error_context.append("Failed to write number of frames: {}", .{frames.len});
         return err;
     };
     for (frames, 0..) |*frame, frame_index| {
@@ -230,14 +230,14 @@ fn writeFrames(
             else => findFieldChanges(Frame, frame, &frames[frame_index - 1], fields),
         };
         writer.writeInt(FieldIndex, changes.number_of_changes) catch |err| {
-            misc.error_context.new("Failed to write number of changes: {}", .{changes.number_of_changes});
+            misc.error_context.append("Failed to write number of changes: {}", .{changes.number_of_changes});
             return err;
         };
         inline for (fields, 0..) |*field, field_index| {
             if (changes.field_changed[field_index]) {
                 errdefer misc.error_context.append("Failed to write change for field: {s}", .{field.path});
                 writer.writeInt(FieldIndex, @intCast(field_index)) catch |err| {
-                    misc.error_context.new("Failed to write field index: {}", .{field_index});
+                    misc.error_context.append("Failed to write field index: {}", .{field_index});
                     return err;
                 };
                 const field_pointer = getConstFieldPointer(frame, field) catch unreachable;
@@ -374,7 +374,7 @@ fn readFrames(
     comptime local_fields: []const LocalField,
 ) ![]Frame {
     const number_of_frames = reader.readInt(NumberOfFrames) catch |err| {
-        misc.error_context.new("Failed to read number of frames.", .{});
+        misc.error_context.append("Failed to read number of frames.", .{});
         return err;
     };
     const frames = allocator.alloc(Frame, number_of_frames) catch |err| {
@@ -388,13 +388,13 @@ fn readFrames(
     for (0..number_of_frames) |frame_index| {
         errdefer misc.error_context.append("Failed read frame: {}", .{frame_index});
         const number_of_changes = reader.readInt(FieldIndex) catch |err| {
-            misc.error_context.new("Failed to read number changes.", .{});
+            misc.error_context.append("Failed to read number changes.", .{});
             return err;
         };
         for (0..number_of_changes) |change_index| {
             errdefer misc.error_context.append("Failed read change: {}", .{change_index});
             const remote_index = reader.readInt(FieldIndex) catch |err| {
-                misc.error_context.new("Failed to read field index.", .{});
+                misc.error_context.append("Failed to read field index.", .{});
                 return err;
             };
             if (remote_index >= remote_fields.len) {
@@ -483,21 +483,21 @@ fn writeValue(writer: *io.BitWriter, value_pointer: anytype) !void {
         .bool => {
             const value = value_pointer.*;
             writer.writeBool(value_pointer.*) catch |err| {
-                misc.error_context.new("Failed to write bool: {}", .{value});
+                misc.error_context.append("Failed to write bool: {}", .{value});
                 return err;
             };
         },
         .int => {
             const value = value_pointer.*;
             writer.writeInt(Type, value) catch |err| {
-                misc.error_context.new("Failed to write int: {} ({s})", .{ value, @typeName(Type) });
+                misc.error_context.append("Failed to write int: {} ({s})", .{ value, @typeName(Type) });
                 return err;
             };
         },
         .float => {
             const value = value_pointer.*;
             writer.writeFloat(Type, value) catch |err| {
-                misc.error_context.new("Failed to write float: {} ({s})", .{ value, @typeName(Type) });
+                misc.error_context.append("Failed to write float: {} ({s})", .{ value, @typeName(Type) });
                 return err;
             };
         },
@@ -516,7 +516,7 @@ fn writeValue(writer: *io.BitWriter, value_pointer: anytype) !void {
         .optional => |*info| {
             if (value_pointer.*) |*child_pointer| {
                 writer.writeBool(true) catch |err| {
-                    misc.error_context.new("Failed to write optional's tag bit: 1", .{});
+                    misc.error_context.append("Failed to write optional's tag: 1", .{});
                     return err;
                 };
                 writeValue(writer, child_pointer) catch |err| {
@@ -525,11 +525,11 @@ fn writeValue(writer: *io.BitWriter, value_pointer: anytype) !void {
                 };
             } else {
                 writer.writeBool(false) catch |err| {
-                    misc.error_context.new("Failed to write optional's tag bit: 0", .{});
+                    misc.error_context.append("Failed to write optional's tag: 0", .{});
                     return err;
                 };
                 writer.writeZeroes(serializedBitSizeOf(info.child)) catch |err| {
-                    misc.error_context.new("Failed to write optional's null padding.", .{});
+                    misc.error_context.append("Failed to write optional's null padding.", .{});
                     return err;
                 };
             }
@@ -588,7 +588,7 @@ fn writeValue(writer: *io.BitWriter, value_pointer: anytype) !void {
                     };
                     const padding_size = serializedBitSizeOf(Type) - serializedBitSizeOf(Tag) - serializedBitSizeOf(Payload);
                     writer.writeZeroes(padding_size) catch |err| {
-                        misc.error_context.new("Failed to write union's padding.", .{});
+                        misc.error_context.append("Failed to write union's padding.", .{});
                         return err;
                     };
                 },
@@ -613,19 +613,19 @@ fn readValue(comptime Type: type, reader: *io.BitReader) anyerror!Type {
         .void => return {},
         .bool => {
             return reader.readBool() catch |err| {
-                misc.error_context.new("Failed to read bool's byte.", .{});
+                misc.error_context.append("Failed to read bool.", .{});
                 return err;
             };
         },
         .int => {
             return reader.readInt(Type) catch |err| {
-                misc.error_context.new("Failed to read int. ({s})", .{@typeName(Type)});
+                misc.error_context.append("Failed to read int. ({s})", .{@typeName(Type)});
                 return err;
             };
         },
         .float => {
             return reader.readFloat(Type) catch |err| {
-                misc.error_context.new("Failed to read float. ({s})", .{@typeName(Type)});
+                misc.error_context.append("Failed to read float. ({s})", .{@typeName(Type)});
                 return err;
             };
         },
@@ -645,7 +645,7 @@ fn readValue(comptime Type: type, reader: *io.BitReader) anyerror!Type {
         },
         .optional => |*info| {
             const is_present = reader.readBool() catch |err| {
-                misc.error_context.new("Failed to read optional's tag bit.", .{});
+                misc.error_context.append("Failed to read optional's tag.", .{});
                 return err;
             };
             if (is_present) {
