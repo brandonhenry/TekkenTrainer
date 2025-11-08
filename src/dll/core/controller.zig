@@ -162,7 +162,7 @@ pub const Controller = struct {
                 if (task_result.* != null) {
                     self.cleanUpModeState();
                     self.mode = .{ .pause = .{
-                        .frame_index = 0,
+                        .frame_index = self.recording.items.len -| 1,
                         .is_frame_processed = false,
                     } };
                 } else if (state.frame_index) |frame_index| {
@@ -431,6 +431,7 @@ pub const Controller = struct {
             return;
         };
         std.log.debug("Spawning save recording task...", .{});
+        self.cleanUpModeState(); // Called here to ensure the recorded segment gets flushed before spawning the task.
         const task = SaveTask.spawn(self.allocator, struct {
             fn call(
                 allocator: std.mem.Allocator,
@@ -456,7 +457,6 @@ pub const Controller = struct {
             return;
         };
         const frame_index = self.getCurrentFrameIndex();
-        self.cleanUpModeState();
         self.mode = .{ .save = .{
             .task = task,
             .frame_index = frame_index,
