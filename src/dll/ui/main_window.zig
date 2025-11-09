@@ -123,6 +123,11 @@ pub const MainWindow = struct {
                 ui_instance.frame_window.is_open = true;
                 imgui.igSetWindowFocus_Str(ui.FrameWindow.name);
             }
+            imgui.igSeparator();
+            if (imgui.igMenuItem_Bool(ui.AboutWindow.name, null, false, true)) {
+                ui_instance.about_window.is_open = true;
+                imgui.igSetWindowFocus_Str(ui.AboutWindow.name);
+            }
         }
     }
 

@@ -16,6 +16,7 @@ pub const Ui = struct {
     logs_window: ui.LogsWindow = .{},
     game_memory_window: ui.GameMemoryWindow = .{},
     frame_window: ui.FrameWindow = .{},
+    about_window: ui.AboutWindow = .{},
 
     const Self = @This();
 
@@ -71,6 +72,7 @@ pub const Ui = struct {
         self.logs_window.draw(dll.buffer_logger);
         self.game_memory_window.draw(game_memory);
         self.frame_window.draw(controller.getCurrentFrame());
+        self.about_window.draw();
     }
 
     fn handleFirstDraw(self: *Self) void {

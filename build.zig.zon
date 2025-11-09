@@ -24,6 +24,10 @@
     // In this application, this indicates the major version of Zig that is successfully going to compile the project.
     .minimum_zig_version = "0.15.0",
 
+    // Link to home page.
+    // Not a standard build.zig.zon field.
+    .home_page = "https://example.com",
+
     // Author of the project.
     // Not a standard build.zig.zon field.
     .author = "Tomislav Ivanković",
