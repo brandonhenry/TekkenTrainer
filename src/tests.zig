@@ -108,6 +108,7 @@ test {
     _ = @import("dll/ui/ingame_camera.zig");
     _ = @import("dll/ui/logs_window.zig");
     _ = @import("dll/ui/main_window.zig");
+    _ = @import("dll/ui/measure_tool.zig");
     _ = @import("dll/ui/message_window.zig");
     _ = @import("dll/ui/navigation_layout.zig");
     _ = @import("dll/ui/quadrant_layout.zig");

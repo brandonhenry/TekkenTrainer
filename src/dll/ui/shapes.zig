@@ -3,6 +3,14 @@ const imgui = @import("imgui");
 const sdk = @import("../../sdk/root.zig");
 const ui = @import("../ui/root.zig");
 
+pub fn drawPoint(position: sdk.math.Vec3, color: sdk.math.Vec4, thickness: f32, matrix: sdk.math.Mat4) void {
+    const draw_list = imgui.igGetWindowDrawList();
+    const transformed = position.pointTransform(matrix).swizzle("xy").toImVec();
+    const u32_color = imgui.igGetColorU32_Vec4(color.toImVec());
+
+    imgui.ImDrawList_AddCircleFilled(draw_list, transformed, 0.5 * thickness, u32_color, 16);
+}
+
 pub fn drawLine(line: sdk.math.LineSegment3, color: sdk.math.Vec4, thickness: f32, matrix: sdk.math.Mat4) void {
     const draw_list = imgui.igGetWindowDrawList();
     const point_1 = line.point_1.pointTransform(matrix).swizzle("xy").toImVec();

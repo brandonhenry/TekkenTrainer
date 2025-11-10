@@ -57,14 +57,14 @@ pub const Camera = struct {
             self.transform.translation = self.transform.translation.add(delta_translation);
             self.transform.scale *= scale_factor;
         }
-        if (imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseLeft)) {
+        if (imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseRight)) {
             const delta_mouse = imgui.igGetIO_Nil().*.MouseDelta;
             const delta_screen = sdk.math.Vec2.fromImVec(delta_mouse).extend(0);
             const delta_world = delta_screen.directionTransform(inverse_matrix);
             self.transform.translation = self.transform.translation.add(delta_world);
             imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeAll);
         }
-        if (direction != .top and imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseRight)) {
+        if (direction != .top and imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseMiddle)) {
             var window_pos: imgui.ImVec2 = undefined;
             imgui.igGetCursorScreenPos(&window_pos);
             var window_size: imgui.ImVec2 = undefined;
@@ -94,7 +94,7 @@ pub const Camera = struct {
         } else {
             self.rotation_radius = null;
         }
-        if (direction == .top and imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseRight)) {
+        if (direction == .top and imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseMiddle)) {
             var window_pos: sdk.math.Vec2 = undefined;
             imgui.igGetCursorScreenPos(window_pos.asImVec());
             var window_size: sdk.math.Vec2 = undefined;
@@ -120,9 +120,6 @@ pub const Camera = struct {
             } else {
                 imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeNWSE);
             }
-        }
-        if (imgui.igIsKeyPressed_Bool(imgui.ImGuiKey_MouseMiddle, false)) {
-            self.transform = .{};
         }
     }
 
