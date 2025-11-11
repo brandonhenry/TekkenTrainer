@@ -9,6 +9,7 @@ const ui = @import("root.zig");
 pub const MainWindow = struct {
     quadrant_layout: ui.QuadrantLayout = .{},
     view: ui.View = .{},
+    details: ui.Details = .{},
     controls: ui.Controls(.{}) = .{},
     file_menu: ui.FileMenu = .{},
     controls_height: f32 = 0,
@@ -22,10 +23,12 @@ pub const MainWindow = struct {
 
     pub fn processFrame(self: *Self, settings: *const model.Settings, frame: *const model.Frame) void {
         self.view.processFrame(settings, frame);
+        self.details.processFrame(frame, settings.misc.details_columns);
     }
 
     pub fn update(self: *Self, delta_time: f32, controller: *core.Controller) void {
         self.view.update(delta_time);
+        self.details.update(delta_time);
         self.file_menu.update(controller);
     }
 
@@ -147,7 +150,6 @@ pub const MainWindow = struct {
     }
 
     fn drawDetails(context: QuadrantContext) void {
-        const frame = context.frame orelse return;
-        ui.drawDetails(frame, context.settings.misc.details_columns);
+        context.self.details.draw(context.settings.misc.details_columns);
     }
 };

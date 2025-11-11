@@ -3,23 +3,49 @@ const sdk = @import("../../sdk/root.zig");
 pub const U32ActualMax = struct {
     actual: ?u32,
     max: ?u32,
+
+    const Self = @This();
+    pub const nulls = Self{
+        .actual = null,
+        .max = null,
+    };
 };
 
 pub const U32ActualMinMax = struct {
     actual: ?u32,
     min: ?u32,
     max: ?u32,
+
+    const Self = @This();
+    pub const nulls = Self{
+        .actual = null,
+        .min = null,
+        .max = null,
+    };
 };
 
 pub const I32ActualMinMax = struct {
     actual: ?i32,
     min: ?i32,
     max: ?i32,
+
+    const Self = @This();
+    pub const nulls = Self{
+        .actual = null,
+        .min = null,
+        .max = null,
+    };
 };
 
 pub const F32MinMax = struct {
     min: ?f32,
     max: ?f32,
+
+    const Self = @This();
+    pub const nulls = Self{
+        .min = null,
+        .max = null,
+    };
 };
 
 pub const MovePhase = enum(u3) {
