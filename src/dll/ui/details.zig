@@ -5,36 +5,334 @@ const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
 
 pub const Details = struct {
-    frames_since_round_start: Row("Since Round Start", u32, null, drawU32) = .{},
-    character_id: Row("Character ID", u32, null, drawU32) = .{},
-    animation_id: Row("Animation ID", u32, null, drawU32) = .{},
-    animation_frame: Row("Animation Frame", u32, null, drawU32) = .{},
-    animation_total_frames: Row("Animation Total Frames", u32, null, drawU32) = .{},
-    move_phase: Row("Move Phase", model.MovePhase, null, drawMovePhase) = .{},
-    move_frame: Row("Move Frame", u32, null, drawU32) = .{},
-    startup_frames: Row("Startup Frames", model.U32ActualMinMax, .nulls, drawU32ActualMinMax) = .{},
-    active_frames: Row("Active Frames", model.U32ActualMax, .nulls, drawU32ActualMax) = .{},
-    recovery_frames: Row("Recovery Frames", model.U32ActualMinMax, .nulls, drawU32ActualMinMax) = .{},
-    total_frames: Row("Total Frames", u32, null, drawU32) = .{},
-    frame_advantage: Row("Frame Advantage", model.I32ActualMinMax, .nulls, drawI32ActualMinMax) = .{},
-    attack_type: Row("Attack Type", model.AttackType, .not_attack, drawAttackType) = .{},
-    attack_range: Row("Attack Range [m]", f32, null, drawF32Div100) = .{},
-    attack_height: Row("Attack Height [cm]", model.F32MinMax, .nulls, drawF32MinMax) = .{},
-    recovery_range: Row("Recovery Range [m]", f32, null, drawF32Div100) = .{},
-    attack_damage: Row("Attack Damage", i32, null, drawI32) = .{},
-    hit_outcome: Row("Hit Outcome", model.HitOutcome, .none, drawHitOutcome) = .{},
-    posture: Row("Posture", model.Posture, null, drawPosture) = .{},
-    blocking: Row("Blocking", model.Blocking, null, drawBlocking) = .{},
-    crushing: Row("Crushing", model.Crushing, null, drawCrushing) = .{},
-    can_move: Row("Can Move", bool, null, drawYesNo) = .{},
-    input: Row("Input", model.Input, null, drawInput) = .{},
-    health: Row("Health", i32, null, drawI32) = .{},
-    rage: Row("Rage", model.Rage, null, drawRage) = .{},
-    heat: Row("Heat", model.Heat, null, drawHeat) = .{},
-    distance_to_opponent: Row("Distance To Opponent [m]", f32, null, drawF32Div100) = .{},
-    angle_to_opponent: Row("Angle To Opponent [°]", f32, null, drawF32) = .{},
-    hit_lines_height: Row("Hit Lines Height [cm]", model.F32MinMax, .nulls, drawF32MinMax) = .{},
-    hurt_cylinders_height: Row("Hurt Cylinders Height [cm]", model.F32MinMax, .nulls, drawF32MinMax) = .{},
+    frames_since_round_start: Row(
+        "Since Round Start",
+        \\Number of frames that passed since round start.
+        \\Does not increase beyond 65535.
+    ,
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    character_id: Row(
+        "Character ID",
+        "ID of the character that the player is currently playing.",
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    animation_id: Row(
+        "Animation ID",
+        "ID of the animation that the character is currently performing.",
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    animation_frame: Row(
+        "Animation Frame",
+        \\Index of the currently playing frame inside the current animation.
+        \\Usually, gets set to 1 at the start of a new animation and increases by 1 each frame.
+        \\However, there are situations where the game can freeze animations.
+        \\This results in this number not increasing during that freeze.
+    ,
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    animation_total_frames: Row(
+        "Animation Total Frames",
+        \\For most animations, this number indicates the last frame of the animation.
+        \\For some animations, the "Animation Frame" can go above this number.
+        \\This happens when the player is in recovery state, but has delayed recovery because of not holding back.
+        \\As soon as player does any input from this state, the game will transition to the next animation.
+    ,
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    move_phase: Row(
+        "Move Phase",
+        \\One of the following:
+        \\Neutral - Moving freely.
+        \\Start Up - Attack is winding up. Getting hit results in getting counter-hit.
+        \\Active - Game is currently checking hit line hurt cylinder intersections.
+        \\Active Recovery - Active frame that got turned into recovery because of the attack already connecting.
+        \\Recovery - Move is cooling down. Player is unable to interact until recovery ends.
+    ,
+        model.MovePhase,
+        null,
+        drawMovePhase,
+    ) = .{},
+    move_frame: Row(
+        "Move Frame",
+        \\In most situations, same as "Animation Frame".
+        \\However, in situations where the game freezes ether player's animation, this number stops increasing in value.
+        \\This causes the value to diverge from "Animation Frame", but makes the value better for frame data math.
+    ,
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    startup_frames: Row(
+        "Startup Frames",
+        \\Number of frames that the current attack is in start up phase.
+        \\Frames in which ether player's animation is frozen are not counted in this value.
+        \\The value outside brackets indicates the startup frames in the current interaction.
+        \\The values inside brackets indicate the minimum and maximum possible startup frames for the current attack.
+    ,
+        model.U32ActualMinMax,
+        .nulls,
+        drawU32ActualMinMax,
+    ) = .{},
+    active_frames: Row(
+        "Active Frames",
+        \\Number of frames that the current attack is in active phase.
+        \\The value outside brackets indicates the active frames in the current interaction.
+        \\The values inside brackets indicate the minimum and maximum possible active frames for the current attack.
+    ,
+        model.U32ActualMax,
+        .nulls,
+        drawU32ActualMax,
+    ) = .{},
+    recovery_frames: Row(
+        "Recovery Frames",
+        \\Number of frames that the current move is in recovery phase.
+        \\Frames in which ether player's animation is frozen are not counted in this value.
+        \\The value outside brackets indicates the recovery frames in the current interaction.
+        \\The values inside brackets indicate the minimum and maximum possible recovery frames for the current move.
+    ,
+        model.U32ActualMinMax,
+        .nulls,
+        drawU32ActualMinMax,
+    ) = .{},
+    total_frames: Row(
+        "Total Frames",
+        \\For most moves, same as "Total Animation Frame".
+        \\However, frames in which ether player's animation is frozen are not counted in this value.
+        \\This causes the value to diverge from "Total Animation Frame", but makes the value better for frame data math.
+    ,
+        u32,
+        null,
+        drawU32,
+    ) = .{},
+    frame_advantage: Row(
+        "Frame Advantage",
+        \\Difference of recovery time in frames between the player and his opponent.
+        \\Positive value indicates the player recovering sooner then the opponent.
+        \\Negative value indicates the opponent recovering sooner then the player.
+        \\Zero indicates simultaneous recovery.
+        \\The value outside brackets indicates the frame advantage in the current interaction.
+        \\The values inside brackets indicate the minimum and maximum possible frame advantage for the current move.
+    ,
+        model.I32ActualMinMax,
+        .nulls,
+        drawI32ActualMinMax,
+    ) = .{},
+    attack_type: Row(
+        "Attack Type",
+        \\One of the following:
+        \\High - Blocked by standing guard. Crushed by crouching.
+        \\Mid - Blocked by standing guard. Hits crouching guard.
+        \\Low - Hits standing guard. Blocked by crouching guard. Low-crushable.
+        \\Special Low - Blocked by standing guard. Blocked by crouching guard. Low-crushable.
+        \\Unblockable High - Hits standing guard. Crushed by crouching.
+        \\Unblockable Mid - Hits standing guard. Hits crouching guard.
+        \\Unblockable Low - Hits standing guard. Hits crouching guard. Low-crushable.
+        \\Throw - Appears during throw animations, after the active frames of the throw.
+        \\Projectile - Not sure how this works.
+        \\Anti-Air Only - Only hits airborne targets. Everything else crushes it.
+    ,
+        model.AttackType,
+        .not_attack,
+        drawAttackType,
+    ) = .{},
+    attack_range: Row(
+        "Attack Range [m]",
+        \\Distance between the most exposed point on player's hurt cylinders taken 1 frame before the start of the
+        \\attack animation and the furthest reaching point on attack's hit lines.
+        \\Everything is first projected to the line that points in the direction the player is looking at at the first
+        \\frame of attack animation. The distance is then measured on that projection line.
+    ,
+        f32,
+        null,
+        drawF32Div100,
+    ) = .{},
+    attack_height: Row(
+        "Attack Height [cm]",
+        "Distances from the floor to the lowest and highest points of attack hit lines in the current move.",
+        model.F32MinMax,
+        .nulls,
+        drawF32MinMax,
+    ) = .{},
+    recovery_range: Row(
+        "Recovery Range [m]",
+        \\Distance between the furthest reaching point on attack's hit lines and the most exposed point on player's
+        \\hurt cylinders taken at the last recovery frame.
+        \\Everything is first projected to the line that points in the direction the player was looking at at the first
+        \\frame of attack animation. The distance is then measured on that projection line.
+        \\Positive value indicates that the player recovered behind attack's hit lines.
+        \\Negative value indicates that the player recovered in front of attack's hit lines.
+    ,
+        f32,
+        null,
+        drawF32Div100,
+    ) = .{},
+    attack_damage: Row(
+        "Attack Damage",
+        \\Damage that the current attack inflicts to the opponent on normal hit.
+        \\Same value irregardless if the actual attack whiffs, gets blocked, normal-hits or counter-hits the opponent.
+    ,
+        i32,
+        0,
+        drawI32,
+    ) = .{},
+    hit_outcome: Row(
+        "Hit Outcome",
+        "Outcome of the hit line hurt cylinder interaction.",
+        model.HitOutcome,
+        .none,
+        drawHitOutcome,
+    ) = .{},
+    posture: Row(
+        "Posture",
+        \\One of the following:
+        \\Standing - Can block mid and high attacks. Gets hit my lows attacks.
+        \\Crouching - Can block low attacks. Gets hit my mid attacks. Crushes high attacks.
+        \\Downed Face Up - Gets hit by mid and low attacks. Crushes high attacks.
+        \\Downed Face Down - Gets hit by mid and low attacks. Crushes high attacks.
+        \\Airborne - Getting hit results in getting floated. Does not necessarily crush low attacks.
+        \\
+        \\IMPORTANT:
+        \\The detection of Airborne is currently not working correctly.
+        \\Do not rely on this application to show you on what frame the Airborne state of a move starts and stops.
+        \\Doing so will give you incorrect information.
+    ,
+        model.Posture,
+        null,
+        drawPosture,
+    ) = .{},
+    blocking: Row(
+        "Blocking",
+        \\One of the following:
+        \\Not - Not blocking a single type of attack.
+        \\Neutral Mids - Blocks some high, mid, and special low attacks.
+        \\Fully Mids - Blocks all high, mid, and special low attacks.
+        \\Neutral Lows - Blocks some low and special low attacks.
+        \\Fully Lows - Blocks all low and special low attacks.
+    ,
+        model.Blocking,
+        null,
+        drawBlocking,
+    ) = .{},
+    crushing: Row(
+        "Crushing",
+        \\Zero, one or more of the following:
+        \\Everything - Every attack is guaranteed to whiff. Player is invincible.
+        \\Highs - High and unblockable high attacks are guaranteed to whiff.
+        \\Lows - Low and unblockable low and special low attacks are guaranteed to whiff.
+        \\Anti-Airs - Anti-air attacks are guaranteed to whiff.
+        \\Power-Crushing - Absorbs non low and non throw attacks.
+        \\
+        \\IMPORTANT:
+        \\The detection of low crushing is currently not working correctly.
+        \\Do not rely on this application to show you on what frame the low crushing of a move starts and stops.
+        \\Doing so will give you incorrect information.
+    ,
+        model.Crushing,
+        null,
+        drawCrushing,
+    ) = .{},
+    can_move: Row(
+        "Can Move",
+        "Whether the player is free to move or stuck in a recovery animation.",
+        bool,
+        null,
+        drawYesNo,
+    ) = .{},
+    input: Row(
+        "Input",
+        \\Input that is being held down by the player at the current frame.
+        \\Combination of following symbols:
+        \\u - Up input.
+        \\d - Down input.
+        \\f - Forward input.
+        \\b - Back input.
+        \\1 - Left punch input.
+        \\2 - Right punch input.
+        \\3 - Left kick input.
+        \\4 - Right kick input.
+        \\SS - Special style input.
+        \\H - Heat input.
+        \\R - Rage input.
+    ,
+        model.Input,
+        null,
+        drawInput,
+    ) = .{},
+    health: Row(
+        "Health",
+        "Remaining health points that the player has.",
+        i32,
+        null,
+        drawI32,
+    ) = .{},
+    rage: Row(
+        "Rage",
+        \\One of the following:
+        \\Available - Rage not active but can get activated once player's health drops low enough.
+        \\Activated - Player's health dropped low enough to activate rage, but player did not use rage art yet.
+        \\Used Up - Player previously used rage art and therefor can no longer enter rage in this round.
+    ,
+        model.Rage,
+        null,
+        drawRage,
+    ) = .{},
+    heat: Row(
+        "Heat",
+        \\One of the following:
+        \\Available - Heat not yet activated but can get activated with a heat burst or heat engager.
+        \\Activated - Player is currently in heat. The amount of heat bar remaining is displayed as a percentage.
+        \\Used Up - Heat already used up and player can no longer enter heat in this round.
+    ,
+        model.Heat,
+        null,
+        drawHeat,
+    ) = .{},
+    distance_to_opponent: Row(
+        "Distance To Opponent [m]",
+        \\Distance between the most exposed points on player's and opponent's hurt cylinders.
+        \\Both points are first projected to the line that connects player's and opponent's centroid floor projection.
+        \\The distance is then measured on that projection line.
+    ,
+        f32,
+        null,
+        drawF32Div100,
+    ) = .{},
+    angle_to_opponent: Row(
+        "Angle To Opponent [°]",
+        \\Angle between the line that connects player's and opponent's centroid floor projections and opponent's
+        \\look direction.
+        \\Negative value indicates player being on the left side of the opponent.
+        \\Positive value indicates player being on the right side of the opponent.
+    ,
+        f32,
+        null,
+        drawF32Degrees,
+    ) = .{},
+    hit_lines_height: Row(
+        "Hit Lines Height [cm]",
+        "Distances from the floor to the lowest and highest points of player's hit lines in the current frame.",
+        model.F32MinMax,
+        .nulls,
+        drawF32MinMax,
+    ) = .{},
+    hurt_cylinders_height: Row(
+        "Hurt Cylinders Height [cm]",
+        "Distances from the floor to the lowest and highest points of player's hurt cylinders in the current frame.",
+        model.F32MinMax,
+        .nulls,
+        drawF32MinMax,
+    ) = .{},
 
     const Self = @This();
 
@@ -146,6 +444,7 @@ pub const Details = struct {
 
 fn Row(
     comptime name: [:0]const u8,
+    comptime description: [:0]const u8,
     comptime Type: type,
     comptime empty_value: ?Type,
     comptime drawCellContent: *const fn (value: Type, alpha: f32) void,
@@ -175,6 +474,9 @@ fn Row(
         pub fn draw(self: Self, settings: *const model.DetailsSettings) void {
             if (imgui.igTableNextColumn()) {
                 drawText(name, 1.0);
+                if (imgui.igIsItemHovered(0)) {
+                    imgui.igSetTooltip(description);
+                }
             }
             if (imgui.igTableNextColumn()) {
                 self.cell_1.draw(settings);
@@ -260,6 +562,10 @@ fn drawF32(value: f32, alpha: f32) void {
 
 fn drawF32Div100(value: f32, alpha: f32) void {
     drawF32(0.01 * value, alpha);
+}
+
+fn drawF32Degrees(value: f32, alpha: f32) void {
+    drawF32(std.math.radiansToDegrees(value), alpha);
 }
 
 fn drawU32ActualMax(value: model.U32ActualMax, alpha: f32) void {
