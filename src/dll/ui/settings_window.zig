@@ -657,6 +657,17 @@ fn drawDetailsSettings(value: *model.DetailsSettings, default: *const model.Deta
             inline for (@typeInfo(ui.Details).@"struct".fields) |*field| {
                 drawBool(field.type.display_name, &@field(v, field.name), &@field(d, field.name));
             }
+            if (imgui.igButton("Enable All", .{})) {
+                inline for (@typeInfo(ui.Details).@"struct".fields) |*field| {
+                    @field(v, field.name) = true;
+                }
+            }
+            imgui.igSameLine(0, -1);
+            if (imgui.igButton("Disable All", .{})) {
+                inline for (@typeInfo(ui.Details).@"struct".fields) |*field| {
+                    @field(v, field.name) = false;
+                }
+            }
         }
     }.call;
     const column_names = std.enums.EnumFieldStruct(model.DetailsSettings.Column, [:0]const u8, null){
@@ -670,6 +681,7 @@ fn drawDetailsSettings(value: *model.DetailsSettings, default: *const model.Deta
     drawEnum(model.DetailsSettings.Column, "Column 1", &column_names, &value.column_1, &default.column_1);
     drawEnum(model.DetailsSettings.Column, "Column 2", &column_names, &value.column_2, &default.column_2);
     drawFloat("Fade Out Duration", &value.fade_out_duration, &default.fade_out_duration, 0.01, 0, 10, "%.2f s", 0);
+    drawFloat("Fade Out Alpha", &value.fade_out_alpha, &default.fade_out_alpha, 0.01, 0, 1, "%.2f", 0);
     drawRowsEnabled("Enabled Rows", &value.rows_enabled, &default.rows_enabled);
 }
 

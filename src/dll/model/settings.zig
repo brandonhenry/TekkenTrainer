@@ -312,6 +312,7 @@ pub const DetailsSettings = struct {
     column_1: Column = .player_1,
     column_2: Column = .player_2,
     fade_out_duration: f32 = 0.2,
+    fade_out_alpha: f32 = 0.25,
     rows_enabled: RowsEnabled = .{},
 
     pub const Column = enum {

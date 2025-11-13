@@ -524,10 +524,15 @@ fn Cell(
                 return;
             }
             if (self.remaining_time <= 0.0) {
+                if (empty_value) |value| {
+                    drawCellContent(value, settings.fade_out_alpha);
+                } else {
+                    drawText(empty_value_string, settings.fade_out_alpha);
+                }
                 return;
             }
             const completion = 1.0 - (self.remaining_time / settings.fade_out_duration);
-            const alpha = 1.0 - (completion * completion * completion * completion);
+            const alpha = std.math.lerp(1.0, settings.fade_out_alpha, completion * completion * completion * completion);
             drawCellContent(self.last_value, alpha);
         }
     };
