@@ -1,4 +1,3 @@
-pub const Capturer = @import("capturer.zig").Capturer;
 pub const Controller = @import("controller.zig").Controller;
 pub const Core = @import("core.zig").Core;
 pub const FrameDetector = @import("frame_detector.zig").FrameDetector;

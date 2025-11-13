@@ -69,7 +69,6 @@ test {
     _ = @import("dll.zig");
     _ = @import("dll/event_buss.zig");
 
-    _ = @import("dll/core/capturer.zig");
     _ = @import("dll/core/controller.zig");
     _ = @import("dll/core/core.zig");
     _ = @import("dll/core/frame_detector.zig");
@@ -78,6 +77,7 @@ test {
     _ = @import("dll/core/move_measurer.zig");
     _ = @import("dll/core/pause_detector.zig");
 
+    _ = @import("dll/game/capturer.zig");
     _ = @import("dll/game/conversions.zig");
     _ = @import("dll/game/hooks.zig");
     _ = @import("dll/game/memory.zig");

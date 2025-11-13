@@ -1,3 +1,4 @@
+pub const Capturer = @import("capturer.zig").Capturer;
 pub const conversion_globals = @import("conversions.zig").conversion_globals;
 pub const scaleToUnrealSpace = @import("conversions.zig").scaleToUnrealSpace;
 pub const scaleFromUnrealSpace = @import("conversions.zig").scaleFromUnrealSpace;

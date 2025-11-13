@@ -6,7 +6,7 @@ const model = @import("../model/root.zig");
 pub const Core = struct {
     frame_detector: core.FrameDetector,
     pause_detector: core.PauseDetector(.{}),
-    capturer: core.Capturer,
+    capturer: game.Capturer,
     hit_detector: core.HitDetector,
     move_detector: core.MoveDetector,
     move_measurer: core.MoveMeasurer,
