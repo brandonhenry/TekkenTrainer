@@ -40,21 +40,21 @@ pub const Ui = struct {
         sdk.ui.toasts.draw();
 
         const game_memory = game_memory_maybe orelse {
-            ui.drawMessageWindow("Loading", "Searching for memory addresses and offsets...", .center);
+            ui.drawMessageWindow("Loading", "Searching for memory addresses and offsets...", .center, true);
             return;
         };
         const settings = settings_maybe orelse {
-            ui.drawMessageWindow("Loading", "Loading settings...", .center);
+            ui.drawMessageWindow("Loading", "Loading settings...", .center, true);
             return;
         };
         if (controller.mode == .record) {
-            ui.drawMessageWindow("Recording", "⏺ Recording...", .top);
+            ui.drawMessageWindow("Recording", "⏺ Recording...", .top, false);
         }
         if (controller.mode == .save) {
-            ui.drawMessageWindow("Saving", "⏺ Saving the recording...", if (self.is_open) .center else .top);
+            ui.drawMessageWindow("Saving", "Saving the recording...", if (self.is_open) .center else .top, true);
         }
         if (controller.mode == .load) {
-            ui.drawMessageWindow("Loading", "⏺ Loading the recording...", if (self.is_open) .center else .top);
+            ui.drawMessageWindow("Loading", "Loading the recording...", if (self.is_open) .center else .top, true);
         }
 
         self.handleFirstDraw();

@@ -7,7 +7,12 @@ pub const MessageWindowPlacement = enum {
     bottom,
 };
 
-pub fn drawMessageWindow(id: [:0]const u8, message: [:0]const u8, placement: MessageWindowPlacement) void {
+pub fn drawMessageWindow(
+    id: [:0]const u8,
+    message: [:0]const u8,
+    placement: MessageWindowPlacement,
+    focus: bool,
+) void {
     const display_size = imgui.igGetIO_Nil().*.DisplaySize;
     var message_size: imgui.ImVec2 = undefined;
     imgui.igCalcTextSize(&message_size, message, null, false, -1.0);
@@ -24,11 +29,14 @@ pub fn drawMessageWindow(id: [:0]const u8, message: [:0]const u8, placement: Mes
         },
     };
 
-    const window_flags = imgui.ImGuiWindowFlags_AlwaysAutoResize |
+    var window_flags = imgui.ImGuiWindowFlags_AlwaysAutoResize |
         imgui.ImGuiWindowFlags_NoDecoration |
         imgui.ImGuiWindowFlags_NoInputs |
-        imgui.ImGuiWindowFlags_NoSavedSettings |
-        imgui.ImGuiWindowFlags_NoFocusOnAppearing;
+        imgui.ImGuiWindowFlags_NoSavedSettings;
+    if (!focus) {
+        window_flags |= imgui.ImGuiWindowFlags_NoFocusOnAppearing;
+        window_flags |= imgui.ImGuiWindowFlags_NoBringToFrontOnFocus;
+    }
     imgui.igSetNextWindowPos(window_position, imgui.ImGuiCond_Always, .{});
     imgui.igSetNextWindowSize(window_size, imgui.ImGuiCond_Always);
 
