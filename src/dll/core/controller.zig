@@ -788,7 +788,7 @@ test "should store frames in correct order when recording in the middle of the r
     try testing.expectEqual(frame_3, controller.getFrameAt(4).?.*);
 }
 
-test "should present the last frame as current when pausing the recording" {
+test "should present the last recorded frame as current when pausing the recording" {
     var controller = Controller.init(testing.allocator);
     defer controller.deinit();
 
@@ -1626,4 +1626,140 @@ test "should scrub staying on the same place when scrubbing in neutral direction
     try testing.expectEqual(frame_3, controller.getCurrentFrame().?.*);
 }
 
-// TODO Add tests for saving and loading.
+test "should load the same frames that were previously saved" {
+    const Callback = struct {
+        var times_called: usize = 0;
+        var last_frame: ?model.Frame = null;
+
+        fn call(_: void, frame: *const model.Frame) void {
+            times_called += 1;
+            last_frame = frame.*;
+        }
+    };
+
+    var controller = Controller.init(testing.allocator);
+    defer controller.deinit();
+
+    const frame_1 = model.Frame{ .frames_since_round_start = 1 };
+    const frame_2 = model.Frame{ .frames_since_round_start = 2 };
+    const frame_3 = model.Frame{ .frames_since_round_start = 3 };
+    const frame_4 = model.Frame{ .frames_since_round_start = 4 };
+
+    controller.record();
+    controller.processFrame(&frame_1, {}, Callback.call);
+    controller.processFrame(&frame_2, {}, Callback.call);
+    controller.processFrame(&frame_3, {}, Callback.call);
+    controller.processFrame(&frame_4, {}, Callback.call);
+
+    controller.save("./test_assets/recording.irony");
+    while (controller.mode == .save) {
+        controller.update(Controller.frame_time, {}, Callback.call);
+        std.Thread.yield() catch {};
+    }
+    try testing.expectEqual(true, controller.did_last_save_or_load_succeed);
+    defer std.fs.cwd().deleteFile("./test_assets/recording.irony") catch @panic("Failed to cleanup test file.");
+
+    controller.clear();
+    controller.load("./test_assets/recording.irony");
+    while (controller.mode == .load) {
+        controller.update(Controller.frame_time, {}, Callback.call);
+        std.Thread.yield() catch {};
+    }
+    try testing.expectEqual(true, controller.did_last_save_or_load_succeed);
+
+    try testing.expectEqual(4, controller.getTotalFrames());
+    try testing.expect(controller.getFrameAt(0) != null);
+    try testing.expectEqual(frame_1, controller.getFrameAt(0).?.*);
+    try testing.expect(controller.getFrameAt(1) != null);
+    try testing.expectEqual(frame_2, controller.getFrameAt(1).?.*);
+    try testing.expect(controller.getFrameAt(2) != null);
+    try testing.expectEqual(frame_3, controller.getFrameAt(2).?.*);
+    try testing.expect(controller.getFrameAt(3) != null);
+    try testing.expectEqual(frame_4, controller.getFrameAt(3).?.*);
+}
+
+test "should pause at the previously current frame after recording save completes" {
+    const Callback = struct {
+        var times_called: usize = 0;
+        var last_frame: ?model.Frame = null;
+
+        fn call(_: void, frame: *const model.Frame) void {
+            times_called += 1;
+            last_frame = frame.*;
+        }
+    };
+
+    var controller = Controller.init(testing.allocator);
+    defer controller.deinit();
+
+    const frame_1 = model.Frame{ .frames_since_round_start = 1 };
+    const frame_2 = model.Frame{ .frames_since_round_start = 2 };
+    const frame_3 = model.Frame{ .frames_since_round_start = 3 };
+    const frame_4 = model.Frame{ .frames_since_round_start = 4 };
+
+    controller.record();
+    controller.processFrame(&frame_1, {}, Callback.call);
+    controller.processFrame(&frame_2, {}, Callback.call);
+    controller.processFrame(&frame_3, {}, Callback.call);
+    controller.processFrame(&frame_4, {}, Callback.call);
+    controller.setCurrentFrameIndex(2);
+    controller.play();
+
+    controller.save("./test_assets/recording.irony");
+    while (controller.mode == .save) {
+        controller.update(Controller.frame_time, {}, Callback.call);
+        std.Thread.yield() catch {};
+    }
+    try testing.expectEqual(true, controller.did_last_save_or_load_succeed);
+    defer std.fs.cwd().deleteFile("./test_assets/recording.irony") catch @panic("Failed to cleanup test file.");
+
+    try testing.expect(controller.mode == .pause);
+    try testing.expectEqual(2, controller.getCurrentFrameIndex());
+}
+
+test "should pause at the last frame of the recording after recording load completes" {
+    const Callback = struct {
+        var times_called: usize = 0;
+        var last_frame: ?model.Frame = null;
+
+        fn call(_: void, frame: *const model.Frame) void {
+            times_called += 1;
+            last_frame = frame.*;
+        }
+    };
+
+    var controller = Controller.init(testing.allocator);
+    defer controller.deinit();
+
+    const frame_1 = model.Frame{ .frames_since_round_start = 1 };
+    const frame_2 = model.Frame{ .frames_since_round_start = 2 };
+    const frame_3 = model.Frame{ .frames_since_round_start = 3 };
+    const frame_4 = model.Frame{ .frames_since_round_start = 4 };
+
+    controller.record();
+    controller.processFrame(&frame_1, {}, Callback.call);
+    controller.processFrame(&frame_2, {}, Callback.call);
+    controller.processFrame(&frame_3, {}, Callback.call);
+    controller.processFrame(&frame_4, {}, Callback.call);
+    controller.setCurrentFrameIndex(2);
+    controller.play();
+
+    controller.save("./test_assets/recording.irony");
+    while (controller.mode == .save) {
+        controller.update(Controller.frame_time, {}, Callback.call);
+        std.Thread.yield() catch {};
+    }
+    try testing.expectEqual(true, controller.did_last_save_or_load_succeed);
+    defer std.fs.cwd().deleteFile("./test_assets/recording.irony") catch @panic("Failed to cleanup test file.");
+
+    controller.clear();
+    controller.load("./test_assets/recording.irony");
+    while (controller.mode == .load) {
+        controller.update(Controller.frame_time, {}, Callback.call);
+        std.Thread.yield() catch {};
+    }
+    try testing.expectEqual(true, controller.did_last_save_or_load_succeed);
+
+    try testing.expect(controller.mode == .pause);
+    try testing.expectEqual(3, controller.getCurrentFrameIndex());
+}

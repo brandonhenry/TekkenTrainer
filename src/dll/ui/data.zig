@@ -2200,6 +2200,7 @@ test "should copy correct text to clipboard when left clicking text" {
 
         fn testFunction(ctx: sdk.ui.TestContext) !void {
             const address = @intFromPtr(&value);
+            sdk.ui.toasts.update(100);
 
             ctx.setRef("Window");
 
