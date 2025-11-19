@@ -387,7 +387,7 @@ test "should detect a anti air only crush correctly" {
             .hit_lines = hitLines(.{ whiffed_line, connected_line }),
         },
         .{
-            .crushing = .{},
+            .crushing = .{ .anti_air_only_crushing = true },
             .hit_outcome = .none,
             .hurt_cylinders = hurtCylinders((whiffed_cylinder ** 7) ++ (connected_cylinder ** 7)),
         },

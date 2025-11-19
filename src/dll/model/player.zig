@@ -162,10 +162,11 @@ pub const Player = struct {
     }
 
     pub fn getTotalFrames(self: *const Self) ?u32 {
-        const animation_total = self.animation_total_frames orelse return null;
-        const animation_frame = self.animation_frame orelse return null;
-        const move_frame = self.getMoveFrame() orelse return null;
-        return animation_total +| move_frame -| animation_frame;
+        if (self.animation_total_frames != null and self.animation_to_move_delta != null) {
+            return self.animation_total_frames.? -| self.animation_to_move_delta.?;
+        } else {
+            return null;
+        }
     }
 
     pub fn getFrameAdvantage(self: *const Self, other: *const Self) model.I32ActualMinMax {
@@ -580,22 +581,14 @@ test "Player.getRecoveryFrames should return correct value" {
 
 test "Player.getTotalFrames should return correct value" {
     try testing.expectEqual(4, (Player{
-        .animation_frame = 3,
         .animation_to_move_delta = 1,
         .animation_total_frames = 5,
     }).getTotalFrames());
     try testing.expectEqual(null, (Player{
-        .animation_frame = null,
-        .animation_to_move_delta = 1,
-        .animation_total_frames = 5,
-    }).getTotalFrames());
-    try testing.expectEqual(null, (Player{
-        .animation_frame = 3,
         .animation_to_move_delta = null,
         .animation_total_frames = 5,
     }).getTotalFrames());
     try testing.expectEqual(null, (Player{
-        .animation_frame = 3,
         .animation_to_move_delta = 1,
         .animation_total_frames = null,
     }).getTotalFrames());

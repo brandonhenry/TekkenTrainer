@@ -109,7 +109,7 @@ pub const Blocking = enum(u3) {
 pub const Crushing = packed struct {
     high_crushing: bool = false,
     low_crushing: bool = false,
-    anti_air_only_crushing: bool = true,
+    anti_air_only_crushing: bool = false,
     invincibility: bool = false,
     power_crushing: bool = false,
 };
@@ -121,13 +121,13 @@ pub const Input = packed struct {
     down: bool = false,
     left: bool = false,
     right: bool = false,
-    special_style: bool = false,
-    heat: bool = false,
-    rage: bool = false,
     button_1: bool = false,
     button_2: bool = false,
     button_3: bool = false,
     button_4: bool = false,
+    special_style: bool = false,
+    rage: bool = false,
+    heat: bool = false,
 };
 
 pub const Rage = enum {
