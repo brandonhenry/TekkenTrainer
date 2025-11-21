@@ -90,9 +90,13 @@ test "should draw spheres correctly" {
                 if (index < 8) {
                     try testing.expectEqual(.{ 0.1, 0.2, 0.3, 0.4 }, sphere.?.color.array);
                     try testing.expectEqual(1, sphere.?.thickness);
+                    const f_index: f32 = @floatFromInt(index);
+                    try testing.expectEqual(f_index + 1, sphere.?.world_sphere.radius);
                 } else {
                     try testing.expectEqual(.{ 0.5, 0.6, 0.7, 0.8 }, sphere.?.color.array);
                     try testing.expectEqual(2, sphere.?.thickness);
+                    const f_index: f32 = @floatFromInt(index - 8);
+                    try testing.expectEqual(f_index + 1, sphere.?.world_sphere.radius);
                 }
             }
         }

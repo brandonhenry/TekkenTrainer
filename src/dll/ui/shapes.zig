@@ -206,6 +206,25 @@ pub const TestingShapes = struct {
         return null;
     }
 
+    pub fn findCylinderWithWorldCenter(
+        self: *const Self,
+        center: sdk.math.Vec3,
+        tolerance: f32,
+    ) ?*const Cylinder {
+        for (self.list.items) |*shape| {
+            switch (shape.*) {
+                .cylinder => |*cylinder| {
+                    const c = &cylinder.world_cylinder;
+                    if (c.center.equals(center, tolerance)) {
+                        return cylinder;
+                    }
+                },
+                else => continue,
+            }
+        }
+        return null;
+    }
+
     pub const Shape = union(enum) {
         point: Point,
         line: Line,
