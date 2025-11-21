@@ -27,41 +27,40 @@ const testing = std.testing;
 
 test "should draw spheres correctly" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.CollisionSpheresSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{ .enabled = true, .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
+                .{ .enabled = true, .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
+            },
+        };
+        const frame = model.Frame{ .players = .{
+            .{ .collision_spheres = .init(.{
+                .neck = .{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 1 },
+                .left_elbow = .{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 2 },
+                .right_elbow = .{ .center = .fromArray(.{ 7, 8, 9 }), .radius = 3 },
+                .lower_torso = .{ .center = .fromArray(.{ 10, 11, 12 }), .radius = 4 },
+                .left_knee = .{ .center = .fromArray(.{ 13, 14, 15 }), .radius = 5 },
+                .right_knee = .{ .center = .fromArray(.{ 16, 17, 18 }), .radius = 6 },
+                .left_ankle = .{ .center = .fromArray(.{ 19, 20, 21 }), .radius = 7 },
+                .right_ankle = .{ .center = .fromArray(.{ 22, 23, 24 }), .radius = 8 },
+            }) },
+            .{ .collision_spheres = .init(.{
+                .neck = .{ .center = .fromArray(.{ -1, -2, -3 }), .radius = 1 },
+                .left_elbow = .{ .center = .fromArray(.{ -4, -5, -6 }), .radius = 2 },
+                .right_elbow = .{ .center = .fromArray(.{ -7, -8, -9 }), .radius = 3 },
+                .lower_torso = .{ .center = .fromArray(.{ -10, -11, -12 }), .radius = 4 },
+                .left_knee = .{ .center = .fromArray(.{ -13, -14, -15 }), .radius = 5 },
+                .right_knee = .{ .center = .fromArray(.{ -16, -17, -18 }), .radius = 6 },
+                .left_ankle = .{ .center = .fromArray(.{ -19, -20, -21 }), .radius = 7 },
+                .right_ankle = .{ .center = .fromArray(.{ -22, -23, -24 }), .radius = 8 },
+            }) },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.CollisionSpheresSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{ .enabled = true, .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
-                    .{ .enabled = true, .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
-                },
-            };
-            const frame = model.Frame{ .players = .{
-                .{ .collision_spheres = .init(.{
-                    .neck = .{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 1 },
-                    .left_elbow = .{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 2 },
-                    .right_elbow = .{ .center = .fromArray(.{ 7, 8, 9 }), .radius = 3 },
-                    .lower_torso = .{ .center = .fromArray(.{ 10, 11, 12 }), .radius = 4 },
-                    .left_knee = .{ .center = .fromArray(.{ 13, 14, 15 }), .radius = 5 },
-                    .right_knee = .{ .center = .fromArray(.{ 16, 17, 18 }), .radius = 6 },
-                    .left_ankle = .{ .center = .fromArray(.{ 19, 20, 21 }), .radius = 7 },
-                    .right_ankle = .{ .center = .fromArray(.{ 22, 23, 24 }), .radius = 8 },
-                }) },
-                .{ .collision_spheres = .init(.{
-                    .neck = .{ .center = .fromArray(.{ -1, -2, -3 }), .radius = 1 },
-                    .left_elbow = .{ .center = .fromArray(.{ -4, -5, -6 }), .radius = 2 },
-                    .right_elbow = .{ .center = .fromArray(.{ -7, -8, -9 }), .radius = 3 },
-                    .lower_torso = .{ .center = .fromArray(.{ -10, -11, -12 }), .radius = 4 },
-                    .left_knee = .{ .center = .fromArray(.{ -13, -14, -15 }), .radius = 5 },
-                    .right_knee = .{ .center = .fromArray(.{ -16, -17, -18 }), .radius = 6 },
-                    .left_ankle = .{ .center = .fromArray(.{ -19, -20, -21 }), .radius = 7 },
-                    .right_ankle = .{ .center = .fromArray(.{ -22, -23, -24 }), .radius = 8 },
-                }) },
-            } };
             drawCollisionSpheres(&settings, &frame, .identity, .identity);
         }
 
@@ -109,38 +108,37 @@ test "should draw spheres correctly" {
 
 test "should not draw spheres for the player disabled in settings" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.CollisionSpheresSettings){
+            .mode = .id_separated,
+            .players = .{ .{ .enabled = true }, .{ .enabled = false } },
+        };
+        const frame = model.Frame{ .players = .{
+            .{ .collision_spheres = .init(.{
+                .neck = .{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 1 },
+                .left_elbow = .{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 2 },
+                .right_elbow = .{ .center = .fromArray(.{ 7, 8, 9 }), .radius = 3 },
+                .lower_torso = .{ .center = .fromArray(.{ 10, 11, 12 }), .radius = 4 },
+                .left_knee = .{ .center = .fromArray(.{ 13, 14, 15 }), .radius = 5 },
+                .right_knee = .{ .center = .fromArray(.{ 16, 17, 18 }), .radius = 6 },
+                .left_ankle = .{ .center = .fromArray(.{ 19, 20, 21 }), .radius = 7 },
+                .right_ankle = .{ .center = .fromArray(.{ 22, 23, 24 }), .radius = 8 },
+            }) },
+            .{ .collision_spheres = .init(.{
+                .neck = .{ .center = .fromArray(.{ -1, -2, -3 }), .radius = 1 },
+                .left_elbow = .{ .center = .fromArray(.{ -4, -5, -6 }), .radius = 2 },
+                .right_elbow = .{ .center = .fromArray(.{ -7, -8, -9 }), .radius = 3 },
+                .lower_torso = .{ .center = .fromArray(.{ -10, -11, -12 }), .radius = 4 },
+                .left_knee = .{ .center = .fromArray(.{ -13, -14, -15 }), .radius = 5 },
+                .right_knee = .{ .center = .fromArray(.{ -16, -17, -18 }), .radius = 6 },
+                .left_ankle = .{ .center = .fromArray(.{ -19, -20, -21 }), .radius = 7 },
+                .right_ankle = .{ .center = .fromArray(.{ -22, -23, -24 }), .radius = 8 },
+            }) },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.CollisionSpheresSettings){
-                .mode = .id_separated,
-                .players = .{ .{ .enabled = true }, .{ .enabled = false } },
-            };
-            const frame = model.Frame{ .players = .{
-                .{ .collision_spheres = .init(.{
-                    .neck = .{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 1 },
-                    .left_elbow = .{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 2 },
-                    .right_elbow = .{ .center = .fromArray(.{ 7, 8, 9 }), .radius = 3 },
-                    .lower_torso = .{ .center = .fromArray(.{ 10, 11, 12 }), .radius = 4 },
-                    .left_knee = .{ .center = .fromArray(.{ 13, 14, 15 }), .radius = 5 },
-                    .right_knee = .{ .center = .fromArray(.{ 16, 17, 18 }), .radius = 6 },
-                    .left_ankle = .{ .center = .fromArray(.{ 19, 20, 21 }), .radius = 7 },
-                    .right_ankle = .{ .center = .fromArray(.{ 22, 23, 24 }), .radius = 8 },
-                }) },
-                .{ .collision_spheres = .init(.{
-                    .neck = .{ .center = .fromArray(.{ -1, -2, -3 }), .radius = 1 },
-                    .left_elbow = .{ .center = .fromArray(.{ -4, -5, -6 }), .radius = 2 },
-                    .right_elbow = .{ .center = .fromArray(.{ -7, -8, -9 }), .radius = 3 },
-                    .lower_torso = .{ .center = .fromArray(.{ -10, -11, -12 }), .radius = 4 },
-                    .left_knee = .{ .center = .fromArray(.{ -13, -14, -15 }), .radius = 5 },
-                    .right_knee = .{ .center = .fromArray(.{ -16, -17, -18 }), .radius = 6 },
-                    .left_ankle = .{ .center = .fromArray(.{ -19, -20, -21 }), .radius = 7 },
-                    .right_ankle = .{ .center = .fromArray(.{ -22, -23, -24 }), .radius = 8 },
-                }) },
-            } };
             drawCollisionSpheres(&settings, &frame, .identity, .identity);
         }
 

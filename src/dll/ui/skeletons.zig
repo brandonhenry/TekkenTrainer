@@ -68,87 +68,86 @@ const testing = std.testing;
 
 test "should draw lines correctly" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.SkeletonSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{
+                    .enabled = true,
+                    .colors = .initFill(.fromArray(.{ 0.1, 0.2, 0.3, 0.4 })),
+                    .thickness = 1,
+                    .cant_move_alpha = 1.0,
+                },
+                .{
+                    .enabled = true,
+                    .colors = .initFill(.fromArray(.{ 0.5, 0.6, 0.7, 0.8 })),
+                    .thickness = 2,
+                    .cant_move_alpha = 1.0,
+                },
+            },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .init(.{
+                    .neck = .{ .center = .fill(2), .radius = 0 },
+                    .left_elbow = .{ .center = .fill(3.12), .radius = 0 },
+                    .right_elbow = .{ .center = .fill(3.22), .radius = 0 },
+                    .lower_torso = .{ .center = .fill(4), .radius = 0 },
+                    .left_knee = .{ .center = .fill(4.12), .radius = 0 },
+                    .right_knee = .{ .center = .fill(4.22), .radius = 0 },
+                    .left_ankle = .{ .center = .fill(4.13), .radius = 0 },
+                    .right_ankle = .{ .center = .fill(4.23), .radius = 0 },
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(4.13), .radius = 0, .half_height = 0 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(4.23), .radius = 0, .half_height = 0 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(3.13), .radius = 0, .half_height = 0 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(3.23), .radius = 0, .half_height = 0 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(4.12), .radius = 0, .half_height = 0 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(4.22), .radius = 0, .half_height = 0 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(3.12), .radius = 0, .half_height = 0 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(3.22), .radius = 0, .half_height = 0 } },
+                    .head = .{ .cylinder = .{ .center = .fill(1), .radius = 0, .half_height = 0 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(3.11), .radius = 0, .half_height = 0 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(3.21), .radius = 0, .half_height = 0 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(3), .radius = 0, .half_height = 0 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(4.11), .radius = 0, .half_height = 0 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(4.21), .radius = 0, .half_height = 0 } },
+                }),
+            },
+            .{
+                .collision_spheres = .init(.{
+                    .neck = .{ .center = .fill(-2), .radius = 0 },
+                    .left_elbow = .{ .center = .fill(-3.12), .radius = 0 },
+                    .right_elbow = .{ .center = .fill(-3.22), .radius = 0 },
+                    .lower_torso = .{ .center = .fill(-4), .radius = 0 },
+                    .left_knee = .{ .center = .fill(-4.12), .radius = 0 },
+                    .right_knee = .{ .center = .fill(-4.22), .radius = 0 },
+                    .left_ankle = .{ .center = .fill(-4.13), .radius = 0 },
+                    .right_ankle = .{ .center = .fill(-4.23), .radius = 0 },
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(-4.13), .radius = 0, .half_height = 0 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(-4.23), .radius = 0, .half_height = 0 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(-3.13), .radius = 0, .half_height = 0 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(-3.23), .radius = 0, .half_height = 0 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(-4.12), .radius = 0, .half_height = 0 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(-4.22), .radius = 0, .half_height = 0 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(-3.12), .radius = 0, .half_height = 0 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(-3.22), .radius = 0, .half_height = 0 } },
+                    .head = .{ .cylinder = .{ .center = .fill(-1), .radius = 0, .half_height = 0 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(-3.11), .radius = 0, .half_height = 0 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(-3.21), .radius = 0, .half_height = 0 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(-3), .radius = 0, .half_height = 0 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(-4.11), .radius = 0, .half_height = 0 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(-4.21), .radius = 0, .half_height = 0 } },
+                }),
+            },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.SkeletonSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{
-                        .enabled = true,
-                        .colors = .initFill(.fromArray(.{ 0.1, 0.2, 0.3, 0.4 })),
-                        .thickness = 1,
-                        .cant_move_alpha = 1.0,
-                    },
-                    .{
-                        .enabled = true,
-                        .colors = .initFill(.fromArray(.{ 0.5, 0.6, 0.7, 0.8 })),
-                        .thickness = 2,
-                        .cant_move_alpha = 1.0,
-                    },
-                },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .collision_spheres = .init(.{
-                        .neck = .{ .center = .fill(2), .radius = 0 },
-                        .left_elbow = .{ .center = .fill(3.12), .radius = 0 },
-                        .right_elbow = .{ .center = .fill(3.22), .radius = 0 },
-                        .lower_torso = .{ .center = .fill(4), .radius = 0 },
-                        .left_knee = .{ .center = .fill(4.12), .radius = 0 },
-                        .right_knee = .{ .center = .fill(4.22), .radius = 0 },
-                        .left_ankle = .{ .center = .fill(4.13), .radius = 0 },
-                        .right_ankle = .{ .center = .fill(4.23), .radius = 0 },
-                    }),
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(4.13), .radius = 0, .half_height = 0 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(4.23), .radius = 0, .half_height = 0 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(3.13), .radius = 0, .half_height = 0 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(3.23), .radius = 0, .half_height = 0 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(4.12), .radius = 0, .half_height = 0 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(4.22), .radius = 0, .half_height = 0 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(3.12), .radius = 0, .half_height = 0 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(3.22), .radius = 0, .half_height = 0 } },
-                        .head = .{ .cylinder = .{ .center = .fill(1), .radius = 0, .half_height = 0 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(3.11), .radius = 0, .half_height = 0 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(3.21), .radius = 0, .half_height = 0 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(3), .radius = 0, .half_height = 0 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(4.11), .radius = 0, .half_height = 0 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(4.21), .radius = 0, .half_height = 0 } },
-                    }),
-                },
-                .{
-                    .collision_spheres = .init(.{
-                        .neck = .{ .center = .fill(-2), .radius = 0 },
-                        .left_elbow = .{ .center = .fill(-3.12), .radius = 0 },
-                        .right_elbow = .{ .center = .fill(-3.22), .radius = 0 },
-                        .lower_torso = .{ .center = .fill(-4), .radius = 0 },
-                        .left_knee = .{ .center = .fill(-4.12), .radius = 0 },
-                        .right_knee = .{ .center = .fill(-4.22), .radius = 0 },
-                        .left_ankle = .{ .center = .fill(-4.13), .radius = 0 },
-                        .right_ankle = .{ .center = .fill(-4.23), .radius = 0 },
-                    }),
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(-4.13), .radius = 0, .half_height = 0 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(-4.23), .radius = 0, .half_height = 0 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(-3.13), .radius = 0, .half_height = 0 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(-3.23), .radius = 0, .half_height = 0 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(-4.12), .radius = 0, .half_height = 0 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(-4.22), .radius = 0, .half_height = 0 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(-3.12), .radius = 0, .half_height = 0 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(-3.22), .radius = 0, .half_height = 0 } },
-                        .head = .{ .cylinder = .{ .center = .fill(-1), .radius = 0, .half_height = 0 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(-3.11), .radius = 0, .half_height = 0 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(-3.21), .radius = 0, .half_height = 0 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(-3), .radius = 0, .half_height = 0 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(-4.11), .radius = 0, .half_height = 0 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(-4.21), .radius = 0, .half_height = 0 } },
-                    }),
-                },
-            } };
             drawSkeletons(&settings, &frame, .identity);
         }
 
@@ -206,74 +205,73 @@ test "should draw lines correctly" {
 
 test "should not draw lines for the player disabled in settings" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.SkeletonSettings){
+            .mode = .id_separated,
+            .players = .{ .{ .enabled = true }, .{ .enabled = false } },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .init(.{
+                    .neck = .{ .center = .fill(2), .radius = 0 },
+                    .left_elbow = .{ .center = .fill(3.12), .radius = 0 },
+                    .right_elbow = .{ .center = .fill(3.22), .radius = 0 },
+                    .lower_torso = .{ .center = .fill(4), .radius = 0 },
+                    .left_knee = .{ .center = .fill(4.12), .radius = 0 },
+                    .right_knee = .{ .center = .fill(4.22), .radius = 0 },
+                    .left_ankle = .{ .center = .fill(4.13), .radius = 0 },
+                    .right_ankle = .{ .center = .fill(4.23), .radius = 0 },
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(4.13), .radius = 0, .half_height = 0 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(4.23), .radius = 0, .half_height = 0 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(3.13), .radius = 0, .half_height = 0 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(3.23), .radius = 0, .half_height = 0 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(4.12), .radius = 0, .half_height = 0 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(4.22), .radius = 0, .half_height = 0 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(3.12), .radius = 0, .half_height = 0 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(3.22), .radius = 0, .half_height = 0 } },
+                    .head = .{ .cylinder = .{ .center = .fill(1), .radius = 0, .half_height = 0 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(3.11), .radius = 0, .half_height = 0 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(3.21), .radius = 0, .half_height = 0 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(3), .radius = 0, .half_height = 0 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(4.11), .radius = 0, .half_height = 0 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(4.21), .radius = 0, .half_height = 0 } },
+                }),
+            },
+            .{
+                .collision_spheres = .init(.{
+                    .neck = .{ .center = .fill(-2), .radius = 0 },
+                    .left_elbow = .{ .center = .fill(-3.12), .radius = 0 },
+                    .right_elbow = .{ .center = .fill(-3.22), .radius = 0 },
+                    .lower_torso = .{ .center = .fill(-4), .radius = 0 },
+                    .left_knee = .{ .center = .fill(-4.12), .radius = 0 },
+                    .right_knee = .{ .center = .fill(-4.22), .radius = 0 },
+                    .left_ankle = .{ .center = .fill(-4.13), .radius = 0 },
+                    .right_ankle = .{ .center = .fill(-4.23), .radius = 0 },
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(-4.13), .radius = 0, .half_height = 0 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(-4.23), .radius = 0, .half_height = 0 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(-3.13), .radius = 0, .half_height = 0 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(-3.23), .radius = 0, .half_height = 0 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(-4.12), .radius = 0, .half_height = 0 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(-4.22), .radius = 0, .half_height = 0 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(-3.12), .radius = 0, .half_height = 0 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(-3.22), .radius = 0, .half_height = 0 } },
+                    .head = .{ .cylinder = .{ .center = .fill(-1), .radius = 0, .half_height = 0 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(-3.11), .radius = 0, .half_height = 0 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(-3.21), .radius = 0, .half_height = 0 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(-3), .radius = 0, .half_height = 0 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(-4.11), .radius = 0, .half_height = 0 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(-4.21), .radius = 0, .half_height = 0 } },
+                }),
+            },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.SkeletonSettings){
-                .mode = .id_separated,
-                .players = .{ .{ .enabled = true }, .{ .enabled = false } },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .collision_spheres = .init(.{
-                        .neck = .{ .center = .fill(2), .radius = 0 },
-                        .left_elbow = .{ .center = .fill(3.12), .radius = 0 },
-                        .right_elbow = .{ .center = .fill(3.22), .radius = 0 },
-                        .lower_torso = .{ .center = .fill(4), .radius = 0 },
-                        .left_knee = .{ .center = .fill(4.12), .radius = 0 },
-                        .right_knee = .{ .center = .fill(4.22), .radius = 0 },
-                        .left_ankle = .{ .center = .fill(4.13), .radius = 0 },
-                        .right_ankle = .{ .center = .fill(4.23), .radius = 0 },
-                    }),
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(4.13), .radius = 0, .half_height = 0 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(4.23), .radius = 0, .half_height = 0 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(3.13), .radius = 0, .half_height = 0 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(3.23), .radius = 0, .half_height = 0 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(4.12), .radius = 0, .half_height = 0 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(4.22), .radius = 0, .half_height = 0 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(3.12), .radius = 0, .half_height = 0 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(3.22), .radius = 0, .half_height = 0 } },
-                        .head = .{ .cylinder = .{ .center = .fill(1), .radius = 0, .half_height = 0 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(3.11), .radius = 0, .half_height = 0 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(3.21), .radius = 0, .half_height = 0 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(3), .radius = 0, .half_height = 0 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(4.11), .radius = 0, .half_height = 0 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(4.21), .radius = 0, .half_height = 0 } },
-                    }),
-                },
-                .{
-                    .collision_spheres = .init(.{
-                        .neck = .{ .center = .fill(-2), .radius = 0 },
-                        .left_elbow = .{ .center = .fill(-3.12), .radius = 0 },
-                        .right_elbow = .{ .center = .fill(-3.22), .radius = 0 },
-                        .lower_torso = .{ .center = .fill(-4), .radius = 0 },
-                        .left_knee = .{ .center = .fill(-4.12), .radius = 0 },
-                        .right_knee = .{ .center = .fill(-4.22), .radius = 0 },
-                        .left_ankle = .{ .center = .fill(-4.13), .radius = 0 },
-                        .right_ankle = .{ .center = .fill(-4.23), .radius = 0 },
-                    }),
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(-4.13), .radius = 0, .half_height = 0 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(-4.23), .radius = 0, .half_height = 0 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(-3.13), .radius = 0, .half_height = 0 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(-3.23), .radius = 0, .half_height = 0 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(-4.12), .radius = 0, .half_height = 0 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(-4.22), .radius = 0, .half_height = 0 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(-3.12), .radius = 0, .half_height = 0 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(-3.22), .radius = 0, .half_height = 0 } },
-                        .head = .{ .cylinder = .{ .center = .fill(-1), .radius = 0, .half_height = 0 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(-3.11), .radius = 0, .half_height = 0 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(-3.21), .radius = 0, .half_height = 0 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(-3), .radius = 0, .half_height = 0 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(-4.11), .radius = 0, .half_height = 0 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(-4.21), .radius = 0, .half_height = 0 } },
-                    }),
-                },
-            } };
             drawSkeletons(&settings, &frame, .identity);
         }
 
@@ -329,6 +327,33 @@ test "should not draw lines for the player disabled in settings" {
 
 test "should draw with correct color depending on blocking property" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.SkeletonSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{
+                    .enabled = true,
+                    .colors = .init(.{
+                        .not_blocking = .fill(0.1),
+                        .neutral_blocking_mids = .fill(0.2),
+                        .fully_blocking_mids = .fill(0.3),
+                        .neutral_blocking_lows = .fill(0.4),
+                        .fully_blocking_lows = .fill(0.5),
+                    }),
+                    .cant_move_alpha = 1.0,
+                },
+                .{
+                    .enabled = true,
+                    .colors = .init(.{
+                        .not_blocking = .fill(0.6),
+                        .neutral_blocking_mids = .fill(0.7),
+                        .fully_blocking_mids = .fill(0.8),
+                        .neutral_blocking_lows = .fill(0.9),
+                        .fully_blocking_lows = .fill(1.0),
+                    }),
+                    .cant_move_alpha = 1.0,
+                },
+            },
+        };
         var frame = model.Frame{ .players = .{
             .{
                 .collision_spheres = .initFill(.{ .center = .fill(1), .radius = 0 }),
@@ -342,37 +367,8 @@ test "should draw with correct color depending on blocking property" {
 
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.SkeletonSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{
-                        .enabled = true,
-                        .colors = .init(.{
-                            .not_blocking = .fill(0.1),
-                            .neutral_blocking_mids = .fill(0.2),
-                            .fully_blocking_mids = .fill(0.3),
-                            .neutral_blocking_lows = .fill(0.4),
-                            .fully_blocking_lows = .fill(0.5),
-                        }),
-                        .cant_move_alpha = 1.0,
-                    },
-                    .{
-                        .enabled = true,
-                        .colors = .init(.{
-                            .not_blocking = .fill(0.6),
-                            .neutral_blocking_mids = .fill(0.7),
-                            .fully_blocking_mids = .fill(0.8),
-                            .neutral_blocking_lows = .fill(0.9),
-                            .fully_blocking_lows = .fill(1.0),
-                        }),
-                        .cant_move_alpha = 1.0,
-                    },
-                },
-            };
             drawSkeletons(&settings, &frame, .identity);
         }
 
@@ -416,41 +412,40 @@ test "should draw with correct color depending on blocking property" {
 
 test "should draw with correct alpha depending on can move property" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.SkeletonSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{
+                    .enabled = true,
+                    .colors = .initFill(.fromArray(.{ 0.1, 0.2, 0.3, 0.4 })),
+                    .thickness = 1,
+                    .cant_move_alpha = 0.1,
+                },
+                .{
+                    .enabled = true,
+                    .colors = .initFill(.fromArray(.{ 0.5, 0.6, 0.7, 0.8 })),
+                    .thickness = 2,
+                    .cant_move_alpha = 0.2,
+                },
+            },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .initFill(.{ .center = .fill(1), .radius = 0 }),
+                .hurt_cylinders = .initFill(.{ .cylinder = .{ .center = .fill(1), .radius = 0, .half_height = 0 } }),
+                .can_move = true,
+            },
+            .{
+                .collision_spheres = .initFill(.{ .center = .fill(-1), .radius = 0 }),
+                .hurt_cylinders = .initFill(.{ .cylinder = .{ .center = .fill(-1), .radius = 0, .half_height = 0 } }),
+                .can_move = false,
+            },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.SkeletonSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{
-                        .enabled = true,
-                        .colors = .initFill(.fromArray(.{ 0.1, 0.2, 0.3, 0.4 })),
-                        .thickness = 1,
-                        .cant_move_alpha = 0.1,
-                    },
-                    .{
-                        .enabled = true,
-                        .colors = .initFill(.fromArray(.{ 0.5, 0.6, 0.7, 0.8 })),
-                        .thickness = 2,
-                        .cant_move_alpha = 0.2,
-                    },
-                },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fill(1), .radius = 0 }),
-                    .hurt_cylinders = .initFill(.{ .cylinder = .{ .center = .fill(1), .radius = 0, .half_height = 0 } }),
-                    .can_move = true,
-                },
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fill(-1), .radius = 0 }),
-                    .hurt_cylinders = .initFill(.{ .cylinder = .{ .center = .fill(-1), .radius = 0, .half_height = 0 } }),
-                    .can_move = false,
-                },
-            } };
             drawSkeletons(&settings, &frame, .identity);
         }
 

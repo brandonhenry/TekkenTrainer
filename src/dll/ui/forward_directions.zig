@@ -34,29 +34,28 @@ const testing = std.testing;
 
 test "should draw lines correctly when direction is top" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.ForwardDirectionSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{ .enabled = true, .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .length = 1, .thickness = 2 },
+                .{ .enabled = true, .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .length = 3, .thickness = 4 },
+            },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 0 }),
+                .rotation = 0,
+            },
+            .{
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 0 }),
+                .rotation = 0.5 * std.math.pi,
+            },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.ForwardDirectionSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{ .enabled = true, .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .length = 1, .thickness = 2 },
-                    .{ .enabled = true, .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .length = 3, .thickness = 4 },
-                },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 0 }),
-                    .rotation = 0,
-                },
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 0 }),
-                    .rotation = 0.5 * std.math.pi,
-                },
-            } };
             drawForwardDirections(&settings, &frame, .top, .identity);
         }
 
@@ -88,26 +87,25 @@ test "should draw lines correctly when direction is top" {
 
 test "should not draw anything when direction is not top" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.ForwardDirectionSettings){
+            .mode = .id_separated,
+            .players = .{ .{}, .{} },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 0 }),
+                .rotation = 0,
+            },
+            .{
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 0 }),
+                .rotation = 0,
+            },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.ForwardDirectionSettings){
-                .mode = .id_separated,
-                .players = .{ .{}, .{} },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 0 }),
-                    .rotation = 0,
-                },
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 0 }),
-                    .rotation = 0,
-                },
-            } };
             drawForwardDirections(&settings, &frame, .front, .identity);
             drawForwardDirections(&settings, &frame, .side, .identity);
         }
@@ -124,26 +122,25 @@ test "should not draw anything when direction is not top" {
 
 test "should not draw the line for the player disabled in settings" {
     const Test = struct {
+        const settings = model.PlayerSettings(model.ForwardDirectionSettings){
+            .mode = .id_separated,
+            .players = .{ .{ .enabled = true, .length = 1 }, .{ .enabled = false, .length = 1 } },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 0 }),
+                .rotation = 0,
+            },
+            .{
+                .collision_spheres = .initFill(.{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 0 }),
+                .rotation = 0,
+            },
+        } };
+
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.ForwardDirectionSettings){
-                .mode = .id_separated,
-                .players = .{ .{ .enabled = true, .length = 1 }, .{ .enabled = false, .length = 1 } },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fromArray(.{ 1, 2, 3 }), .radius = 0 }),
-                    .rotation = 0,
-                },
-                .{
-                    .collision_spheres = .initFill(.{ .center = .fromArray(.{ 4, 5, 6 }), .radius = 0 }),
-                    .rotation = 0,
-                },
-            } };
             drawForwardDirections(&settings, &frame, .top, .identity);
         }
 

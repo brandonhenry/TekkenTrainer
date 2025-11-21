@@ -181,76 +181,74 @@ const testing = std.testing;
 test "should draw cylinders correctly" {
     const Test = struct {
         var hurt_cylinders: HurtCylinders = .{};
+        const settings = model.PlayerSettings(model.HurtCylindersSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{
+                    .enabled = true,
+                    .normal = .{
+                        .enabled = true,
+                        .normal = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
+                        .high_crushing = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
+                        .low_crushing = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
+                        .invincible = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
+                    },
+                },
+                .{
+                    .enabled = true,
+                    .normal = .{
+                        .enabled = true,
+                        .normal = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
+                        .high_crushing = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
+                        .low_crushing = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
+                        .invincible = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
+                    },
+                },
+            },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(1), .radius = 1.1, .half_height = 1.2 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(2), .radius = 2.1, .half_height = 2.2 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(3), .radius = 3.1, .half_height = 3.2 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(4), .radius = 4.1, .half_height = 4.2 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(5), .radius = 5.1, .half_height = 5.2 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(6), .radius = 6.1, .half_height = 6.2 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(7), .radius = 7.1, .half_height = 7.2 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(8), .radius = 8.1, .half_height = 8.2 } },
+                    .head = .{ .cylinder = .{ .center = .fill(9), .radius = 9.1, .half_height = 9.2 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(10), .radius = 10.1, .half_height = 10.2 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(11), .radius = 11.1, .half_height = 11.2 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(12), .radius = 12.1, .half_height = 12.2 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(13), .radius = 13.1, .half_height = 13.2 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(14), .radius = 14.1, .half_height = 14.2 } },
+                }),
+            },
+            .{
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(-1), .radius = 1.1, .half_height = 1.2 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(-2), .radius = 2.1, .half_height = 2.2 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(-3), .radius = 3.1, .half_height = 3.2 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(-4), .radius = 4.1, .half_height = 4.2 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(-5), .radius = 5.1, .half_height = 5.2 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(-6), .radius = 6.1, .half_height = 6.2 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(-7), .radius = 7.1, .half_height = 7.2 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(-8), .radius = 8.1, .half_height = 8.2 } },
+                    .head = .{ .cylinder = .{ .center = .fill(-9), .radius = 9.1, .half_height = 9.2 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(-10), .radius = 10.1, .half_height = 10.2 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(-11), .radius = 11.1, .half_height = 11.2 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(-12), .radius = 12.1, .half_height = 12.2 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(-13), .radius = 13.1, .half_height = 13.2 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(-14), .radius = 14.1, .half_height = 14.2 } },
+                }),
+            },
+        } };
 
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.HurtCylindersSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{
-                        .enabled = true,
-                        .normal = .{
-                            .enabled = true,
-                            .normal = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
-                            .high_crushing = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
-                            .low_crushing = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
-                            .invincible = .{ .color = .fromArray(.{ 0.1, 0.2, 0.3, 0.4 }), .thickness = 1 },
-                        },
-                    },
-                    .{
-                        .enabled = true,
-                        .normal = .{
-                            .enabled = true,
-                            .normal = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
-                            .high_crushing = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
-                            .low_crushing = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
-                            .invincible = .{ .color = .fromArray(.{ 0.5, 0.6, 0.7, 0.8 }), .thickness = 2 },
-                        },
-                    },
-                },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(1), .radius = 1.1, .half_height = 1.2 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(2), .radius = 2.1, .half_height = 2.2 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(3), .radius = 3.1, .half_height = 3.2 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(4), .radius = 4.1, .half_height = 4.2 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(5), .radius = 5.1, .half_height = 5.2 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(6), .radius = 6.1, .half_height = 6.2 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(7), .radius = 7.1, .half_height = 7.2 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(8), .radius = 8.1, .half_height = 8.2 } },
-                        .head = .{ .cylinder = .{ .center = .fill(9), .radius = 9.1, .half_height = 9.2 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(10), .radius = 10.1, .half_height = 10.2 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(11), .radius = 11.1, .half_height = 11.2 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(12), .radius = 12.1, .half_height = 12.2 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(13), .radius = 13.1, .half_height = 13.2 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(14), .radius = 14.1, .half_height = 14.2 } },
-                    }),
-                },
-                .{
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(-1), .radius = 1.1, .half_height = 1.2 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(-2), .radius = 2.1, .half_height = 2.2 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(-3), .radius = 3.1, .half_height = 3.2 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(-4), .radius = 4.1, .half_height = 4.2 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(-5), .radius = 5.1, .half_height = 5.2 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(-6), .radius = 6.1, .half_height = 6.2 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(-7), .radius = 7.1, .half_height = 7.2 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(-8), .radius = 8.1, .half_height = 8.2 } },
-                        .head = .{ .cylinder = .{ .center = .fill(-9), .radius = 9.1, .half_height = 9.2 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(-10), .radius = 10.1, .half_height = 10.2 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(-11), .radius = 11.1, .half_height = 11.2 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(-12), .radius = 12.1, .half_height = 12.2 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(-13), .radius = 13.1, .half_height = 13.2 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(-14), .radius = 14.1, .half_height = 14.2 } },
-                    }),
-                },
-            } };
             hurt_cylinders.draw(&settings, &frame, .front, .identity, .identity);
         }
 
@@ -319,55 +317,53 @@ test "should draw cylinders correctly" {
 test "should not draw cylinders for the player disabled in settings" {
     const Test = struct {
         var hurt_cylinders: HurtCylinders = .{};
+        const settings = model.PlayerSettings(model.HurtCylindersSettings){
+            .mode = .id_separated,
+            .players = .{ .{ .enabled = true }, .{ .enabled = false } },
+        };
+        const frame = model.Frame{ .players = .{
+            .{
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(1), .radius = 1.1, .half_height = 1.2 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(2), .radius = 2.1, .half_height = 2.2 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(3), .radius = 3.1, .half_height = 3.2 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(4), .radius = 4.1, .half_height = 4.2 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(5), .radius = 5.1, .half_height = 5.2 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(6), .radius = 6.1, .half_height = 6.2 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(7), .radius = 7.1, .half_height = 7.2 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(8), .radius = 8.1, .half_height = 8.2 } },
+                    .head = .{ .cylinder = .{ .center = .fill(9), .radius = 9.1, .half_height = 9.2 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(10), .radius = 10.1, .half_height = 10.2 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(11), .radius = 11.1, .half_height = 11.2 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(12), .radius = 12.1, .half_height = 12.2 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(13), .radius = 13.1, .half_height = 13.2 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(14), .radius = 14.1, .half_height = 14.2 } },
+                }),
+            },
+            .{
+                .hurt_cylinders = .init(.{
+                    .left_ankle = .{ .cylinder = .{ .center = .fill(-1), .radius = 1.1, .half_height = 1.2 } },
+                    .right_ankle = .{ .cylinder = .{ .center = .fill(-2), .radius = 2.1, .half_height = 2.2 } },
+                    .left_hand = .{ .cylinder = .{ .center = .fill(-3), .radius = 3.1, .half_height = 3.2 } },
+                    .right_hand = .{ .cylinder = .{ .center = .fill(-4), .radius = 4.1, .half_height = 4.2 } },
+                    .left_knee = .{ .cylinder = .{ .center = .fill(-5), .radius = 5.1, .half_height = 5.2 } },
+                    .right_knee = .{ .cylinder = .{ .center = .fill(-6), .radius = 6.1, .half_height = 6.2 } },
+                    .left_elbow = .{ .cylinder = .{ .center = .fill(-7), .radius = 7.1, .half_height = 7.2 } },
+                    .right_elbow = .{ .cylinder = .{ .center = .fill(-8), .radius = 8.1, .half_height = 8.2 } },
+                    .head = .{ .cylinder = .{ .center = .fill(-9), .radius = 9.1, .half_height = 9.2 } },
+                    .left_shoulder = .{ .cylinder = .{ .center = .fill(-10), .radius = 10.1, .half_height = 10.2 } },
+                    .right_shoulder = .{ .cylinder = .{ .center = .fill(-11), .radius = 11.1, .half_height = 11.2 } },
+                    .upper_torso = .{ .cylinder = .{ .center = .fill(-12), .radius = 12.1, .half_height = 12.2 } },
+                    .left_pelvis = .{ .cylinder = .{ .center = .fill(-13), .radius = 13.1, .half_height = 13.2 } },
+                    .right_pelvis = .{ .cylinder = .{ .center = .fill(-14), .radius = 14.1, .half_height = 14.2 } },
+                }),
+            },
+        } };
 
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.HurtCylindersSettings){
-                .mode = .id_separated,
-                .players = .{ .{ .enabled = true }, .{ .enabled = false } },
-            };
-            const frame = model.Frame{ .players = .{
-                .{
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(1), .radius = 1.1, .half_height = 1.2 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(2), .radius = 2.1, .half_height = 2.2 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(3), .radius = 3.1, .half_height = 3.2 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(4), .radius = 4.1, .half_height = 4.2 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(5), .radius = 5.1, .half_height = 5.2 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(6), .radius = 6.1, .half_height = 6.2 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(7), .radius = 7.1, .half_height = 7.2 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(8), .radius = 8.1, .half_height = 8.2 } },
-                        .head = .{ .cylinder = .{ .center = .fill(9), .radius = 9.1, .half_height = 9.2 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(10), .radius = 10.1, .half_height = 10.2 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(11), .radius = 11.1, .half_height = 11.2 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(12), .radius = 12.1, .half_height = 12.2 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(13), .radius = 13.1, .half_height = 13.2 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(14), .radius = 14.1, .half_height = 14.2 } },
-                    }),
-                },
-                .{
-                    .hurt_cylinders = .init(.{
-                        .left_ankle = .{ .cylinder = .{ .center = .fill(-1), .radius = 1.1, .half_height = 1.2 } },
-                        .right_ankle = .{ .cylinder = .{ .center = .fill(-2), .radius = 2.1, .half_height = 2.2 } },
-                        .left_hand = .{ .cylinder = .{ .center = .fill(-3), .radius = 3.1, .half_height = 3.2 } },
-                        .right_hand = .{ .cylinder = .{ .center = .fill(-4), .radius = 4.1, .half_height = 4.2 } },
-                        .left_knee = .{ .cylinder = .{ .center = .fill(-5), .radius = 5.1, .half_height = 5.2 } },
-                        .right_knee = .{ .cylinder = .{ .center = .fill(-6), .radius = 6.1, .half_height = 6.2 } },
-                        .left_elbow = .{ .cylinder = .{ .center = .fill(-7), .radius = 7.1, .half_height = 7.2 } },
-                        .right_elbow = .{ .cylinder = .{ .center = .fill(-8), .radius = 8.1, .half_height = 8.2 } },
-                        .head = .{ .cylinder = .{ .center = .fill(-9), .radius = 9.1, .half_height = 9.2 } },
-                        .left_shoulder = .{ .cylinder = .{ .center = .fill(-10), .radius = 10.1, .half_height = 10.2 } },
-                        .right_shoulder = .{ .cylinder = .{ .center = .fill(-11), .radius = 11.1, .half_height = 11.2 } },
-                        .upper_torso = .{ .cylinder = .{ .center = .fill(-12), .radius = 12.1, .half_height = 12.2 } },
-                        .left_pelvis = .{ .cylinder = .{ .center = .fill(-13), .radius = 13.1, .half_height = 13.2 } },
-                        .right_pelvis = .{ .cylinder = .{ .center = .fill(-14), .radius = 14.1, .half_height = 14.2 } },
-                    }),
-                },
-            } };
             hurt_cylinders.draw(&settings, &frame, .front, .identity, .identity);
         }
 
@@ -422,6 +418,45 @@ test "should not draw cylinders for the player disabled in settings" {
 test "should draw with correct color and thickness depending on crushing" {
     const Test = struct {
         var hurt_cylinders: HurtCylinders = .{};
+        const settings = model.PlayerSettings(model.HurtCylindersSettings){
+            .mode = .id_separated,
+            .players = .{
+                .{
+                    .enabled = true,
+                    .normal = .{
+                        .enabled = true,
+                        .normal = .{ .color = .fill(0.01), .thickness = 1 },
+                        .high_crushing = .{ .color = .fill(0.02), .thickness = 2 },
+                        .low_crushing = .{ .color = .fill(0.03), .thickness = 3 },
+                        .invincible = .{ .color = .fill(0.04), .thickness = 4 },
+                    },
+                    .power_crushing = .{
+                        .enabled = true,
+                        .normal = .{ .color = .fill(0.05), .thickness = 5 },
+                        .high_crushing = .{ .color = .fill(0.06), .thickness = 6 },
+                        .low_crushing = .{ .color = .fill(0.07), .thickness = 7 },
+                        .invincible = .{ .color = .fill(0.08), .thickness = 8 },
+                    },
+                },
+                .{
+                    .enabled = true,
+                    .normal = .{
+                        .enabled = true,
+                        .normal = .{ .color = .fill(0.09), .thickness = 9 },
+                        .high_crushing = .{ .color = .fill(0.10), .thickness = 10 },
+                        .low_crushing = .{ .color = .fill(0.11), .thickness = 11 },
+                        .invincible = .{ .color = .fill(0.12), .thickness = 12 },
+                    },
+                    .power_crushing = .{
+                        .enabled = true,
+                        .normal = .{ .color = .fill(0.13), .thickness = 13 },
+                        .high_crushing = .{ .color = .fill(0.14), .thickness = 14 },
+                        .low_crushing = .{ .color = .fill(0.15), .thickness = 15 },
+                        .invincible = .{ .color = .fill(0.16), .thickness = 16 },
+                    },
+                },
+            },
+        };
         var frame = model.Frame{ .players = .{
             .{
                 .hurt_cylinders = .initFill(.{
@@ -437,49 +472,8 @@ test "should draw with correct color and thickness depending on crushing" {
 
         fn guiFunction(_: sdk.ui.TestContext) !void {
             ui.testing_shapes.clear();
-
             _ = imgui.igBegin("Window", null, 0);
             defer imgui.igEnd();
-
-            const settings = model.PlayerSettings(model.HurtCylindersSettings){
-                .mode = .id_separated,
-                .players = .{
-                    .{
-                        .enabled = true,
-                        .normal = .{
-                            .enabled = true,
-                            .normal = .{ .color = .fill(0.01), .thickness = 1 },
-                            .high_crushing = .{ .color = .fill(0.02), .thickness = 2 },
-                            .low_crushing = .{ .color = .fill(0.03), .thickness = 3 },
-                            .invincible = .{ .color = .fill(0.04), .thickness = 4 },
-                        },
-                        .power_crushing = .{
-                            .enabled = true,
-                            .normal = .{ .color = .fill(0.05), .thickness = 5 },
-                            .high_crushing = .{ .color = .fill(0.06), .thickness = 6 },
-                            .low_crushing = .{ .color = .fill(0.07), .thickness = 7 },
-                            .invincible = .{ .color = .fill(0.08), .thickness = 8 },
-                        },
-                    },
-                    .{
-                        .enabled = true,
-                        .normal = .{
-                            .enabled = true,
-                            .normal = .{ .color = .fill(0.09), .thickness = 9 },
-                            .high_crushing = .{ .color = .fill(0.10), .thickness = 10 },
-                            .low_crushing = .{ .color = .fill(0.11), .thickness = 11 },
-                            .invincible = .{ .color = .fill(0.12), .thickness = 12 },
-                        },
-                        .power_crushing = .{
-                            .enabled = true,
-                            .normal = .{ .color = .fill(0.13), .thickness = 13 },
-                            .high_crushing = .{ .color = .fill(0.14), .thickness = 14 },
-                            .low_crushing = .{ .color = .fill(0.15), .thickness = 15 },
-                            .invincible = .{ .color = .fill(0.16), .thickness = 16 },
-                        },
-                    },
-                },
-            };
             hurt_cylinders.draw(&settings, &frame, .front, .identity, .identity);
         }
 
