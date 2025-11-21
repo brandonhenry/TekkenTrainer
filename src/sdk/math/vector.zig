@@ -279,13 +279,19 @@ pub fn Vector(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn isNormalized(self: Self, tolerance: Element) bool {
-            const lenSquared = self.lengthSquared();
-            return std.math.approxEqAbs(Element, lenSquared, 1, tolerance);
+            const max_squared = (1 + tolerance) * (1 + tolerance);
+            const min_squared = (1 - tolerance) * (1 - tolerance);
+            const length_squared = self.lengthSquared();
+            return length_squared >= min_squared and length_squared <= max_squared;
         }
 
         pub fn isZero(self: Self, tolerance: Element) bool {
-            const lenSquared = self.lengthSquared();
-            return std.math.approxEqAbs(Element, lenSquared, 0, tolerance);
+            return std.math.approxEqAbs(Element, self.lengthSquared(), 0, tolerance * tolerance);
+        }
+
+        pub fn equals(self: Self, other: Self, tolerance: Element) bool {
+            const difference = other.subtract(self);
+            return std.math.approxEqAbs(Element, difference.lengthSquared(), 0, tolerance * tolerance);
         }
 
         pub fn scale(self: Self, value: Element) Self {
@@ -752,6 +758,16 @@ test "isZero should return correct value" {
     try testing.expectEqual(false, vec_1.isZero(0.00001));
     try testing.expectEqual(true, vec_2.isZero(0.00001));
     try testing.expectEqual(true, vec_3.isZero(0.00001));
+}
+
+test "equals should return correct value" {
+    const vec_1 = Vector(4, f32).fromArray(.{ 1, 2, 3, 4 });
+    const vec_2 = Vector(4, f32).fromArray(.{ 1, 2, 3.15, 4 });
+    try testing.expectEqual(true, vec_1.equals(vec_2, 1));
+    try testing.expectEqual(true, vec_1.equals(vec_2, 0.5));
+    try testing.expectEqual(true, vec_1.equals(vec_2, 0.2));
+    try testing.expectEqual(false, vec_1.equals(vec_2, 0.1));
+    try testing.expectEqual(false, vec_1.equals(vec_2, 0.01));
 }
 
 test "scale should return correct value" {
