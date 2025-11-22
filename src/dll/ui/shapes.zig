@@ -187,6 +187,43 @@ pub const TestingShapes = struct {
         return null;
     }
 
+    pub const LinePair = struct {
+        thinner: *const Line,
+        thicker: *const Line,
+    };
+
+    pub fn findLinePairWithWorldPoints(
+        self: *const Self,
+        point_1: sdk.math.Vec3,
+        point_2: sdk.math.Vec3,
+        tolerance: f32,
+    ) ?LinePair {
+        var first: ?*const Line = null;
+        for (self.list.items) |*shape| {
+            switch (shape.*) {
+                .line => |*line| {
+                    const l = &line.world_line;
+                    const t = tolerance;
+                    const is_equal = (l.point_1.equals(point_1, t) and l.point_2.equals(point_2, t)) or
+                        (l.point_1.equals(point_2, t) and l.point_2.equals(point_1, t));
+                    if (is_equal) {
+                        if (first) |first_line| {
+                            if (first_line.thickness <= line.thickness) {
+                                return .{ .thinner = first_line, .thicker = line };
+                            } else {
+                                return .{ .thinner = line, .thicker = first_line };
+                            }
+                        } else {
+                            first = line;
+                        }
+                    }
+                },
+                else => continue,
+            }
+        }
+        return null;
+    }
+
     pub fn findSphereWithWorldCenter(
         self: *const Self,
         center: sdk.math.Vec3,
