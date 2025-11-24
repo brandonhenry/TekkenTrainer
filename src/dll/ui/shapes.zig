@@ -139,6 +139,41 @@ pub const TestingShapes = struct {
         }
     }
     const Self = @This();
+    pub const Shape = union(enum) {
+        point: Point,
+        line: Line,
+        sphere: Sphere,
+        cylinder: Cylinder,
+    };
+    pub const Point = struct {
+        world_position: sdk.math.Vec3,
+        screen_position: sdk.math.Vec2,
+        color: sdk.math.Vec4,
+        thickness: f32,
+    };
+    pub const Line = struct {
+        world_line: sdk.math.LineSegment3,
+        screen_line: sdk.math.LineSegment2,
+        color: sdk.math.Vec4,
+        thickness: f32,
+    };
+    pub const Sphere = struct {
+        world_sphere: sdk.math.Sphere,
+        screen_center: sdk.math.Vec2,
+        screen_half_size: sdk.math.Vec2,
+        color: sdk.math.Vec4,
+        thickness: f32,
+    };
+    pub const Cylinder = struct {
+        world_cylinder: sdk.math.Cylinder,
+        screen_shape: ScreenShape,
+        screen_center: sdk.math.Vec2,
+        screen_half_size: sdk.math.Vec2,
+        color: sdk.math.Vec4,
+        thickness: f32,
+
+        pub const ScreenShape = enum { rectangle, ellipse };
+    };
 
     pub fn begin(self: *Self, allocator: std.mem.Allocator) void {
         self.allocator = allocator;
@@ -162,6 +197,20 @@ pub const TestingShapes = struct {
 
     pub fn getAll(self: *const Self) []const Shape {
         return self.list.items;
+    }
+
+    pub fn findPointWithWorldPosition(self: *const Self, position: sdk.math.Vec3, tolerance: f32) ?*const Point {
+        for (self.list.items) |*shape| {
+            switch (shape.*) {
+                .point => |*point| {
+                    if (point.world_position.equals(position, tolerance)) {
+                        return point;
+                    }
+                },
+                else => continue,
+            }
+        }
+        return null;
     }
 
     pub fn findLineWithWorldPoints(
@@ -261,42 +310,6 @@ pub const TestingShapes = struct {
         }
         return null;
     }
-
-    pub const Shape = union(enum) {
-        point: Point,
-        line: Line,
-        sphere: Sphere,
-        cylinder: Cylinder,
-    };
-    pub const Point = struct {
-        world_position: sdk.math.Vec3,
-        screen_position: sdk.math.Vec2,
-        color: sdk.math.Vec4,
-        thickness: f32,
-    };
-    pub const Line = struct {
-        world_line: sdk.math.LineSegment3,
-        screen_line: sdk.math.LineSegment2,
-        color: sdk.math.Vec4,
-        thickness: f32,
-    };
-    pub const Sphere = struct {
-        world_sphere: sdk.math.Sphere,
-        screen_center: sdk.math.Vec2,
-        screen_half_size: sdk.math.Vec2,
-        color: sdk.math.Vec4,
-        thickness: f32,
-    };
-    pub const Cylinder = struct {
-        world_cylinder: sdk.math.Cylinder,
-        screen_shape: ScreenShape,
-        screen_center: sdk.math.Vec2,
-        screen_half_size: sdk.math.Vec2,
-        color: sdk.math.Vec4,
-        thickness: f32,
-
-        pub const ScreenShape = enum { rectangle, ellipse };
-    };
 };
 
 const testing = std.testing;

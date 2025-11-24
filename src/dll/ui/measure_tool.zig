@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const imgui = @import("imgui");
 const sdk = @import("../../sdk/root.zig");
 const model = @import("../model/root.zig");
@@ -146,5 +147,174 @@ pub const MeasureTool = struct {
         const draw_list = imgui.igGetWindowDrawList();
         const u32_color = imgui.igGetColorU32_Vec4(color.toImVec());
         imgui.ImDrawList_AddText_Vec2(draw_list, position.toImVec(), u32_color, text, null);
+        if (builtin.is_test) {
+            var rect: imgui.ImRect = undefined;
+            imgui.igGetItemRectMin(&rect.Min);
+            imgui.igGetItemRectMax(&rect.Max);
+            imgui.teItemAdd(imgui.igGetCurrentContext(), imgui.igGetID_Str(text), &rect, null);
+        }
     }
 };
+
+const testing = std.testing;
+
+test "should draw correct shapes and text as the user inputs what to measure" {
+    const Test = struct {
+        var measure_tool: MeasureTool = .{};
+        const settings = model.MeasureToolSettings{
+            .line = .{ .color = .fill(0.1), .thickness = 1 },
+            .normal_point = .{ .color = .fill(0.2), .thickness = 2 },
+            .hovered_point = .{ .color = .fill(0.3), .thickness = 3 },
+            .text_color = .fill(0.4),
+            .hover_distance = 0.1,
+        };
+        var window_pos: sdk.math.Vec2 = undefined;
+        var window_size: sdk.math.Vec2 = undefined;
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            ui.testing_shapes.clear();
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_NoMove);
+            defer imgui.igEnd();
+            imgui.igGetCursorScreenPos(window_pos.asImVec());
+            imgui.igGetContentRegionAvail(window_size.asImVec());
+            const matrix = sdk.math.Mat4.identity
+                .lookAt(.fromArray(.{ 5, 0, 2.5 }), .fromArray(.{ 6, 0, 2.5 }), .plus_z)
+                .orthographic(-10, 10, -5, 5, -1, 1)
+                .scale(window_size.scale(-0.5).extend(1))
+                .translate(window_size.scale(0.5).add(window_pos).extend(0));
+            const inverse_matrix = matrix.inverse() orelse @panic("Failed to calculate inverse matrix.");
+            measure_tool.processInput(&settings, matrix, inverse_matrix);
+            measure_tool.draw(&settings, matrix);
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            const world_1 = sdk.math.Vec3.fromArray(.{ 5, -5, 2.5 });
+            const world_2 = sdk.math.Vec3.fromArray(.{ 5, 0, 2.5 });
+            const world_3 = sdk.math.Vec3.fromArray(.{ 5, 5, 2.5 });
+            const screen_1 = window_pos.add(window_size.multiplyElements(.fromArray(.{ 0.25, 0.5 })));
+            const screen_2 = window_pos.add(window_size.multiplyElements(.fromArray(.{ 0.5, 0.5 })));
+            const screen_3 = window_pos.add(window_size.multiplyElements(.fromArray(.{ 0.75, 0.5 })));
+            ctx.setRef("Window");
+
+            try testing.expectEqual(0, ui.testing_shapes.getAll().len);
+
+            ctx.mouseMoveToPos(screen_1.toImVec());
+            ctx.mouseDown(imgui.ImGuiMouseButton_Left);
+            ctx.mouseMoveToPos(screen_2.toImVec());
+
+            try testing.expectEqual(3, ui.testing_shapes.getAll().len);
+            var line = ui.testing_shapes.findLineWithWorldPoints(world_1, world_2, 0.1);
+            var point_1 = ui.testing_shapes.findPointWithWorldPosition(world_1, 0.1);
+            var point_2 = ui.testing_shapes.findPointWithWorldPosition(world_2, 0.1);
+            try testing.expect(line != null);
+            try testing.expect(point_1 != null);
+            try testing.expect(point_2 != null);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.1), line.?.color);
+            try testing.expectEqual(1, line.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_1.?.color);
+            try testing.expectEqual(2, point_1.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.3), point_2.?.color);
+            try testing.expectEqual(3, point_2.?.thickness);
+            try ctx.expectItemExists("5.00 cm");
+
+            ctx.mouseMoveToPos(screen_3.toImVec());
+            ctx.mouseUp(imgui.ImGuiMouseButton_Left);
+
+            try testing.expectEqual(3, ui.testing_shapes.getAll().len);
+            line = ui.testing_shapes.findLineWithWorldPoints(world_1, world_3, 0.1);
+            point_1 = ui.testing_shapes.findPointWithWorldPosition(world_1, 0.1);
+            point_2 = ui.testing_shapes.findPointWithWorldPosition(world_3, 0.1);
+            try testing.expect(line != null);
+            try testing.expect(point_1 != null);
+            try testing.expect(point_2 != null);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.1), line.?.color);
+            try testing.expectEqual(1, line.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_1.?.color);
+            try testing.expectEqual(2, point_1.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.3), point_2.?.color);
+            try testing.expectEqual(3, point_2.?.thickness);
+            try ctx.expectItemExists("10.00 cm");
+
+            ctx.mouseMoveToPos(screen_2.toImVec());
+
+            try testing.expectEqual(3, ui.testing_shapes.getAll().len);
+            line = ui.testing_shapes.findLineWithWorldPoints(world_1, world_3, 0.1);
+            point_1 = ui.testing_shapes.findPointWithWorldPosition(world_1, 0.1);
+            point_2 = ui.testing_shapes.findPointWithWorldPosition(world_3, 0.1);
+            try testing.expect(line != null);
+            try testing.expect(point_1 != null);
+            try testing.expect(point_2 != null);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.1), line.?.color);
+            try testing.expectEqual(1, line.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_1.?.color);
+            try testing.expectEqual(2, point_1.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_2.?.color);
+            try testing.expectEqual(2, point_2.?.thickness);
+            try ctx.expectItemExists("10.00 cm");
+
+            ctx.mouseMoveToPos(screen_1.toImVec());
+
+            try testing.expectEqual(3, ui.testing_shapes.getAll().len);
+            line = ui.testing_shapes.findLineWithWorldPoints(world_1, world_3, 0.1);
+            point_1 = ui.testing_shapes.findPointWithWorldPosition(world_1, 0.1);
+            point_2 = ui.testing_shapes.findPointWithWorldPosition(world_3, 0.1);
+            try testing.expect(line != null);
+            try testing.expect(point_1 != null);
+            try testing.expect(point_2 != null);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.1), line.?.color);
+            try testing.expectEqual(1, line.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.3), point_1.?.color);
+            try testing.expectEqual(3, point_1.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_2.?.color);
+            try testing.expectEqual(2, point_2.?.thickness);
+            try ctx.expectItemExists("10.00 cm");
+
+            ctx.mouseDown(imgui.ImGuiMouseButton_Left);
+            ctx.mouseMoveToPos(screen_2.toImVec());
+
+            try testing.expectEqual(3, ui.testing_shapes.getAll().len);
+            line = ui.testing_shapes.findLineWithWorldPoints(world_2, world_3, 0.1);
+            point_1 = ui.testing_shapes.findPointWithWorldPosition(world_2, 0.1);
+            point_2 = ui.testing_shapes.findPointWithWorldPosition(world_3, 0.1);
+            try testing.expect(line != null);
+            try testing.expect(point_1 != null);
+            try testing.expect(point_2 != null);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.1), line.?.color);
+            try testing.expectEqual(1, line.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.3), point_1.?.color);
+            try testing.expectEqual(3, point_1.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_2.?.color);
+            try testing.expectEqual(2, point_2.?.thickness);
+            try ctx.expectItemExists("5.00 cm");
+
+            ctx.mouseUp(imgui.ImGuiMouseButton_Left);
+            ctx.mouseMoveToPos(screen_1.toImVec());
+
+            try testing.expectEqual(3, ui.testing_shapes.getAll().len);
+            line = ui.testing_shapes.findLineWithWorldPoints(world_2, world_3, 0.1);
+            point_1 = ui.testing_shapes.findPointWithWorldPosition(world_2, 0.1);
+            point_2 = ui.testing_shapes.findPointWithWorldPosition(world_3, 0.1);
+            try testing.expect(line != null);
+            try testing.expect(point_1 != null);
+            try testing.expect(point_2 != null);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.1), line.?.color);
+            try testing.expectEqual(1, line.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_1.?.color);
+            try testing.expectEqual(2, point_1.?.thickness);
+            try testing.expectEqual(sdk.math.Vec4.fill(0.2), point_2.?.color);
+            try testing.expectEqual(2, point_2.?.thickness);
+            try ctx.expectItemExists("5.00 cm");
+
+            ctx.mouseClick(imgui.ImGuiMouseButton_Left);
+
+            try testing.expectEqual(0, ui.testing_shapes.getAll().len);
+            try ctx.expectItemNotExists("5.00 cm");
+            try ctx.expectItemNotExists("10.00 cm");
+        }
+    };
+    ui.testing_shapes.begin(testing.allocator);
+    defer ui.testing_shapes.end();
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
