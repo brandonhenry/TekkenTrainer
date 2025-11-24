@@ -5,14 +5,28 @@ const model = @import("../model/root.zig");
 const ui = @import("root.zig");
 
 pub const SettingsWindow = struct {
-    is_open: bool = false,
-    navigation_layout: ui.NavigationLayout = .{},
-    misc_settings: MiscSettings = .{},
-    save_button: SaveButton = .{},
+    is_open: bool,
+    navigation_layout: ui.NavigationLayout,
+    misc_settings: MiscSettings,
+    save_button: SaveButton,
 
     const Self = @This();
     pub const name = "Settings";
     const default_settings = model.Settings{};
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{
+            .is_open = false,
+            .navigation_layout = .{},
+            .misc_settings = .init(allocator),
+            .save_button = .init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.save_button.deinit();
+        self.misc_settings.deinit();
+    }
 
     pub fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         if (!self.is_open) {
@@ -167,10 +181,21 @@ pub const SettingsWindow = struct {
 };
 
 const MiscSettings = struct {
-    reload_button: ReloadButton = .{},
-    defaults_button: DefaultsButton = .{},
+    reload_button: ReloadButton,
+    defaults_button: DefaultsButton,
 
     const Self = @This();
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{
+            .reload_button = .init(allocator),
+            .defaults_button = .{},
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.reload_button.deinit();
+    }
 
     pub fn draw(
         self: *Self,
@@ -184,38 +209,50 @@ const MiscSettings = struct {
 };
 
 const SaveButton = struct {
-    height: f32 = 0,
-
-    // Using a global to avoid the possibility of lifetime problems.
-    var is_loading = std.atomic.Value(bool).init(false);
+    allocator: std.mem.Allocator,
+    task: Task,
+    height: f32,
 
     const Self = @This();
+    const Task = sdk.misc.Task(void);
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{
+            .allocator = allocator,
+            .task = .createCompleted({}),
+            .height = 0,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        _ = self.task.join();
+    }
 
     fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
         var content_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&content_size);
 
-        const loading = is_loading.load(.seq_cst);
-        imgui.igBeginDisabled(loading);
+        const is_loading = self.task.peek() == null;
+        imgui.igBeginDisabled(is_loading);
         defer imgui.igEndDisabled();
-        const label = if (loading) "Saving..." else "Save";
+        const label = if (is_loading) "Saving..." else "Save";
         if (imgui.igButton(label, .{ .x = content_size.x })) {
-            saveSettings(base_dir, settings);
+            self.saveSettings(base_dir, settings);
         }
         var size: imgui.ImVec2 = undefined;
         imgui.igGetItemRectSize(&size);
         self.height = size.y;
     }
 
-    fn saveSettings(base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
-        is_loading.store(true, .seq_cst);
+    fn saveSettings(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *const model.Settings) void {
         std.log.info("Saving settings...", .{});
         std.log.debug("Spawning settings save thread...", .{});
-        const thread = std.Thread.spawn(
-            .{},
+        _ = self.task.join();
+        self.task = Task.spawn(
+            self.allocator,
             struct {
                 fn call(dir: sdk.misc.BaseDir, settings_to_save: model.Settings) void {
-                    std.log.debug("Settings save thread started.", .{});
+                    std.log.debug("Settings save task started.", .{});
                     if (settings_to_save.save(&dir)) {
                         std.log.info("Settings saved.", .{});
                         sdk.ui.toasts.send(.success, null, "Settings saved successfully.", .{});
@@ -223,35 +260,43 @@ const SaveButton = struct {
                         sdk.misc.error_context.append("Failed to save settings.", .{});
                         sdk.misc.error_context.logError(err);
                     }
-                    is_loading.store(false, .seq_cst);
                 }
             }.call,
             .{ base_dir.*, settings.* },
         ) catch |err| {
-            sdk.misc.error_context.new("Failed to spawn settings save thread.", .{});
+            sdk.misc.error_context.new("Failed to spawn settings save task.", .{});
             sdk.misc.error_context.append("Failed to save settings.", .{});
             sdk.misc.error_context.logError(err);
-            is_loading.store(false, .seq_cst);
             return;
         };
-        thread.detach();
     }
 };
 
 const ReloadButton = struct {
-    confirm_open: bool = false,
-
-    // Using globals to avoid the possibility of lifetime problems.
-    var is_loading = std.atomic.Value(bool).init(false);
-    var loaded_settings: ?model.Settings = null;
+    allocator: std.mem.Allocator,
+    task: Task,
+    confirm_open: bool,
 
     const Self = @This();
+    const Task = sdk.misc.Task(?model.Settings);
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{
+            .allocator = allocator,
+            .task = .createCompleted(null),
+            .confirm_open = false,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        _ = self.task.join();
+    }
 
     fn draw(self: *Self, base_dir: *const sdk.misc.BaseDir, settings: *model.Settings) void {
-        const loading = is_loading.load(.seq_cst);
-        imgui.igBeginDisabled(loading);
+        const is_loading = self.task.peek() == null;
+        imgui.igBeginDisabled(is_loading);
         defer imgui.igEndDisabled();
-        const label = if (loading) "Reloading settings..." else "Reload Settings";
+        const label = if (is_loading) "Reloading settings..." else "Reload Settings";
         if (imgui.igButton(label, .{})) {
             self.confirm_open = true;
             imgui.igOpenPopup_Str("Reload settings?", 0);
@@ -262,7 +307,7 @@ const ReloadButton = struct {
             imgui.igText("Any settings you did not save will be lost.");
             imgui.igSeparator();
             if (imgui.igButton("Reload", .{})) {
-                loadSettings(base_dir);
+                self.loadSettings(base_dir);
                 imgui.igCloseCurrentPopup();
             }
             imgui.igSameLine(0, -1);
@@ -271,46 +316,41 @@ const ReloadButton = struct {
                 imgui.igCloseCurrentPopup();
             }
         }
-        checkLoadedSettings(settings);
+        self.checkLoadedSettings(settings);
     }
 
-    fn loadSettings(base_dir: *const sdk.misc.BaseDir) void {
-        is_loading.store(true, .seq_cst);
+    fn loadSettings(self: *Self, base_dir: *const sdk.misc.BaseDir) void {
         std.log.info("Loading settings...", .{});
         std.log.debug("Spawning settings load thread...", .{});
-        const thread = std.Thread.spawn(
-            .{},
+        _ = self.task.join();
+        self.task = Task.spawn(
+            self.allocator,
             struct {
-                fn call(dir: sdk.misc.BaseDir) void {
-                    std.log.debug("Settings load thread started.", .{});
+                fn call(dir: sdk.misc.BaseDir) ?model.Settings {
+                    std.log.debug("Settings load task started.", .{});
                     if (model.Settings.load(&dir)) |settings| {
-                        loaded_settings = settings;
                         std.log.debug("Settings loaded into temporary storage.", .{});
+                        return settings;
                     } else |err| {
                         sdk.misc.error_context.append("Failed to load settings.", .{});
                         sdk.misc.error_context.logError(err);
+                        return null;
                     }
-                    is_loading.store(false, .seq_cst);
                 }
             }.call,
             .{base_dir.*},
         ) catch |err| {
-            sdk.misc.error_context.new("Failed to spawn settings load thread.", .{});
+            sdk.misc.error_context.new("Failed to spawn settings load task.", .{});
             sdk.misc.error_context.append("Failed to load settings.", .{});
             sdk.misc.error_context.logError(err);
-            is_loading.store(false, .seq_cst);
             return;
         };
-        thread.detach();
     }
 
-    fn checkLoadedSettings(settings: *model.Settings) void {
-        if (is_loading.load(.seq_cst)) {
-            return;
-        }
-        const settings_to_load = loaded_settings orelse return;
+    fn checkLoadedSettings(self: *Self, settings: *model.Settings) void {
+        const settings_to_load = (self.task.peek() orelse return).* orelse return;
         settings.* = settings_to_load;
-        loaded_settings = null;
+        self.task = .createCompleted(null);
         std.log.info("Settings loaded.", .{});
         sdk.ui.toasts.send(.success, null, "Settings reloaded successfully.", .{});
     }

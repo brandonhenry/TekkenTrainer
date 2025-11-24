@@ -9,16 +9,33 @@ const model = @import("../model/root.zig");
 const ui = @import("root.zig");
 
 pub const Ui = struct {
-    is_first_draw: bool = true,
-    is_open: bool = false,
-    main_window: ui.MainWindow = .{},
-    settings_window: ui.SettingsWindow = .{},
-    logs_window: ui.LogsWindow = .{},
-    game_memory_window: ui.GameMemoryWindow = .{},
-    frame_window: ui.FrameWindow = .{},
-    about_window: ui.AboutWindow = .{},
+    is_first_draw: bool,
+    is_open: bool,
+    main_window: ui.MainWindow,
+    settings_window: ui.SettingsWindow,
+    logs_window: ui.LogsWindow,
+    game_memory_window: ui.GameMemoryWindow,
+    frame_window: ui.FrameWindow,
+    about_window: ui.AboutWindow,
 
     const Self = @This();
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{
+            .is_first_draw = true,
+            .is_open = false,
+            .main_window = .{},
+            .settings_window = .init(allocator),
+            .logs_window = .{},
+            .game_memory_window = .{},
+            .frame_window = .{},
+            .about_window = .{},
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.settings_window.deinit();
+    }
 
     pub fn processFrame(self: *Self, settings: *const model.Settings, frame: *const model.Frame) void {
         self.main_window.processFrame(settings, frame);

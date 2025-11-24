@@ -95,11 +95,14 @@ pub const EventBuss = struct {
             sdk.misc.error_context.logWarning(err);
             break :block SettingsTask.createCompleted(.{});
         };
-        errdefer _ = settings_task.join();
 
         std.log.debug("Initializing core...", .{});
         const c = core.Core.init(allocator);
         std.log.info("Core initialized.", .{});
+
+        std.log.debug("Initializing UI...", .{});
+        const ui_instance = ui.Ui.init(allocator);
+        std.log.info("UI initialized.", .{});
 
         return .{
             .timer = .{},
@@ -107,7 +110,7 @@ pub const EventBuss = struct {
             .ui_context = ui_context,
             .settings_task = settings_task,
             .core = c,
-            .ui = .{},
+            .ui = ui_instance,
         };
     }
 
@@ -124,6 +127,10 @@ pub const EventBuss = struct {
         _ = window;
         _ = device;
         _ = command_queue;
+
+        std.log.debug("Deinitializing UI...", .{});
+        self.ui.deinit();
+        std.log.info("UI deinitialized.", .{});
 
         std.log.debug("Joining settings loading task...", .{});
         _ = self.settings_task.join();
