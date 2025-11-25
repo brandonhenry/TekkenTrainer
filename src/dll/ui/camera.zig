@@ -10,6 +10,8 @@ pub const Camera = struct {
     transform: Transform = .{},
     rotation_radius: ?f32 = null,
 
+    pub const padding = 50;
+
     const Self = @This();
     pub const Window = struct {
         position: sdk.math.Vec2 = .zero,
@@ -57,14 +59,19 @@ pub const Camera = struct {
             self.transform.translation = self.transform.translation.add(delta_translation);
             self.transform.scale *= scale_factor;
         }
-        if (imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseRight)) {
+
+        const is_right_mouse_down = imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseRight);
+        const is_modifier_down = imgui.igIsKeyDown_Nil(imgui.ImGuiKey_LeftCtrl) or
+            imgui.igIsKeyDown_Nil(imgui.ImGuiKey_LeftShift) or
+            imgui.igIsKeyDown_Nil(imgui.ImGuiKey_LeftAlt);
+        if (is_right_mouse_down and !is_modifier_down) {
             const delta_mouse = imgui.igGetIO_Nil().*.MouseDelta;
             const delta_screen = sdk.math.Vec2.fromImVec(delta_mouse).extend(0);
             const delta_world = delta_screen.directionTransform(inverse_matrix);
             self.transform.translation = self.transform.translation.add(delta_world);
             imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeAll);
         }
-        if (direction != .top and imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseMiddle)) {
+        if (direction != .top and is_right_mouse_down and is_modifier_down) {
             var window_pos: imgui.ImVec2 = undefined;
             imgui.igGetCursorScreenPos(&window_pos);
             var window_size: imgui.ImVec2 = undefined;
@@ -94,7 +101,7 @@ pub const Camera = struct {
         } else {
             self.rotation_radius = null;
         }
-        if (direction == .top and imgui.igIsKeyDown_Nil(imgui.ImGuiKey_MouseMiddle)) {
+        if (direction == .top and is_right_mouse_down and is_modifier_down) {
             var window_pos: sdk.math.Vec2 = undefined;
             imgui.igGetCursorScreenPos(window_pos.asImVec());
             var window_size: sdk.math.Vec2 = undefined;
@@ -120,6 +127,11 @@ pub const Camera = struct {
             } else {
                 imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeNWSE);
             }
+        }
+
+        const is_middle_mouse_pressed = imgui.igIsKeyPressed_Bool(imgui.ImGuiKey_MouseMiddle, false);
+        if (is_middle_mouse_pressed) {
+            self.transform = .{};
         }
     }
 
@@ -257,8 +269,7 @@ pub const Camera = struct {
                     }
                 }
             }
-            const padding = sdk.math.Vec3.fill(50);
-            break :block sdk.math.Vec3.maxElements(min.negate(), max).add(padding).scale(2);
+            break :block sdk.math.Vec3.maxElements(min.negate(), max).add(.fill(padding)).scale(2);
         };
         const screen_box = switch (direction) {
             .front => sdk.math.Vec3.fromArray(.{
