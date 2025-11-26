@@ -11,6 +11,7 @@ pub const Camera = struct {
     rotation_radius: ?f32 = null,
 
     pub const padding = 50;
+    pub const zoom_speed = 1.2;
 
     const Self = @This();
     pub const Window = struct {
@@ -54,7 +55,7 @@ pub const Camera = struct {
             const screen_mouse = sdk.math.Vec2.fromImVec(mouse_pos).extend(0);
             const world_mouse = screen_mouse.pointTransform(inverse_matrix);
 
-            const scale_factor = std.math.pow(f32, 1.2, wheel);
+            const scale_factor = std.math.pow(f32, zoom_speed, wheel);
             const delta_translation = world_mouse.subtract(world_camera).scale(1.0 / scale_factor - 1.0);
             self.transform.translation = self.transform.translation.add(delta_translation);
             self.transform.scale *= scale_factor;
@@ -259,11 +260,18 @@ pub const Camera = struct {
                     for (&cylinders.values) |*hurt_cylinder| {
                         const cylinder = &hurt_cylinder.cylinder;
                         const pos = cylinder.center.pointTransform(look_at_matrix);
-                        const half_size = sdk.math.Vec3.fromArray(.{
-                            cylinder.radius,
-                            cylinder.radius,
-                            cylinder.half_height,
-                        });
+                        const half_size = switch (direction) {
+                            .top => sdk.math.Vec3.fromArray(.{
+                                cylinder.radius,
+                                cylinder.radius,
+                                cylinder.half_height,
+                            }),
+                            .front, .side => sdk.math.Vec3.fromArray(.{
+                                cylinder.radius,
+                                cylinder.half_height,
+                                cylinder.radius,
+                            }),
+                        };
                         min = sdk.math.Vec3.minElements(min, pos.subtract(half_size));
                         max = sdk.math.Vec3.maxElements(max, pos.add(half_size));
                     }
@@ -308,3 +316,846 @@ pub const Camera = struct {
             .translate(window.size.scale(0.5).add(window.position).extend(0));
     }
 };
+
+const testing = std.testing;
+
+fn testPoint(x: f32, y: f32, z: f32) sdk.math.Vec3 {
+    return .fromArray(.{
+        100 + (x * Camera.padding),
+        200 + (y * Camera.padding),
+        300 + (z * Camera.padding),
+    });
+}
+
+fn testSphere(x: f32, y: f32, z: f32, radius: f32) model.CollisionSphere {
+    return .{
+        .center = testPoint(x, y, z),
+        .radius = radius * Camera.padding,
+    };
+}
+
+fn testCylinder(x: f32, y: f32, z: f32, radius: f32, half_height: f32) model.HurtCylinder {
+    return .{ .cylinder = .{
+        .center = testPoint(x, y, z),
+        .radius = radius * Camera.padding,
+        .half_height = half_height * Camera.padding,
+    } };
+}
+
+test "should project correctly when follow target is players" {
+    const Test = struct {
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(-3, 0, 3, 1),
+                    .left_elbow = testSphere(-6, 0, 0, 1),
+                    .right_elbow = testSphere(-6, 0, 0, 1),
+                    .lower_torso = testSphere(-3, 0, 0, 1),
+                    .left_knee = testSphere(-3, 0, 0, 1),
+                    .right_knee = testSphere(-3, 0, 0, 1),
+                    .left_ankle = testSphere(-3, 0, 0, 1),
+                    .right_ankle = testSphere(-3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(-3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(-3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .head = testCylinder(-3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(-3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                }),
+            },
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(3, 0, 3, 1),
+                    .left_elbow = testSphere(6, 0, 0, 1),
+                    .right_elbow = testSphere(6, 0, 0, 1),
+                    .lower_torso = testSphere(3, 0, 0, 1),
+                    .left_knee = testSphere(3, 0, 0, 1),
+                    .right_knee = testSphere(3, 0, 0, 1),
+                    .left_ankle = testSphere(3, 0, 0, 1),
+                    .right_ankle = testSphere(3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .head = testCylinder(3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(3, 0, 0, 2, 1),
+                }),
+            },
+        } };
+        var camera: Camera = .{ .follow_target = .players };
+        var matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            const window_flags = imgui.ImGuiWindowFlags_NoMove |
+                imgui.ImGuiWindowFlags_NoResize |
+                imgui.ImGuiWindowFlags_NoDecoration |
+                imgui.ImGuiWindowFlags_NoSavedSettings;
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowPadding, .{ .x = 0, .y = 0 });
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
+            defer imgui.igPopStyleVar(2);
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Front", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.updateWindowState(.front);
+                const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
+                matrices.set(.front, matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 400 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Top", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.updateWindowState(.top);
+                const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
+                matrices.set(.top, matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 600, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Side", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.updateWindowState(.side);
+                const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
+                matrices.set(.side, matrix);
+            } else imgui.igEnd();
+        }
+
+        fn testFunction(_: sdk.ui.TestContext) !void {
+            try testing.expectApproxEqAbs(160, testPoint(-7, -4, -4).pointTransform(matrices.get(.front)).x(), 0.0001);
+            try testing.expectApproxEqAbs(280, testPoint(-7, -4, -4).pointTransform(matrices.get(.front)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.9, testPoint(-7, -4, -4).pointTransform(matrices.get(.front)).z(), 0.0001);
+            try testing.expectApproxEqAbs(300, testPoint(0, 0, 0).pointTransform(matrices.get(.front)).x(), 0.0001);
+            try testing.expectApproxEqAbs(200, testPoint(0, 0, 0).pointTransform(matrices.get(.front)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.5, testPoint(0, 0, 0).pointTransform(matrices.get(.front)).z(), 0.0001);
+            try testing.expectApproxEqAbs(440, testPoint(7, 4, 4).pointTransform(matrices.get(.front)).x(), 0.0001);
+            try testing.expectApproxEqAbs(120, testPoint(7, 4, 4).pointTransform(matrices.get(.front)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.1, testPoint(7, 4, 4).pointTransform(matrices.get(.front)).z(), 0.0001);
+
+            try testing.expectApproxEqAbs(160, testPoint(-7, -4, -4).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(420, testPoint(-7, -4, -4).pointTransform(matrices.get(.top)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.9, testPoint(-7, -4, -4).pointTransform(matrices.get(.top)).z(), 0.0001);
+            try testing.expectApproxEqAbs(300, testPoint(0, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(500, testPoint(0, 0, 0).pointTransform(matrices.get(.top)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.5, testPoint(0, 0, 0).pointTransform(matrices.get(.top)).z(), 0.0001);
+            try testing.expectApproxEqAbs(440, testPoint(7, 4, 4).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(580, testPoint(7, 4, 4).pointTransform(matrices.get(.top)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.1, testPoint(7, 4, 4).pointTransform(matrices.get(.top)).z(), 0.0001);
+
+            try testing.expectApproxEqAbs(720, testPoint(-7, -4, -4).pointTransform(matrices.get(.side)).x(), 0.0001);
+            try testing.expectApproxEqAbs(280, testPoint(-7, -4, -4).pointTransform(matrices.get(.side)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.15, testPoint(-7, -4, -4).pointTransform(matrices.get(.side)).z(), 0.0001);
+            try testing.expectApproxEqAbs(800, testPoint(0, 0, 0).pointTransform(matrices.get(.side)).x(), 0.0001);
+            try testing.expectApproxEqAbs(200, testPoint(0, 0, 0).pointTransform(matrices.get(.side)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.5, testPoint(0, 0, 0).pointTransform(matrices.get(.side)).z(), 0.0001);
+            try testing.expectApproxEqAbs(880, testPoint(7, 4, 4).pointTransform(matrices.get(.side)).x(), 0.0001);
+            try testing.expectApproxEqAbs(120, testPoint(7, 4, 4).pointTransform(matrices.get(.side)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.85, testPoint(7, 4, 4).pointTransform(matrices.get(.side)).z(), 0.0001);
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should project correctly when follow target is ingame camera" {
+    const Test = struct {
+        const frame = model.Frame{
+            .camera = .{
+                .position = testPoint(0, -10, 0),
+                .pitch = 0,
+                .roll = 0,
+                .yaw = 0,
+            },
+            .players = .{
+                .{
+                    .collision_spheres = .init(.{
+                        .neck = testSphere(-3, 0, 3, 1),
+                        .left_elbow = testSphere(-6, 0, 0, 1),
+                        .right_elbow = testSphere(-6, 0, 0, 1),
+                        .lower_torso = testSphere(-3, 0, 0, 1),
+                        .left_knee = testSphere(-3, 0, 0, 1),
+                        .right_knee = testSphere(-3, 0, 0, 1),
+                        .left_ankle = testSphere(-3, 0, 0, 1),
+                        .right_ankle = testSphere(-3, 0, 0, 1),
+                    }),
+                    .hurt_cylinders = .init(.{
+                        .left_ankle = testCylinder(-3, 0, -3, 2, 1),
+                        .right_ankle = testCylinder(-3, 0, -3, 2, 1),
+                        .left_hand = testCylinder(-3, -2, 0, 2, 1),
+                        .right_hand = testCylinder(-3, 2, 0, 2, 1),
+                        .left_knee = testCylinder(-3, 0, 0, 2, 1),
+                        .right_knee = testCylinder(-3, 0, 0, 2, 1),
+                        .left_elbow = testCylinder(-3, 0, 0, 2, 1),
+                        .right_elbow = testCylinder(-3, 0, 0, 2, 1),
+                        .head = testCylinder(-3, 0, 0, 2, 1),
+                        .left_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                        .right_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                        .upper_torso = testCylinder(-3, 0, 0, 2, 1),
+                        .left_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                        .right_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                    }),
+                },
+                .{
+                    .collision_spheres = .init(.{
+                        .neck = testSphere(3, 0, 3, 1),
+                        .left_elbow = testSphere(6, 0, 0, 1),
+                        .right_elbow = testSphere(6, 0, 0, 1),
+                        .lower_torso = testSphere(3, 0, 0, 1),
+                        .left_knee = testSphere(3, 0, 0, 1),
+                        .right_knee = testSphere(3, 0, 0, 1),
+                        .left_ankle = testSphere(3, 0, 0, 1),
+                        .right_ankle = testSphere(3, 0, 0, 1),
+                    }),
+                    .hurt_cylinders = .init(.{
+                        .left_ankle = testCylinder(3, 0, -3, 2, 1),
+                        .right_ankle = testCylinder(3, 0, -3, 2, 1),
+                        .left_hand = testCylinder(3, -2, 0, 2, 1),
+                        .right_hand = testCylinder(3, 2, 0, 2, 1),
+                        .left_knee = testCylinder(3, 0, 0, 2, 1),
+                        .right_knee = testCylinder(3, 0, 0, 2, 1),
+                        .left_elbow = testCylinder(3, 0, 0, 2, 1),
+                        .right_elbow = testCylinder(3, 0, 0, 2, 1),
+                        .head = testCylinder(3, 0, 0, 2, 1),
+                        .left_shoulder = testCylinder(3, 0, 0, 2, 1),
+                        .right_shoulder = testCylinder(3, 0, 0, 2, 1),
+                        .upper_torso = testCylinder(3, 0, 0, 2, 1),
+                        .left_pelvis = testCylinder(3, 0, 0, 2, 1),
+                        .right_pelvis = testCylinder(3, 0, 0, 2, 1),
+                    }),
+                },
+            },
+        };
+        var camera: Camera = .{ .follow_target = .ingame_camera };
+        var matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            const window_flags = imgui.ImGuiWindowFlags_NoMove |
+                imgui.ImGuiWindowFlags_NoResize |
+                imgui.ImGuiWindowFlags_NoDecoration |
+                imgui.ImGuiWindowFlags_NoSavedSettings;
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowPadding, .{ .x = 0, .y = 0 });
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
+            defer imgui.igPopStyleVar(2);
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Front", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.updateWindowState(.front);
+                const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
+                matrices.set(.front, matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 400 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Top", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.updateWindowState(.top);
+                const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
+                matrices.set(.top, matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 600, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Side", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.updateWindowState(.side);
+                const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
+                matrices.set(.side, matrix);
+            } else imgui.igEnd();
+        }
+
+        fn testFunction(_: sdk.ui.TestContext) !void {
+            try testing.expectApproxEqAbs(440, testPoint(-7, -4, -4).pointTransform(matrices.get(.front)).x(), 0.0001);
+            try testing.expectApproxEqAbs(280, testPoint(-7, -4, -4).pointTransform(matrices.get(.front)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.1, testPoint(-7, -4, -4).pointTransform(matrices.get(.front)).z(), 0.0001);
+            try testing.expectApproxEqAbs(300, testPoint(0, 0, 0).pointTransform(matrices.get(.front)).x(), 0.0001);
+            try testing.expectApproxEqAbs(200, testPoint(0, 0, 0).pointTransform(matrices.get(.front)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.5, testPoint(0, 0, 0).pointTransform(matrices.get(.front)).z(), 0.0001);
+            try testing.expectApproxEqAbs(160, testPoint(7, 4, 4).pointTransform(matrices.get(.front)).x(), 0.0001);
+            try testing.expectApproxEqAbs(120, testPoint(7, 4, 4).pointTransform(matrices.get(.front)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.9, testPoint(7, 4, 4).pointTransform(matrices.get(.front)).z(), 0.0001);
+
+            try testing.expectApproxEqAbs(440, testPoint(-7, -4, -4).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(580, testPoint(-7, -4, -4).pointTransform(matrices.get(.top)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.9, testPoint(-7, -4, -4).pointTransform(matrices.get(.top)).z(), 0.0001);
+            try testing.expectApproxEqAbs(300, testPoint(0, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(500, testPoint(0, 0, 0).pointTransform(matrices.get(.top)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.5, testPoint(0, 0, 0).pointTransform(matrices.get(.top)).z(), 0.0001);
+            try testing.expectApproxEqAbs(160, testPoint(7, 4, 4).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(420, testPoint(7, 4, 4).pointTransform(matrices.get(.top)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.1, testPoint(7, 4, 4).pointTransform(matrices.get(.top)).z(), 0.0001);
+
+            try testing.expectApproxEqAbs(880, testPoint(-7, -4, -4).pointTransform(matrices.get(.side)).x(), 0.0001);
+            try testing.expectApproxEqAbs(280, testPoint(-7, -4, -4).pointTransform(matrices.get(.side)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.85, testPoint(-7, -4, -4).pointTransform(matrices.get(.side)).z(), 0.0001);
+            try testing.expectApproxEqAbs(800, testPoint(0, 0, 0).pointTransform(matrices.get(.side)).x(), 0.0001);
+            try testing.expectApproxEqAbs(200, testPoint(0, 0, 0).pointTransform(matrices.get(.side)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.5, testPoint(0, 0, 0).pointTransform(matrices.get(.side)).z(), 0.0001);
+            try testing.expectApproxEqAbs(720, testPoint(7, 4, 4).pointTransform(matrices.get(.side)).x(), 0.0001);
+            try testing.expectApproxEqAbs(120, testPoint(7, 4, 4).pointTransform(matrices.get(.side)).y(), 0.0001);
+            try testing.expectApproxEqAbs(0.15, testPoint(7, 4, 4).pointTransform(matrices.get(.side)).z(), 0.0001);
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+// TODO test "should project correctly when follow target is origin"
+// When support for walls gets added, change follow target origin to walls and then test the follow target walls.
+
+test "should zoom in/out on the point that the mouse pointer is pointing when mouse wheel is scrolled" {
+    const Test = struct {
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(-3, 0, 3, 1),
+                    .left_elbow = testSphere(-6, 0, 0, 1),
+                    .right_elbow = testSphere(-6, 0, 0, 1),
+                    .lower_torso = testSphere(-3, 0, 0, 1),
+                    .left_knee = testSphere(-3, 0, 0, 1),
+                    .right_knee = testSphere(-3, 0, 0, 1),
+                    .left_ankle = testSphere(-3, 0, 0, 1),
+                    .right_ankle = testSphere(-3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(-3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(-3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .head = testCylinder(-3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(-3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                }),
+            },
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(3, 0, 3, 1),
+                    .left_elbow = testSphere(6, 0, 0, 1),
+                    .right_elbow = testSphere(6, 0, 0, 1),
+                    .lower_torso = testSphere(3, 0, 0, 1),
+                    .left_knee = testSphere(3, 0, 0, 1),
+                    .right_knee = testSphere(3, 0, 0, 1),
+                    .left_ankle = testSphere(3, 0, 0, 1),
+                    .right_ankle = testSphere(3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .head = testCylinder(3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(3, 0, 0, 2, 1),
+                }),
+            },
+        } };
+        var camera: Camera = .{ .follow_target = .players };
+        var matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+        var inverse_matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            const window_flags = imgui.ImGuiWindowFlags_NoMove |
+                imgui.ImGuiWindowFlags_NoResize |
+                imgui.ImGuiWindowFlags_NoDecoration |
+                imgui.ImGuiWindowFlags_NoSavedSettings;
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowPadding, .{ .x = 0, .y = 0 });
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
+            defer imgui.igPopStyleVar(2);
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Front", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.front, inverse_matrices.get(.front));
+                camera.updateWindowState(.front);
+                const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                matrices.set(.front, matrix);
+                inverse_matrices.set(.front, inverse_matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 400 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Top", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.top, inverse_matrices.get(.top));
+                camera.updateWindowState(.top);
+                const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                matrices.set(.top, matrix);
+                inverse_matrices.set(.top, inverse_matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 600, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Side", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.side, inverse_matrices.get(.side));
+                camera.updateWindowState(.side);
+                const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                matrices.set(.side, matrix);
+                inverse_matrices.set(.side, inverse_matrix);
+            } else imgui.igEnd();
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            const Case = struct {
+                screen_point: sdk.math.Vec3,
+                direction: ui.ViewDirection,
+            };
+            const cases = [_]Case{
+                .{ .screen_point = .fromArray(.{ 360, 200, 0.5 }), .direction = .front },
+                .{ .screen_point = .fromArray(.{ 240, 500, 0.5 }), .direction = .top },
+                .{ .screen_point = .fromArray(.{ 800, 140, 0.5 }), .direction = .side },
+            };
+            for (cases) |case| {
+                ctx.mouseMoveToPos(case.screen_point.swizzle("xy").toImVec());
+                const world_point_1 = case.screen_point.pointTransform(inverse_matrices.get(case.direction));
+                const scale_1 = sdk.math.Vec3.ones.directionTransform(matrices.get(case.direction));
+                ctx.mouseWheelY(1);
+                const world_point_2 = case.screen_point.pointTransform(inverse_matrices.get(case.direction));
+                const scale_2 = sdk.math.Vec3.ones.directionTransform(matrices.get(case.direction));
+                try testing.expectApproxEqAbs(world_point_1.x(), world_point_2.x(), 0.0001);
+                try testing.expectApproxEqAbs(world_point_1.y(), world_point_2.y(), 0.0001);
+                try testing.expectApproxEqAbs(world_point_1.z(), world_point_2.z(), 0.0001);
+                try testing.expectApproxEqAbs(Camera.zoom_speed * scale_1.x(), scale_2.x(), 0.0001);
+                try testing.expectApproxEqAbs(Camera.zoom_speed * scale_1.y(), scale_2.y(), 0.0001);
+                try testing.expectApproxEqAbs(Camera.zoom_speed * scale_1.z(), scale_2.z(), 0.0001);
+                ctx.mouseWheelY(-1);
+                const world_point_3 = case.screen_point.pointTransform(inverse_matrices.get(case.direction));
+                const scale_3 = sdk.math.Vec3.ones.directionTransform(matrices.get(case.direction));
+                try testing.expectApproxEqAbs(world_point_1.x(), world_point_3.x(), 0.0001);
+                try testing.expectApproxEqAbs(world_point_1.y(), world_point_3.y(), 0.0001);
+                try testing.expectApproxEqAbs(world_point_1.z(), world_point_3.z(), 0.0001);
+                try testing.expectApproxEqAbs(scale_1.x(), scale_3.x(), 0.0001);
+                try testing.expectApproxEqAbs(scale_1.y(), scale_3.y(), 0.0001);
+                try testing.expectApproxEqAbs(scale_1.z(), scale_3.z(), 0.0001);
+            }
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should translate the view when the view is right mouse button dragged without a modifier key" {
+    const Test = struct {
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(-3, 0, 3, 1),
+                    .left_elbow = testSphere(-6, 0, 0, 1),
+                    .right_elbow = testSphere(-6, 0, 0, 1),
+                    .lower_torso = testSphere(-3, 0, 0, 1),
+                    .left_knee = testSphere(-3, 0, 0, 1),
+                    .right_knee = testSphere(-3, 0, 0, 1),
+                    .left_ankle = testSphere(-3, 0, 0, 1),
+                    .right_ankle = testSphere(-3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(-3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(-3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .head = testCylinder(-3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(-3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                }),
+            },
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(3, 0, 3, 1),
+                    .left_elbow = testSphere(6, 0, 0, 1),
+                    .right_elbow = testSphere(6, 0, 0, 1),
+                    .lower_torso = testSphere(3, 0, 0, 1),
+                    .left_knee = testSphere(3, 0, 0, 1),
+                    .right_knee = testSphere(3, 0, 0, 1),
+                    .left_ankle = testSphere(3, 0, 0, 1),
+                    .right_ankle = testSphere(3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .head = testCylinder(3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(3, 0, 0, 2, 1),
+                }),
+            },
+        } };
+        var camera: Camera = .{ .follow_target = .players };
+        var inverse_matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+        var cursor = imgui.ImGuiMouseCursor_None;
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            const window_flags = imgui.ImGuiWindowFlags_NoMove |
+                imgui.ImGuiWindowFlags_NoResize |
+                imgui.ImGuiWindowFlags_NoDecoration |
+                imgui.ImGuiWindowFlags_NoSavedSettings;
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowPadding, .{ .x = 0, .y = 0 });
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
+            defer imgui.igPopStyleVar(2);
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Front", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.front, inverse_matrices.get(.front));
+                camera.updateWindowState(.front);
+                const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                inverse_matrices.set(.front, inverse_matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 400 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Top", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.top, inverse_matrices.get(.top));
+                camera.updateWindowState(.top);
+                const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                inverse_matrices.set(.top, inverse_matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 600, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Side", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.side, inverse_matrices.get(.side));
+                camera.updateWindowState(.side);
+                const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                inverse_matrices.set(.side, inverse_matrix);
+            } else imgui.igEnd();
+
+            cursor = imgui.igGetMouseCursor();
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            const Case = struct {
+                drag_from: sdk.math.Vec3,
+                drag_to: sdk.math.Vec3,
+                direction: ui.ViewDirection,
+            };
+            const cases = [_]Case{
+                .{
+                    .drag_from = .fromArray(.{ 420, 260, 0.5 }),
+                    .drag_to = .fromArray(.{ 180, 140, 0.5 }),
+                    .direction = .front,
+                },
+                .{
+                    .drag_from = .fromArray(.{ 420, 560, 0.5 }),
+                    .drag_to = .fromArray(.{ 180, 440, 0.5 }),
+                    .direction = .top,
+                },
+                .{
+                    .drag_from = .fromArray(.{ 860, 260, 0.5 }),
+                    .drag_to = .fromArray(.{ 740, 140, 0.5 }),
+                    .direction = .side,
+                },
+            };
+            for (cases) |case| {
+                ctx.mouseMoveToPos(case.drag_from.swizzle("xy").toImVec());
+                try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+                ctx.mouseDown(imgui.ImGuiMouseButton_Right);
+                try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeAll, cursor);
+                const world_drag_from = case.drag_from.pointTransform(inverse_matrices.get(case.direction));
+                ctx.mouseMoveToPos(case.drag_to.swizzle("xy").toImVec());
+                const world_drag_to = case.drag_to.pointTransform(inverse_matrices.get(case.direction));
+                try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeAll, cursor);
+                ctx.mouseUp(imgui.ImGuiMouseButton_Right);
+                try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+                try testing.expectApproxEqAbs(world_drag_from.x(), world_drag_to.x(), 0.001);
+                try testing.expectApproxEqAbs(world_drag_from.y(), world_drag_to.y(), 0.001);
+                try testing.expectApproxEqAbs(world_drag_from.z(), world_drag_to.z(), 0.001);
+            }
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should rotate the view when the view is right mouse button dragged with a modifier key" {
+    const Test = struct {
+        const frame = model.Frame{ .players = .{
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(-3, 0, 3, 1),
+                    .left_elbow = testSphere(-6, 0, 0, 1),
+                    .right_elbow = testSphere(-6, 0, 0, 1),
+                    .lower_torso = testSphere(-3, 0, 0, 1),
+                    .left_knee = testSphere(-3, 0, 0, 1),
+                    .right_knee = testSphere(-3, 0, 0, 1),
+                    .left_ankle = testSphere(-3, 0, 0, 1),
+                    .right_ankle = testSphere(-3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(-3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(-3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(-3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(-3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(-3, 0, 0, 2, 1),
+                    .head = testCylinder(-3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(-3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(-3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(-3, 0, 0, 2, 1),
+                }),
+            },
+            .{
+                .collision_spheres = .init(.{
+                    .neck = testSphere(3, 0, 3, 1),
+                    .left_elbow = testSphere(6, 0, 0, 1),
+                    .right_elbow = testSphere(6, 0, 0, 1),
+                    .lower_torso = testSphere(3, 0, 0, 1),
+                    .left_knee = testSphere(3, 0, 0, 1),
+                    .right_knee = testSphere(3, 0, 0, 1),
+                    .left_ankle = testSphere(3, 0, 0, 1),
+                    .right_ankle = testSphere(3, 0, 0, 1),
+                }),
+                .hurt_cylinders = .init(.{
+                    .left_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .right_ankle = testCylinder(3, 0, -3, 2, 1),
+                    .left_hand = testCylinder(3, -2, 0, 2, 1),
+                    .right_hand = testCylinder(3, 2, 0, 2, 1),
+                    .left_knee = testCylinder(3, 0, 0, 2, 1),
+                    .right_knee = testCylinder(3, 0, 0, 2, 1),
+                    .left_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .right_elbow = testCylinder(3, 0, 0, 2, 1),
+                    .head = testCylinder(3, 0, 0, 2, 1),
+                    .left_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .right_shoulder = testCylinder(3, 0, 0, 2, 1),
+                    .upper_torso = testCylinder(3, 0, 0, 2, 1),
+                    .left_pelvis = testCylinder(3, 0, 0, 2, 1),
+                    .right_pelvis = testCylinder(3, 0, 0, 2, 1),
+                }),
+            },
+        } };
+        var camera: Camera = .{ .follow_target = .players };
+        var matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+        var inverse_matrices: std.EnumArray(ui.ViewDirection, sdk.math.Mat4) = .initFill(.identity);
+        var cursor = imgui.ImGuiMouseCursor_None;
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            const window_flags = imgui.ImGuiWindowFlags_NoMove |
+                imgui.ImGuiWindowFlags_NoResize |
+                imgui.ImGuiWindowFlags_NoDecoration |
+                imgui.ImGuiWindowFlags_NoSavedSettings;
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowPadding, .{ .x = 0, .y = 0 });
+            imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
+            defer imgui.igPopStyleVar(2);
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Front", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.front, inverse_matrices.get(.front));
+                camera.updateWindowState(.front);
+                const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                matrices.set(.front, matrix);
+                inverse_matrices.set(.front, inverse_matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 100, .y = 400 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Top", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.top, inverse_matrices.get(.top));
+                camera.updateWindowState(.top);
+                const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                matrices.set(.top, matrix);
+                inverse_matrices.set(.top, inverse_matrix);
+            } else imgui.igEnd();
+
+            imgui.igSetNextWindowPos(.{ .x = 600, .y = 100 }, imgui.ImGuiCond_Always, .{});
+            imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
+            if (imgui.igBegin("Side", null, window_flags)) {
+                defer imgui.igEnd();
+                camera.processInput(.side, inverse_matrices.get(.side));
+                camera.updateWindowState(.side);
+                const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
+                const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
+                matrices.set(.side, matrix);
+                inverse_matrices.set(.side, inverse_matrix);
+            } else imgui.igEnd();
+
+            cursor = imgui.igGetMouseCursor();
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            ctx.keyDown(imgui.ImGuiKey_LeftCtrl);
+            defer ctx.keyUp(imgui.ImGuiKey_LeftCtrl);
+
+            try testing.expectApproxEqAbs(320, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(500, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).y(), 0.0001);
+
+            ctx.mouseMoveToPos(.{ .x = 440, .y = 200 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+            ctx.mouseDown(imgui.ImGuiMouseButton_Right);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            try testing.expectApproxEqAbs(0, camera.transform.rotation, 0.0001);
+            ctx.mouseMoveToPos(.{ .x = 300, .y = 200 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            try testing.expectApproxEqAbs(0.5 * std.math.pi, camera.transform.rotation, 0.0001);
+            ctx.mouseMoveToPos(.{ .x = 160, .y = 200 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            try testing.expectApproxEqAbs(std.math.pi, camera.transform.rotation, 0.0001);
+            ctx.mouseUp(imgui.ImGuiMouseButton_Right);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+
+            try testing.expectApproxEqAbs(280, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(500, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).y(), 0.0001);
+
+            ctx.mouseMoveToPos(.{ .x = 720, .y = 200 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+            ctx.mouseDown(imgui.ImGuiMouseButton_Right);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            try testing.expectApproxEqAbs(std.math.pi, camera.transform.rotation, 0.0001);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            ctx.mouseMoveToPos(.{ .x = 800, .y = 200 });
+            try testing.expectApproxEqAbs(0.5 * std.math.pi, camera.transform.rotation, 0.0001);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            ctx.mouseMoveToPos(.{ .x = 880, .y = 200 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            try testing.expectApproxEqAbs(0, camera.transform.rotation, 0.0001);
+            ctx.mouseUp(imgui.ImGuiMouseButton_Right);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+
+            try testing.expectApproxEqAbs(320, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(500, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).y(), 0.0001);
+
+            ctx.mouseMoveToPos(.{ .x = 380, .y = 500 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_Arrow, cursor);
+            ctx.mouseDown(imgui.ImGuiMouseButton_Right);
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeNS, cursor);
+            try testing.expectApproxEqAbs(0, camera.transform.rotation, 0.0001);
+            ctx.mouseMoveToPos(.{ .x = 380, .y = 420 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeNWSE, cursor);
+            try testing.expectApproxEqAbs(0.25 * std.math.pi, camera.transform.rotation, 0.0001);
+            ctx.mouseMoveToPos(.{ .x = 220, .y = 420 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeNESW, cursor);
+            try testing.expectApproxEqAbs(0.75 * std.math.pi, camera.transform.rotation, 0.0001);
+            ctx.mouseMoveToPos(.{ .x = 300, .y = 420 });
+            try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
+            try testing.expectApproxEqAbs(0.5 * std.math.pi, camera.transform.rotation, 0.0001);
+            ctx.mouseUp(imgui.ImGuiMouseButton_Right);
+
+            try testing.expectApproxEqAbs(300, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
+            try testing.expectApproxEqAbs(480, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).y(), 0.0001);
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should change follow target when a target is selected by clicking a menu bar button" {
+    const Test = struct {
+        var camera: Camera = .{ .follow_target = .players };
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_MenuBar);
+            defer imgui.igEnd();
+            if (!imgui.igBeginMenuBar()) return;
+            defer imgui.igEndMenuBar();
+            camera.drawMenuBar();
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            ctx.setRef("Window");
+            try testing.expectEqual(.players, camera.follow_target);
+            ctx.menuClick("Camera/Follow Ingame Camera");
+            try testing.expectEqual(.ingame_camera, camera.follow_target);
+            ctx.menuClick("Camera/Follow Players");
+            try testing.expectEqual(.players, camera.follow_target);
+            ctx.menuClick("Camera/Stay At Origin");
+            try testing.expectEqual(.origin, camera.follow_target);
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
+
+test "should set transform to default value when menu bar reset view offset button is clicked" {
+    const Test = struct {
+        var camera: Camera = .{ .transform = .{
+            .translation = .fromArray(.{ 1, 2, 3 }),
+            .scale = 4,
+            .rotation = 5,
+        } };
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            _ = imgui.igBegin("Window", null, imgui.ImGuiWindowFlags_MenuBar);
+            defer imgui.igEnd();
+            if (!imgui.igBeginMenuBar()) return;
+            defer imgui.igEndMenuBar();
+            camera.drawMenuBar();
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            ctx.setRef("Window");
+            try testing.expect(!std.meta.eql(Camera.Transform{}, camera.transform));
+            ctx.menuClick("Camera/Reset View Offset");
+            try testing.expectEqual(Camera.Transform{}, camera.transform);
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
