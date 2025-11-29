@@ -53,9 +53,9 @@ pub fn build(b: *std.Build) void {
     dll.root_module.addImport("win32", win32);
     dll.root_module.addImport("lib_c_time", lib_c_time);
     dll.root_module.addImport("minhook", minhook);
-    dll.linkLibrary(imgui.library);
+    dll.root_module.linkLibrary(imgui.library);
     dll.root_module.addImport("imgui", imgui.module);
-    dll.linkLibrary(xz.library);
+    dll.root_module.linkLibrary(xz.library);
     dll.root_module.addImport("xz", xz.module);
 
     // This declares intent for the dll to be installed into the standard location when the user invokes the "install"
@@ -119,9 +119,9 @@ pub fn build(b: *std.Build) void {
     tests.root_module.addImport("lib_c_time", lib_c_time);
     tests.root_module.addImport("win32", win32);
     tests.root_module.addImport("minhook", minhook);
-    tests.linkLibrary(imgui_te.library);
+    tests.root_module.linkLibrary(imgui_te.library);
     tests.root_module.addImport("imgui", imgui_te.module);
-    tests.linkLibrary(xz.library);
+    tests.root_module.linkLibrary(xz.library);
     tests.root_module.addImport("xz", xz.module);
 
     // This *creates* a Test step in the build graph, to be executed when another step is evaluated that depends on it.
@@ -235,14 +235,16 @@ fn imguiDependency(
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
+            .link_libcpp = true,
         }),
     });
-    library.addIncludePath(directory);
-    library.addIncludePath(directory.path(b, "./imgui"));
+    library.root_module.addIncludePath(directory);
+    library.root_module.addIncludePath(directory.path(b, "./imgui"));
     if (use_test_engine) {
-        library.addIncludePath(directory.path(b, "./imgui_test_engine"));
+        library.root_module.addIncludePath(directory.path(b, "./imgui_test_engine"));
     }
-    library.addCSourceFiles(.{ .root = directory, .files = &.{
+    library.root_module.addCSourceFiles(.{ .root = directory, .files = &.{
         "./cimgui.cpp",
         "./imgui/imgui.cpp",
         "./imgui/imgui_demo.cpp",
@@ -254,7 +256,7 @@ fn imguiDependency(
         "./imgui_file_dialog/ImGuiFileDialog.cpp",
     } });
     if (use_test_engine) {
-        library.addCSourceFiles(.{ .root = directory, .files = &.{
+        library.root_module.addCSourceFiles(.{ .root = directory, .files = &.{
             "./cimgui_test_engine.cpp",
             "./imgui_test_engine/imgui_capture_tool.cpp",
             "./imgui_test_engine/imgui_te_context.cpp",
@@ -266,11 +268,11 @@ fn imguiDependency(
             "./imgui_test_engine/imgui_te_utils.cpp",
         } });
     }
-    library.linkSystemLibrary("d3dcompiler_47"); // Required by: imgui_impl_dx12.cpp
-    library.linkSystemLibrary("dwmapi"); // Required by: imgui_impl_win32.cpp
+    library.root_module.linkSystemLibrary("d3dcompiler_47", .{}); // Required by: imgui_impl_dx12.cpp
+    library.root_module.linkSystemLibrary("dwmapi", .{}); // Required by: imgui_impl_win32.cpp
     switch (target.result.abi) { // Required by: imgui_impl_win32.cpp
-        .msvc => library.linkSystemLibrary("Gdi32"),
-        .gnu => library.linkSystemLibrary("gdi32"),
+        .msvc => library.root_module.linkSystemLibrary("Gdi32", .{}),
+        .gnu => library.root_module.linkSystemLibrary("gdi32", .{}),
         else => {},
     }
     library.root_module.addCMacro("IMGUI_IMPL_API", "extern \"C\"");
@@ -286,8 +288,6 @@ fn imguiDependency(
         library.root_module.addCMacro("IM_DEBUG_BREAK()", "IM_ASSERT(0)");
     }
     library.root_module.addCMacro("USE_STD_FILESYSTEM", "1");
-    library.linkLibC();
-    library.linkLibCpp();
     const translate_c = b.addTranslateC(.{
         .root_source_file = directory.path(b, "root.h"),
         .target = target,
@@ -312,19 +312,20 @@ fn xzDependency(
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
     const directory = dependency.path("./src");
-    library.addIncludePath(directory.path(b, "./common"));
-    library.addIncludePath(directory.path(b, "./liblzma/api"));
-    library.addIncludePath(directory.path(b, "./liblzma/check"));
-    library.addIncludePath(directory.path(b, "./liblzma/common"));
-    library.addIncludePath(directory.path(b, "./liblzma/delta"));
-    library.addIncludePath(directory.path(b, "./liblzma/lz"));
-    library.addIncludePath(directory.path(b, "./liblzma/lzma"));
-    library.addIncludePath(directory.path(b, "./liblzma/simple"));
-    library.addIncludePath(directory.path(b, "./liblzma/rangecoder"));
-    library.addCSourceFiles(.{
+    library.root_module.addIncludePath(directory.path(b, "./common"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/api"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/check"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/common"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/delta"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/lz"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/lzma"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/simple"));
+    library.root_module.addIncludePath(directory.path(b, "./liblzma/rangecoder"));
+    library.root_module.addCSourceFiles(.{
         .root = directory.path(b, "./liblzma"),
         .files = &.{
             "./common/common.c",
@@ -391,7 +392,6 @@ fn xzDependency(
             "./rangecoder/price_table.c",
         },
     });
-    library.linkLibC();
     library.root_module.addCMacro("ASSUME_RAM", "32");
     library.root_module.addCMacro("HAVE_CHECK_CRC64", "1");
     library.root_module.addCMacro("HAVE_DECODERS", "1");
