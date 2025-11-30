@@ -68,7 +68,7 @@ pub const MainWindow = struct {
         }
 
         self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller);
-        if (imgui.igBeginChild_Str("views", .{ .x = 0, .y = -self.controls_height }, 0, 0)) {
+        if (imgui.igBeginChild_Str("views", .{ .y = -self.controls_height }, 0, imgui.ImGuiWindowFlags_NoScrollbar)) {
             const context = QuadrantContext{
                 .self = self,
                 .settings = settings,
@@ -82,7 +82,7 @@ pub const MainWindow = struct {
             });
         }
         imgui.igEndChild();
-        if (imgui.igBeginChild_Str("controls", .{ .x = 0, .y = 0 }, 0, 0)) {
+        if (imgui.igBeginChild_Str("controls", .{}, 0, 0)) {
             const controls_start_y = imgui.igGetCursorPosY();
             self.controls.draw(controller);
             self.controls_height = imgui.igGetCursorPosY() - controls_start_y;

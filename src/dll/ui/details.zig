@@ -408,6 +408,9 @@ pub const Details = struct {
             imgui.ImGuiTableFlags_ScrollY;
         var table_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&table_size);
+        if (table_size.y < 5) {
+            return; // Prevents crash from happening when user makes the child window too small.
+        }
         const render_content = imgui.igBeginTable("table", 3, table_flags, table_size, 0);
         if (!render_content) return;
         defer imgui.igEndTable();
