@@ -18,7 +18,7 @@
 
     // Version of the game that this version of the application has been tested to be compatible with.
     // Not a standard build.zig.zon field.
-    .game_version = "2.06.02",
+    .game_version = "2.08.00",
 
     // Version number to put inside the recordings files to more easily maintain backwards compatibility.
     // Not a standard build.zig.zon field.

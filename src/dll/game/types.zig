@@ -394,60 +394,60 @@ pub const CollisionSpheres = extern struct {
 pub const EncryptedHealth = [16]u64;
 
 pub const Player = struct {
-    is_picked_by_main_player: Boolean(.{}), // 0x0009
-    character_id: u32, // 0x0168
+    is_picked_by_main_player: Boolean(.{}),
+    character_id: u32,
     transform_matrix: sdk.memory.ConvertedValue(
         sdk.math.Mat4,
         sdk.math.Mat4,
         game.matrixToUnrealSpace,
         game.matrixFromUnrealSpace,
-    ), // 0x1F4
+    ),
     floor_z: sdk.memory.ConvertedValue(
         f32,
         f32,
         game.scaleToUnrealSpace,
         game.scaleFromUnrealSpace,
-    ), // 0x0354
+    ),
     rotation: sdk.memory.ConvertedValue(
         u16,
         f32,
         game.u16ToRadians,
         game.u16FromRadians,
-    ), // 0x376
-    animation_frame: u32, // 0x0390
-    state_flags: StateFlags, //0x043C
-    attack_damage: i32, // 0x0504
-    attack_type: AttackType, // 0x0510
-    animation_id: u32, // 0x0548
-    can_move: Boolean(.{}), // 0x05C8
-    animation_total_frames: u32, // 0x05D4
-    hit_outcome: HitOutcome, // 0x0610
-    invincible: Boolean(.{}), // 0x08F8
-    is_a_parry_move: Boolean(.{ .true_value = 2 }), // 0xA2C
-    power_crushing: Boolean(.{}), // 0x0A70
-    airborne_flags: AirborneFlags, // 0x0D9C
-    in_rage: Boolean(.{}), // 0x0DD1
-    used_rage: Boolean(.{}), // 0x0E08
-    frames_since_round_start: u32, // 0x1410
+    ),
+    animation_frame: u32,
+    state_flags: StateFlags,
+    attack_damage: i32,
+    attack_type: AttackType,
+    animation_id: u32,
+    can_move: Boolean(.{}),
+    animation_total_frames: u32,
+    hit_outcome: HitOutcome,
+    invincible: Boolean(.{}),
+    is_a_parry_move: Boolean(.{ .true_value = 2 }),
+    power_crushing: Boolean(.{}),
+    airborne_flags: AirborneFlags,
+    in_rage: Boolean(.{}),
+    used_rage: Boolean(.{}),
+    frames_since_round_start: u32,
     heat_gauge: sdk.memory.ConvertedValue(
         u32,
         f32,
         game.decryptHeatGauge,
         game.encryptHeatGauge,
-    ), // 0x22C0
-    used_heat: Boolean(.{}), // 0x22D0
-    in_heat: Boolean(.{}), // 0x22F1
-    input_side: PlayerSide, // 0x263C
-    input: Input, // 0x2664
-    hit_lines: HitLines, // 0x26D0
-    hurt_cylinders: HurtCylinders, // 0x2AD0
-    collision_spheres: CollisionSpheres, // 0x2F10
+    ),
+    used_heat: Boolean(.{}),
+    in_heat: Boolean(.{}),
+    input_side: PlayerSide,
+    input: Input,
+    hit_lines: HitLines,
+    hurt_cylinders: HurtCylinders,
+    collision_spheres: CollisionSpheres,
     health: sdk.memory.ConvertedValue(
         EncryptedHealth,
         ?i32,
         game.decryptHealth,
         null,
-    ), // 0x3690
+    ),
 };
 
 pub const RawCamera = extern struct {
