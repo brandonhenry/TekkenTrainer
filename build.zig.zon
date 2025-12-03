@@ -28,13 +28,20 @@
     // In this application, this indicates the major version of Zig that is successfully going to compile the project.
     .minimum_zig_version = "0.15.0",
 
+    // Author of the project.
+    // Not a standard build.zig.zon field.
+    .author = "Tomislav Ivanković",
+
     // Link to home page.
     // Not a standard build.zig.zon field.
     .home_page = "https://example.com",
 
-    // Author of the project.
+    // Donation links.
     // Not a standard build.zig.zon field.
-    .author = "Tomislav Ivanković",
+    .donation_links = .{
+        .one_time = "https://donate.stripe.com/5kQ8wI2qi1zbdWkgUPao800",
+        .recurring = "https://donate.stripe.com/fZu4gsd4W0v77xWeMHao801",
+    },
 
     // List of people that contributed to the project.
     // Not a standard build.zig.zon field.

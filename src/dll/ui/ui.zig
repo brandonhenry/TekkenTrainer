@@ -16,7 +16,7 @@ pub const Ui = struct {
     logs_window: ui.LogsWindow,
     game_memory_window: ui.GameMemoryWindow,
     frame_window: ui.FrameWindow,
-    about_window: ui.AboutWindow,
+    about_window: ui.AboutWindow(.{}),
 
     const Self = @This();
 

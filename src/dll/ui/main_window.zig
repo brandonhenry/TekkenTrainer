@@ -127,9 +127,30 @@ pub const MainWindow = struct {
                 imgui.igSetWindowFocus_Str(ui.FrameWindow.name);
             }
             imgui.igSeparator();
-            if (imgui.igMenuItem_Bool(ui.AboutWindow.name, null, false, true)) {
+            if (imgui.igBeginMenu("Donate", true)) {
+                defer imgui.igEndMenu();
+                if (imgui.igMenuItem_Bool("One Time Donation", null, false, true)) {
+                    const link = build_info.donation_links.one_time;
+                    if (openLink(link)) {
+                        sdk.ui.toasts.send(.info, null, "The donation page has been opened in the browser.", .{});
+                    } else |err| {
+                        sdk.misc.error_context.append("Failed to open link: {s}", .{link});
+                        sdk.misc.error_context.logError(err);
+                    }
+                }
+                if (imgui.igMenuItem_Bool("Recurring Donation", null, false, true)) {
+                    const link = build_info.donation_links.recurring;
+                    if (openLink(link)) {
+                        sdk.ui.toasts.send(.info, null, "The donation page has been opened in the browser.", .{});
+                    } else |err| {
+                        sdk.misc.error_context.append("Failed to open link: {s}", .{link});
+                        sdk.misc.error_context.logError(err);
+                    }
+                }
+            }
+            if (imgui.igMenuItem_Bool(ui.AboutWindow(.{}).name, null, false, true)) {
                 ui_instance.about_window.is_open = true;
-                imgui.igSetWindowFocus_Str(ui.AboutWindow.name);
+                imgui.igSetWindowFocus_Str(ui.AboutWindow(.{}).name);
             }
         }
     }
@@ -153,3 +174,15 @@ pub const MainWindow = struct {
         context.self.details.draw(&context.settings.details);
     }
 };
+
+fn openLink(url: [:0]const u8) !void {
+    const open = imgui.igGetPlatformIO_Nil().*.Platform_OpenInShellFn orelse {
+        sdk.misc.error_context.new("Platform_OpenInShellFn is null.", .{});
+        return error.LinkOpenError;
+    };
+    const success = open(imgui.igGetCurrentContext(), url);
+    if (!success) {
+        sdk.misc.error_context.new("Platform_OpenInShellFn returned false.", .{});
+        return error.LinkOpenError;
+    }
+}
