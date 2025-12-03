@@ -110,7 +110,7 @@ zig build test
 
 While this application is free to download and it's source code is publicly available for inspection, the license that the code is under limits the legal rights of the public in a way that makes this software NOT open source.
 A more accurate way to describe this software is "source-available".
-For more details look at the [license](./LICENSE).
+For more details look at the [license](./LICENSE.md).
 
 ## Support
 
