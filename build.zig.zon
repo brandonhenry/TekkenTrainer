@@ -34,7 +34,7 @@
 
     // Link to home page.
     // Not a standard build.zig.zon field.
-    .home_page = "https://example.com",
+    .home_page = "https://github.com/tomislav-ivankovic/Irony",
 
     // Donation links.
     // Not a standard build.zig.zon field.

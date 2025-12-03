@@ -25,7 +25,7 @@ The application only works with the PC version of the game.
 
 ### Windows
 
-1. Download the latest release from [here](https://example.com).
+1. Download the latest release from [here](https://github.com/tomislav-ivankovic/Irony/releases/latest).
 2. Extract the `.zip` archive anywhere you want.
 3. Run `irony_injector.exe` from the extracted archive.
 4. Launch the game using Steam.
@@ -35,7 +35,7 @@ The application only works with the PC version of the game.
 
 ### Linux
 
-1. Download the latest release from [here](https://example.com).
+1. Download the latest release from [here](https://github.com/tomislav-ivankovic/Irony/releases/latest).
 2. Extract the `.zip` archive anywhere you want.
 3. Launch the game using Steam.
 4. Use proton to run `irony_injector.exe` with `only_inject` command line argument inside the same Wine prefix that the game is running in:
