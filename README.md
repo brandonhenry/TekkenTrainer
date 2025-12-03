@@ -17,6 +17,10 @@ The application only works with the PC version of the game.
 - Record suspicious replays and examine player inputs frame by frame.
 - Measure any distance you are interested in using the measure tool.
 
+## Quick Video Demonstration
+
+[![Irony - Demonstration](https://img.youtube.com/vi/gzJJUjVC3SY/0.jpg)](https://www.youtube.com/watch?v=gzJJUjVC3SY)
+
 ## Installation
 
 ### Windows
@@ -63,10 +67,6 @@ The application only works with the PC version of the game.
 5. Once injected, press `Tab` to open the UI.
 
 (If use the above commands to run `irony_injector.exe` before starting the game, the launch will stall, making the game never start up.)
-
-## Basic Usage
-
-TODO Youtube video with the usage.
 
 ## Building From Source
 
