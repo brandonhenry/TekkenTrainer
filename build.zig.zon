@@ -24,8 +24,11 @@
     // Not a standard build.zig.zon field.
     .recording_version = 0,
 
+    // Indicates the version of Zig that the project is meant to be compiled with.
+    // Not a standard build.zig.zon field.
+    .zig_version = "0.15.2",
+
     // Tracks the earliest Zig version that the package considers to be a supported use case.
-    // In this application, this indicates the major version of Zig that is successfully going to compile the project.
     .minimum_zig_version = "0.15.0",
 
     // Author of the project.

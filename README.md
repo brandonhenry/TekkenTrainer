@@ -66,15 +66,15 @@ The application only works with the PC version of the game.
 
 5. Once injected, press `Tab` to open the UI.
 
-(If use the above commands to run `irony_injector.exe` before starting the game, the launch will stall, making the game never start up.)
+(If you use the above commands to run `irony_injector.exe` before starting the game, the launch will stall, making the game never start up.)
 
 ## Building From Source
 
 Take a look inside the [build.zig.zon](./build.zig.zon) file.
-Under the property `.minimum_zig_version` there is a version of the Zig programming language that the project is compatible with.
-Install that version of the ZIG compiler onto your machine using [the official Zig tutorial](https://ziglang.org/learn/getting-started).
+Under the property `.zig_version` there is a version of the Zig programming language that the project is to be compiled with.
+Install that version of the ZIG compiler onto your machine using the [official Zig tutorial](https://ziglang.org/learn/getting-started).
 
-Make sure that your version of the Zig compiler matches the `.minimum_zig_version`, execute:
+Make sure that your version of the Zig compiler matches the `.zig_version`, execute:
 
 ```bash
 zig version
