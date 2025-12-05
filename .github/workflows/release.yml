@@ -1,0 +1,93 @@
+name: Create A Release
+on:
+    push:
+        tags:
+            - "*"
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout
+              id: checkout
+              uses: actions/checkout@v6
+            - name: Compare Tag With Version
+              run: |
+                  VERSION=$(grep -Po '\.version\s*=\s*"\K[^"]+' build.zig.zon)
+                  if [ "${{ github.ref_name }}" != "$VERSION" ]; then
+                      echo "Error: Tag '${{ github.ref_name }}' does not match the version inside build.zig.zon: '$VERSION'"
+                      exit 1
+                  fi
+            - name: Install Zig
+              id: install_zig
+              run: |
+                  PLATFORM="x86_64-linux"
+                  ZIG_PUBKEY="RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+                  ZIG_VERSION=$(grep -Po '\.zig_version\s*=\s*"\K[^"]+' build.zig.zon)
+                  curl -L -O https://ziglang.org/download/${ZIG_VERSION}/zig-${PLATFORM}-${ZIG_VERSION}.tar.xz
+                  curl -L -O https://ziglang.org/download/${ZIG_VERSION}/zig-${PLATFORM}-${ZIG_VERSION}.tar.xz.minisig
+                  sudo apt update
+                  sudo apt install -y minisign
+                  minisign -Vm zig-${PLATFORM}-${ZIG_VERSION}.tar.xz -P $ZIG_PUBKEY
+                  rm zig-${PLATFORM}-${ZIG_VERSION}.tar.xz.minisig
+                  sudo mkdir /opt/zig
+                  sudo tar -xvf zig-${PLATFORM}-${ZIG_VERSION}.tar.xz -C /opt/zig --strip-components=1
+                  rm zig-${PLATFORM}-${ZIG_VERSION}.tar.xz
+                  echo "/opt/zig" >> $GITHUB_PATH
+            - name: Setup Test Environment
+              id: setup_test_environment
+              run: |
+                  sudo mkdir -pm755 /etc/apt/keyrings
+                  wget -O - https://dl.winehq.org/wine-builds/winehq.key | sudo gpg --dearmor -o /etc/apt/keyrings/winehq-archive.key -
+                  sudo dpkg --add-architecture i386
+                  sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/$(lsb_release -sc)/winehq-$(lsb_release -sc).sources
+                  sudo apt update -y
+                  sudo apt install -y --install-recommends winehq-staging
+                  sudo apt install -y xvfb vulkan-tools mesa-vulkan-drivers mesa-vulkan-drivers:i386
+                  export WINEARCH=win64
+                  export WINEPREFIX=$HOME/.wineprefix
+                  export DISPLAY=""
+                  wineboot --init
+                  WINETRICKS_VERSION="20250102"
+                  curl -L -o winetricks.tar.gz https://github.com/Winetricks/winetricks/archive/refs/tags/${WINETRICKS_VERSION}.tar.gz
+                  mkdir -p ./winetricks
+                  tar --strip-components=1 -xvf winetricks.tar.gz -C ./winetricks
+                  rm winetricks.tar.gz
+                  cd ./winetricks
+                  sudo make install
+                  cd ..
+                  rm -rf ./winetricks
+                  winetricks dxvk vkd3d
+            - name: Run Tests
+              id: run_tests
+              run: |
+                  export WINEARCH=win64
+                  export WINEPREFIX=$HOME/.wineprefix
+                  export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+                  export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
+                  export VK_LOADER_DRIVER_OVERRIDE=lavapipe
+                  xvfb-run -a zig build test --summary all -freference-trace
+            - name: Build Release
+              id: build_release
+              run: zig build --release=fast --summary all -freference-trace
+            - name: Package Release
+              id: package_release
+              run: |
+                  NAME=$(grep -Po '\.display_name\s*=\s*"\K[^"]+' build.zig.zon)
+                  VERSION=$(grep -Po '\.version\s*=\s*"\K[^"]+' build.zig.zon)
+                  GAME_VERSION=$(grep -Po '\.game_version\s*=\s*"\K[^"]+' build.zig.zon)
+                  ARCHIVE_NAME="${NAME}_${VERSION}.zip"
+                  zip -j "$ARCHIVE_NAME" ./LICENSE.md ./zig-out/bin/irony_injector.exe ./zig-out/bin/irony.dll
+                  echo "name=$NAME" >> $GITHUB_OUTPUT
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "game_version=$GAME_VERSION" >> $GITHUB_OUTPUT
+                  echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+            - name: Publish Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  name: "${{ steps.package_release.outputs.name }} version ${{ steps.package_release.outputs.version }}"
+                  tag_name: "${{ steps.package_release.outputs.version }}"
+                  body: "- Compatible with game version: ${{ steps.package_release.outputs.game_version }}"
+                  files: "${{ steps.package_release.outputs.archive_name }}"
+                  fail_on_unmatched_files: true
