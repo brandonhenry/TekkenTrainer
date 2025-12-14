@@ -81,6 +81,11 @@ pub const MoveDetector = struct {
             } else {
                 state.* = .{ .phase = .start_up, .move_frame = 0 };
             }
+        } else if ((state.phase == .active or state.phase == .active_recovery) and
+            animation_id != previous_animation_id and
+            attack_type != .not_attack) // Special case for moves with multiple hits. For example: Bryan db1+2
+        {
+            state.* = .{ .phase = .start_up, .move_frame = 0 };
         }
         const did_player_animation_progress = (animation_frame != previous_animation_frame) or
             (animation_id != previous_animation_id);
