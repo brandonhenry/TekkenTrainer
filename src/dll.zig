@@ -20,18 +20,11 @@ pub const std_options = std.Options{
 const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
 const MemorySearchTask = sdk.misc.Task(dll.game.Memory);
 const Event = union(enum) {
-    present: Dx12Event,
+    present: sdk.dx12.HostContext,
     tick: void,
-    before_resize: Dx12Event,
-    after_resize: Dx12Event,
+    before_resize: sdk.dx12.HostContext,
+    after_resize: sdk.dx12.HostContext,
     shut_down: void,
-
-    pub const Dx12Event = struct {
-        window: w32.HWND,
-        device: *const w32.ID3D12Device,
-        command_queue: *const w32.ID3D12CommandQueue,
-        swap_chain: *const w32.IDXGISwapChain,
-    };
 };
 const ListeningToEvents = enum(u8) { none, all, only_present };
 
@@ -263,14 +256,14 @@ pub fn main() void {
             producer_condition.signal();
         }
         switch (event) {
-            .present => |*e| switch (state) {
+            .present => |*host_context| switch (state) {
                 .starting_up => {
                     std.log.info("Initializing event buss...", .{});
-                    event_buss = .init(allocator, &base_dir, e.window, e.device, e.command_queue, e.swap_chain);
+                    event_buss = .init(allocator, &base_dir, host_context);
                     std.log.info("Event buss initialized.", .{});
 
                     std.log.debug("Initializing window procedure...", .{});
-                    if (sdk.os.WindowProcedure.init(e.window, windowProcedure)) |procedure| {
+                    if (sdk.os.WindowProcedure.init(host_context.window, windowProcedure)) |procedure| {
                         std.log.info("Window procedure initialized.", .{});
                         window_procedure = procedure;
                     } else |err| {
@@ -283,7 +276,7 @@ pub fn main() void {
                 .up => {
                     if (event_buss) |*buss| {
                         const game_memory = memory_search_task.peek();
-                        buss.draw(&base_dir, e.window, e.device, e.command_queue, e.swap_chain, game_memory);
+                        buss.draw(&base_dir, host_context, game_memory);
                     }
                 },
                 .shutting_down => {
@@ -302,7 +295,7 @@ pub fn main() void {
 
                     std.log.info("De-initializing event buss...", .{});
                     if (event_buss) |*buss| {
-                        buss.deinit(&base_dir, e.window, e.device, e.command_queue, e.swap_chain);
+                        buss.deinit(&base_dir, host_context);
                         event_buss = null;
                         std.log.info("Event buss de-initialized.", .{});
                     } else {
@@ -318,16 +311,16 @@ pub fn main() void {
                     buss.tick(game_memory);
                 }
             },
-            .before_resize => |*e| {
+            .before_resize => |*host_context| {
                 std.log.info("Detected before resize event.", .{});
                 if (event_buss) |*buss| {
-                    buss.beforeResize(&base_dir, e.window, e.device, e.command_queue, e.swap_chain);
+                    buss.beforeResize(&base_dir, host_context);
                 }
             },
-            .after_resize => |*e| {
+            .after_resize => |*host_context| {
                 std.log.info("Detected after resize event.", .{});
                 if (event_buss) |*buss| {
-                    buss.afterResize(&base_dir, e.window, e.device, e.command_queue, e.swap_chain);
+                    buss.afterResize(&base_dir, host_context);
                 }
             },
             .shut_down => {
@@ -416,50 +409,20 @@ fn isListeningToEvent(event: *const Event) bool {
     return listening_to == .all or (event.* == .present and listening_to == .only_present);
 }
 
-fn onPresent(
-    window: w32.HWND,
-    device: *const w32.ID3D12Device,
-    command_queue: *const w32.ID3D12CommandQueue,
-    swap_chain: *const w32.IDXGISwapChain,
-) void {
-    sendEvent(&.{ .present = .{
-        .window = window,
-        .device = device,
-        .command_queue = command_queue,
-        .swap_chain = swap_chain,
-    } });
+fn onPresent(context: sdk.dx12.HostContext) void {
+    sendEvent(&.{ .present = context });
 }
 
 fn onTick() void {
     sendEvent(&.tick);
 }
 
-fn beforeResize(
-    window: w32.HWND,
-    device: *const w32.ID3D12Device,
-    command_queue: *const w32.ID3D12CommandQueue,
-    swap_chain: *const w32.IDXGISwapChain,
-) void {
-    sendEvent(&.{ .before_resize = .{
-        .window = window,
-        .device = device,
-        .command_queue = command_queue,
-        .swap_chain = swap_chain,
-    } });
+fn beforeResize(context: sdk.dx12.HostContext) void {
+    sendEvent(&.{ .before_resize = context });
 }
 
-fn afterResize(
-    window: w32.HWND,
-    device: *const w32.ID3D12Device,
-    command_queue: *const w32.ID3D12CommandQueue,
-    swap_chain: *const w32.IDXGISwapChain,
-) void {
-    sendEvent(&.{ .after_resize = .{
-        .window = window,
-        .device = device,
-        .command_queue = command_queue,
-        .swap_chain = swap_chain,
-    } });
+fn afterResize(context: sdk.dx12.HostContext) void {
+    sendEvent(&.{ .after_resize = context });
 }
 
 fn windowProcedure(

@@ -5,6 +5,13 @@ const misc = @import("../misc/root.zig");
 const os = @import("../os/root.zig");
 const dx12 = @import("root.zig");
 
+pub const HostContext = struct {
+    window: w32.HWND,
+    device: *const w32.ID3D12Device,
+    command_queue: *const w32.ID3D12CommandQueue,
+    swap_chain: *const w32.IDXGISwapChain,
+};
+
 pub fn Context(comptime buffer_count: usize, comptime svr_heap_size: usize) type {
     return struct {
         allocator: std.mem.Allocator,

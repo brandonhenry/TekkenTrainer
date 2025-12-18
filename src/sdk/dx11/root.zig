@@ -1,3 +1,4 @@
+pub const HostContext = @import("context.zig").HostContext;
 pub const Error = @import("error.zig").Error;
 pub const Functions = @import("functions.zig").Functions;
 pub const Hooks = @import("hooks.zig").Hooks;

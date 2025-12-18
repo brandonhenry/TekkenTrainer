@@ -5,11 +5,7 @@ const misc = @import("../misc/root.zig");
 const memory = @import("../memory/root.zig");
 const dx11 = @import("root.zig");
 
-pub const OnHookEvent = fn (
-    window: w32.HWND,
-    device: *const w32.ID3D11Device,
-    swap_chain: *const w32.IDXGISwapChain,
-) void;
+pub const OnHookEvent = fn (context: dx11.HostContext) void;
 
 pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, afterResize: *const OnHookEvent) type {
     return struct {
@@ -124,7 +120,12 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
                 misc.error_context.logError(err);
                 return present_hook.?.original(swap_chain, sync_interval, flags);
             };
-            onPresent(window, device, swap_chain);
+            const context = dx11.HostContext{
+                .window = window,
+                .device = device,
+                .swap_chain = swap_chain,
+            };
+            onPresent(context);
 
             return present_hook.?.original(swap_chain, sync_interval, flags);
         }
@@ -165,7 +166,12 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
                 );
             };
 
-            beforeResize(window, device, swap_chain);
+            const context = dx11.HostContext{
+                .window = window,
+                .device = device,
+                .swap_chain = swap_chain,
+            };
+            beforeResize(context);
             const return_value = resize_buffers_hook.?.original(
                 swap_chain,
                 buffer_count,
@@ -174,7 +180,7 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
                 new_format,
                 swap_chain_flags,
             );
-            afterResize(window, device, swap_chain);
+            afterResize(context);
 
             return return_value;
         }
@@ -192,50 +198,26 @@ test "should call correct callbacks at correct times" {
 
     const OnPresent = struct {
         var times_called: usize = 0;
-        var last_window: ?w32.HWND = null;
-        var last_device: ?*const w32.ID3D11Device = null;
-        var last_swap_chain: ?*const w32.IDXGISwapChain = null;
-        fn call(
-            window: w32.HWND,
-            device: *const w32.ID3D11Device,
-            swap_chain: *const w32.IDXGISwapChain,
-        ) void {
+        var last_context: ?dx11.HostContext = null;
+        fn call(context: dx11.HostContext) void {
             times_called += 1;
-            last_window = window;
-            last_device = device;
-            last_swap_chain = swap_chain;
+            last_context = context;
         }
     };
     const BeforeResize = struct {
         var times_called: usize = 0;
-        var last_window: ?w32.HWND = null;
-        var last_device: ?*const w32.ID3D11Device = null;
-        var last_swap_chain: ?*const w32.IDXGISwapChain = null;
-        fn call(
-            window: w32.HWND,
-            device: *const w32.ID3D11Device,
-            swap_chain: *const w32.IDXGISwapChain,
-        ) void {
+        var last_context: ?dx11.HostContext = null;
+        fn call(context: dx11.HostContext) void {
             times_called += 1;
-            last_window = window;
-            last_device = device;
-            last_swap_chain = swap_chain;
+            last_context = context;
         }
     };
     const AfterResize = struct {
         var times_called: usize = 0;
-        var last_window: ?w32.HWND = null;
-        var last_device: ?*const w32.ID3D11Device = null;
-        var last_swap_chain: ?*const w32.IDXGISwapChain = null;
-        fn call(
-            window: w32.HWND,
-            device: *const w32.ID3D11Device,
-            swap_chain: *const w32.IDXGISwapChain,
-        ) void {
+        var last_context: ?dx11.HostContext = null;
+        fn call(context: dx11.HostContext) void {
             times_called += 1;
-            last_window = window;
-            last_device = device;
-            last_swap_chain = swap_chain;
+            last_context = context;
         }
     };
 
@@ -256,9 +238,11 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(0, BeforeResize.times_called);
     try testing.expectEqual(0, AfterResize.times_called);
 
-    try testing.expectEqual(dx11_context.window, OnPresent.last_window);
-    try testing.expectEqual(dx11_context.device, OnPresent.last_device);
-    try testing.expectEqual(dx11_context.swap_chain, OnPresent.last_swap_chain);
+    try testing.expectEqual(dx11.HostContext{
+        .window = dx11_context.window,
+        .device = dx11_context.device,
+        .swap_chain = dx11_context.swap_chain,
+    }, OnPresent.last_context);
 
     const resize_result_1 = dx11_context.swap_chain.ResizeBuffers(
         3,
@@ -271,14 +255,16 @@ test "should call correct callbacks at correct times" {
 
     try testing.expectEqual(1, BeforeResize.times_called);
     try testing.expectEqual(1, AfterResize.times_called);
-
-    try testing.expectEqual(dx11_context.window, BeforeResize.last_window);
-    try testing.expectEqual(dx11_context.device, BeforeResize.last_device);
-    try testing.expectEqual(dx11_context.swap_chain, BeforeResize.last_swap_chain);
-
-    try testing.expectEqual(dx11_context.window, AfterResize.last_window);
-    try testing.expectEqual(dx11_context.device, AfterResize.last_device);
-    try testing.expectEqual(dx11_context.swap_chain, AfterResize.last_swap_chain);
+    try testing.expectEqual(dx11.HostContext{
+        .window = dx11_context.window,
+        .device = dx11_context.device,
+        .swap_chain = dx11_context.swap_chain,
+    }, BeforeResize.last_context);
+    try testing.expectEqual(dx11.HostContext{
+        .window = dx11_context.window,
+        .device = dx11_context.device,
+        .swap_chain = dx11_context.swap_chain,
+    }, AfterResize.last_context);
 }
 
 test "init should error when hooking is not initialized" {
@@ -286,14 +272,8 @@ test "init should error when hooking is not initialized" {
     defer dx11_context.deinit();
 
     const onEvent = struct {
-        fn call(
-            window: w32.HWND,
-            device: *const w32.ID3D11Device,
-            swap_chain: *const w32.IDXGISwapChain,
-        ) void {
-            _ = window;
-            _ = device;
-            _ = swap_chain;
+        fn call(context: dx11.HostContext) void {
+            _ = context;
         }
     }.call;
 

@@ -1,3 +1,4 @@
+pub const HostContext = @import("context.zig").HostContext;
 pub const Context = @import("context.zig").Context;
 pub const BufferContext = @import("context.zig").BufferContext;
 pub const FrameContext = @import("context.zig").FrameContext;
