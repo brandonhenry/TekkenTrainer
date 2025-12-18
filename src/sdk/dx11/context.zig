@@ -5,6 +5,7 @@ const dx11 = @import("root.zig");
 pub const HostContext = struct {
     window: w32.HWND,
     device: *const w32.ID3D11Device,
+    device_context: *const w32.ID3D11DeviceContext,
     swap_chain: *const w32.IDXGISwapChain,
 };
 
@@ -36,6 +37,7 @@ pub const BufferContext = void;
 pub const Context = struct {
     window: w32.HWND,
     device: *const w32.ID3D11Device,
+    device_context: *const w32.ID3D11DeviceContext,
     swap_chain: *const w32.IDXGISwapChain,
 
     const Self = @This();
@@ -45,6 +47,7 @@ pub const Context = struct {
         return .{
             .window = host_context.window,
             .device = host_context.device,
+            .device_context = host_context.device_context,
             .swap_chain = host_context.swap_chain,
         };
     }

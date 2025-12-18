@@ -10,6 +10,7 @@ pub const TestingContext = struct {
     window_class: w32.WNDCLASSEXW,
     window: w32.HWND,
     device: *w32.ID3D11Device,
+    device_context: *w32.ID3D11DeviceContext,
     swap_chain: *w32.IDXGISwapChain,
     test_allocation: *u8,
 
@@ -109,18 +110,28 @@ pub const TestingContext = struct {
         errdefer _ = device.IUnknown.Release();
         errdefer _ = swap_chain.IUnknown.Release();
 
+        var maybe_device_context: ?*w32.ID3D11DeviceContext = undefined;
+        device.GetImmediateContext(&maybe_device_context);
+        const device_context = maybe_device_context orelse {
+            misc.error_context.new("ID3D11Device.GetImmediateContext returned a null value.", .{});
+            return error.Dx11Error;
+        };
+        errdefer _ = device_context.IUnknown.Release();
+
         const test_allocation = try std.testing.allocator.create(u8);
 
         return .{
             .window_class = window_class,
             .window = window,
             .device = device,
+            .device_context = device_context,
             .swap_chain = swap_chain,
             .test_allocation = test_allocation,
         };
     }
 
     pub fn deinit(self: *const Self) void {
+        _ = self.device_context.IUnknown.Release();
         _ = self.swap_chain.IUnknown.Release();
         _ = self.device.IUnknown.Release();
         _ = w32.DestroyWindow(self.window);
@@ -132,6 +143,7 @@ pub const TestingContext = struct {
         return .{
             .window = self.window,
             .device = self.device,
+            .device_context = self.device_context,
             .swap_chain = self.swap_chain,
         };
     }
@@ -150,6 +162,7 @@ test "getHostContext should return correct value" {
     try testing.expectEqual(dx11.HostContext{
         .window = context.window,
         .device = context.device,
+        .device_context = context.device_context,
         .swap_chain = context.swap_chain,
     }, context.getHostContext());
 }

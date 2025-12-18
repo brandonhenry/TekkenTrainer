@@ -25,6 +25,16 @@ pub fn getDeviceFromSwapChain(swap_chain: *const w32.IDXGISwapChain) !(*const w3
     return device;
 }
 
+// Caller needs to release the device context!
+pub fn getDeviceContextFromDevice(device: *const w32.ID3D11Device) !(*const w32.ID3D11DeviceContext) {
+    var device_context: ?*w32.ID3D11DeviceContext = undefined;
+    device.GetImmediateContext(&device_context);
+    return device_context orelse {
+        misc.error_context.new("ID3D11Device.GetImmediateContext returned a null value.", .{});
+        return error.Dx11Error;
+    };
+}
+
 const testing = std.testing;
 
 test "getWindowFromSwapChain should return correct value" {
@@ -37,4 +47,12 @@ test "getDeviceFromSwapChain should return correct value" {
     const context = try dx11.TestingContext.init();
     defer context.deinit();
     try testing.expectEqual(context.device, getDeviceFromSwapChain(context.swap_chain));
+}
+
+test "getDeviceContextFromDevice should return correct value" {
+    const context = try dx11.TestingContext.init();
+    defer context.deinit();
+    const device_context = try getDeviceContextFromDevice(context.device);
+    defer _ = device_context.IUnknown.Release();
+    try testing.expectEqual(context.device_context, device_context);
 }

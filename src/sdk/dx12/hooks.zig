@@ -350,12 +350,7 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(0, BeforeResize.times_called);
     try testing.expectEqual(0, AfterResize.times_called);
 
-    try testing.expectEqual(dx12.HostContext{
-        .window = dx12_context.window,
-        .device = dx12_context.device,
-        .command_queue = dx12_context.command_queue,
-        .swap_chain = dx12_context.swap_chain,
-    }, OnPresent.last_context);
+    try testing.expectEqual(dx12_context.getHostContext(), OnPresent.last_context);
 
     const resize_result_1 = dx12_context.swap_chain.ResizeBuffers(
         3,
@@ -367,19 +362,9 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(w32.S_OK, resize_result_1);
 
     try testing.expectEqual(1, BeforeResize.times_called);
+    try testing.expectEqual(dx12_context.getHostContext(), BeforeResize.last_context);
     try testing.expectEqual(1, AfterResize.times_called);
-    try testing.expectEqual(dx12.HostContext{
-        .window = dx12_context.window,
-        .device = dx12_context.device,
-        .command_queue = dx12_context.command_queue,
-        .swap_chain = dx12_context.swap_chain,
-    }, BeforeResize.last_context);
-    try testing.expectEqual(dx12.HostContext{
-        .window = dx12_context.window,
-        .device = dx12_context.device,
-        .command_queue = dx12_context.command_queue,
-        .swap_chain = dx12_context.swap_chain,
-    }, AfterResize.last_context);
+    try testing.expectEqual(dx12_context.getHostContext(), AfterResize.last_context);
 }
 
 test "init should error when hooking is not initialized" {

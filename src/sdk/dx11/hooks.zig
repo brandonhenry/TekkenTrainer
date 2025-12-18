@@ -116,13 +116,21 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
                 return present_hook.?.original(swap_chain, sync_interval, flags);
             };
             const device = dx11.getDeviceFromSwapChain(swap_chain) catch |err| {
-                misc.error_context.append("Failed to get DX12 device from swap chain.", .{});
+                misc.error_context.append("Failed to get DX11 device from swap chain.", .{});
                 misc.error_context.logError(err);
                 return present_hook.?.original(swap_chain, sync_interval, flags);
             };
+            const device_context = dx11.getDeviceContextFromDevice(device) catch |err| {
+                misc.error_context.append("Failed to get DX11 device context from device.", .{});
+                misc.error_context.logError(err);
+                return present_hook.?.original(swap_chain, sync_interval, flags);
+            };
+            defer _ = device_context.IUnknown.Release();
+
             const context = dx11.HostContext{
                 .window = window,
                 .device = device,
+                .device_context = device_context,
                 .swap_chain = swap_chain,
             };
             onPresent(context);
@@ -165,10 +173,24 @@ pub fn Hooks(onPresent: *const OnHookEvent, beforeResize: *const OnHookEvent, af
                     swap_chain_flags,
                 );
             };
+            const device_context = dx11.getDeviceContextFromDevice(device) catch |err| {
+                misc.error_context.append("Failed to get DX11 device context from device.", .{});
+                misc.error_context.logError(err);
+                return resize_buffers_hook.?.original(
+                    swap_chain,
+                    buffer_count,
+                    width,
+                    height,
+                    new_format,
+                    swap_chain_flags,
+                );
+            };
+            defer _ = device_context.IUnknown.Release();
 
             const context = dx11.HostContext{
                 .window = window,
                 .device = device,
+                .device_context = device_context,
                 .swap_chain = swap_chain,
             };
             beforeResize(context);
@@ -235,14 +257,9 @@ test "should call correct callbacks at correct times" {
     }
 
     try testing.expectEqual(5, OnPresent.times_called);
+    try testing.expectEqual(dx11_context.getHostContext(), OnPresent.last_context);
     try testing.expectEqual(0, BeforeResize.times_called);
     try testing.expectEqual(0, AfterResize.times_called);
-
-    try testing.expectEqual(dx11.HostContext{
-        .window = dx11_context.window,
-        .device = dx11_context.device,
-        .swap_chain = dx11_context.swap_chain,
-    }, OnPresent.last_context);
 
     const resize_result_1 = dx11_context.swap_chain.ResizeBuffers(
         3,
@@ -254,17 +271,9 @@ test "should call correct callbacks at correct times" {
     try testing.expectEqual(w32.S_OK, resize_result_1);
 
     try testing.expectEqual(1, BeforeResize.times_called);
+    try testing.expectEqual(dx11_context.getHostContext(), BeforeResize.last_context);
     try testing.expectEqual(1, AfterResize.times_called);
-    try testing.expectEqual(dx11.HostContext{
-        .window = dx11_context.window,
-        .device = dx11_context.device,
-        .swap_chain = dx11_context.swap_chain,
-    }, BeforeResize.last_context);
-    try testing.expectEqual(dx11.HostContext{
-        .window = dx11_context.window,
-        .device = dx11_context.device,
-        .swap_chain = dx11_context.swap_chain,
-    }, AfterResize.last_context);
+    try testing.expectEqual(dx11_context.getHostContext(), AfterResize.last_context);
 }
 
 test "init should error when hooking is not initialized" {
