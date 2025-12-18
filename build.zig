@@ -36,11 +36,9 @@ pub fn build(b: *std.Build) void {
     const imgui_te = imguiDependency(b, target, optimize, true);
     const xz = xzDependency(b, target, optimize);
 
-    // This module makes the values from inside build.zig.zon available from inside the application code.
-    const build_info = b.createModule(.{ .root_source_file = b.path("build.zig.zon") });
-
-    const dll = b.addLibrary(.{
-        .name = "irony",
+    const build_info_t7 = b.createModule(.{ .root_source_file = b.path("build_info_t7.zig") });
+    const dll_t7 = b.addLibrary(.{
+        .name = "irony_t7",
         .linkage = .dynamic,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/dll.zig"),
@@ -49,18 +47,36 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    dll.root_module.addImport("build_info", build_info);
-    dll.root_module.addImport("win32", win32);
-    dll.root_module.addImport("lib_c_time", lib_c_time);
-    dll.root_module.addImport("minhook", minhook);
-    dll.root_module.linkLibrary(imgui.library);
-    dll.root_module.addImport("imgui", imgui.module);
-    dll.root_module.linkLibrary(xz.library);
-    dll.root_module.addImport("xz", xz.module);
+    dll_t7.root_module.addImport("build_info", build_info_t7);
+    dll_t7.root_module.addImport("win32", win32);
+    dll_t7.root_module.addImport("lib_c_time", lib_c_time);
+    dll_t7.root_module.addImport("minhook", minhook);
+    dll_t7.root_module.linkLibrary(imgui.library);
+    dll_t7.root_module.addImport("imgui", imgui.module);
+    dll_t7.root_module.linkLibrary(xz.library);
+    dll_t7.root_module.addImport("xz", xz.module);
+    b.installArtifact(dll_t7);
 
-    // This declares intent for the dll to be installed into the standard location when the user invokes the "install"
-    // step (the default step when running `zig build`).
-    b.installArtifact(dll);
+    const build_info_t8 = b.createModule(.{ .root_source_file = b.path("build_info_t8.zig") });
+    const dll_t8 = b.addLibrary(.{
+        .name = "irony_t8",
+        .linkage = .dynamic,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/dll.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    dll_t8.root_module.addImport("build_info", build_info_t8);
+    dll_t8.root_module.addImport("win32", win32);
+    dll_t8.root_module.addImport("lib_c_time", lib_c_time);
+    dll_t8.root_module.addImport("minhook", minhook);
+    dll_t8.root_module.linkLibrary(imgui.library);
+    dll_t8.root_module.addImport("imgui", imgui.module);
+    dll_t8.root_module.linkLibrary(xz.library);
+    dll_t8.root_module.addImport("xz", xz.module);
+    b.installArtifact(dll_t8);
 
     const injector = b.addExecutable(.{
         .name = "irony_injector",
@@ -71,12 +87,9 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    injector.root_module.addImport("build_info", build_info);
+    injector.root_module.addImport("build_info", build_info_t8);
     injector.root_module.addImport("lib_c_time", lib_c_time);
     injector.root_module.addImport("win32", win32);
-
-    // This declares intent for the injector to be installed into the standard location when the user invokes the
-    // "install" step (the default step when running `zig build`).
     b.installArtifact(injector);
 
     // This *creates* a Run step in the build graph, to be executed when another step is evaluated that depends on it.
@@ -115,7 +128,7 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    tests.root_module.addImport("build_info", build_info);
+    tests.root_module.addImport("build_info", build_info_t8);
     tests.root_module.addImport("lib_c_time", lib_c_time);
     tests.root_module.addImport("win32", win32);
     tests.root_module.addImport("minhook", minhook);
@@ -263,6 +276,7 @@ fn imguiDependency(
         "./imgui/imgui_draw.cpp",
         "./imgui/imgui_tables.cpp",
         "./imgui/imgui_widgets.cpp",
+        "./imgui/backends/imgui_impl_dx11.cpp",
         "./imgui/backends/imgui_impl_dx12.cpp",
         "./imgui/backends/imgui_impl_win32.cpp",
         "./imgui_file_dialog/ImGuiFileDialog_patched.cpp",

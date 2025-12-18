@@ -16,9 +16,13 @@
     // In this application, a major version bump indicates backwards incompatibility of recording files.
     .version = "1.1.2-SNAPSHOT",
 
-    // Version of the game that this version of the application has been tested to be compatible with.
+    // Version of the T7 game that this version of the application has been tested to be compatible with.
     // Not a standard build.zig.zon field.
-    .game_version = "2.08.00",
+    .t7_version = "5.10",
+
+    // Version of the T8 game that this version of the application has been tested to be compatible with.
+    // Not a standard build.zig.zon field.
+    .t8_version = "2.08.00",
 
     // Version number to put inside the recordings files to more easily maintain backwards compatibility.
     // Not a standard build.zig.zon field.

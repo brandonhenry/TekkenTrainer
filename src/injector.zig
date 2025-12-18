@@ -13,7 +13,7 @@ const access_rights = sdk.os.Process.AccessRights{
     .QUERY_LIMITED_INFORMATION = 1,
     .SYNCHRONIZE = 1,
 };
-const module_name = @tagName(build_info.name) ++ ".dll";
+const module_name = @tagName(build_info.name) ++ "_t8.dll";
 const interval_ns = 1 * std.time.ns_per_s;
 
 const log_file_name = @tagName(build_info.name) ++ "_injector.log";
