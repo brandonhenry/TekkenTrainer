@@ -19,17 +19,7 @@ pub const Context = struct {
     const Self = @This();
     pub const default_font_size = 18;
 
-    pub fn init(
-        comptime buffer_count: usize,
-        comptime srv_heap_size: usize,
-        allocator: std.mem.Allocator,
-        base_dir: ?*const misc.BaseDir,
-        window: w32.HWND,
-        device: *const w32.ID3D12Device,
-        command_queue: *const w32.ID3D12CommandQueue,
-        srv_descriptor_heap: *const w32.ID3D12DescriptorHeap,
-        srv_heap_allocator: *dx12.DescriptorHeapAllocator(srv_heap_size),
-    ) !Self {
+    pub fn init(allocator: std.mem.Allocator, base_dir: ?*const misc.BaseDir, dx12_context: *const dx12.Context) !Self {
         const old_allocator = ui.getAllocator();
         ui.setAllocator(allocator);
         errdefer ui.setAllocator(old_allocator);
@@ -75,7 +65,7 @@ pub const Context = struct {
             misc.error_context.logError(error.ImguiError);
         }
 
-        const win32_success = ui.backend.ImGui_ImplWin32_Init(window);
+        const win32_success = ui.backend.ImGui_ImplWin32_Init(dx12_context.window);
         if (!win32_success) {
             misc.error_context.new("ImGui_ImplWin32_Init returned false.", .{});
             return error.ImguiError;
@@ -83,20 +73,20 @@ pub const Context = struct {
         errdefer ui.backend.ImGui_ImplWin32_Shutdown();
 
         const dx12_success = ui.backend.ImGui_ImplDX12_Init(&.{
-            .device = device,
-            .command_queue = command_queue,
-            .num_frames_in_flight = buffer_count,
+            .device = dx12_context.device,
+            .command_queue = dx12_context.command_queue,
+            .num_frames_in_flight = @intCast(dx12_context.buffer_contexts.len),
             .rtv_format = w32.DXGI_FORMAT_R8G8B8A8_UNORM,
             .dsv_format = w32.DXGI_FORMAT_UNKNOWN,
-            .cbv_srv_heap = srv_descriptor_heap,
-            .user_data = srv_heap_allocator,
+            .cbv_srv_heap = dx12_context.srv_descriptor_heap,
+            .user_data = dx12_context.srv_allocator,
             .srv_desc_alloc_fn = struct {
                 fn call(
                     info: *ui.backend.ImGui_ImplDX12_InitInfo,
                     cpu_handle: *w32.D3D12_CPU_DESCRIPTOR_HANDLE,
                     gpu_handle: *w32.D3D12_GPU_DESCRIPTOR_HANDLE,
                 ) callconv(.c) void {
-                    const a: *dx12.DescriptorHeapAllocator(srv_heap_size) = @ptrCast(@alignCast(info.user_data));
+                    const a: @TypeOf(dx12_context.srv_allocator) = @ptrCast(@alignCast(info.user_data));
                     a.alloc(cpu_handle, gpu_handle) catch |err| {
                         misc.error_context.append("Failed to allocate memory on SRV heap.", .{});
                         misc.error_context.logError(err);
@@ -109,15 +99,15 @@ pub const Context = struct {
                     cpu_handle: w32.D3D12_CPU_DESCRIPTOR_HANDLE,
                     gpu_handle: w32.D3D12_GPU_DESCRIPTOR_HANDLE,
                 ) callconv(.c) void {
-                    const a: *dx12.DescriptorHeapAllocator(srv_heap_size) = @ptrCast(@alignCast(info.user_data));
+                    const a: @TypeOf(dx12_context.srv_allocator) = @ptrCast(@alignCast(info.user_data));
                     a.free(cpu_handle, gpu_handle) catch |err| {
                         misc.error_context.append("Failed to free memory on SRV heap.", .{});
                         misc.error_context.logError(err);
                     };
                 }
             }.call,
-            .font_srv_cpu_desc_handle = dx12.getCpuDescriptorHandleForHeapStart(srv_descriptor_heap),
-            .font_srv_gpu_desc_handle = dx12.getGpuDescriptorHandleForHeapStart(srv_descriptor_heap),
+            .font_srv_cpu_desc_handle = dx12.getCpuDescriptorHandleForHeapStart(dx12_context.srv_descriptor_heap),
+            .font_srv_gpu_desc_handle = dx12.getGpuDescriptorHandleForHeapStart(dx12_context.srv_descriptor_heap),
         });
         if (!dx12_success) {
             misc.error_context.new("ImGui_ImplDX12_Init returned false.", .{});
@@ -207,25 +197,12 @@ const testing = std.testing;
 test "should render hello world successfully" {
     const testing_context = try dx12.TestingContext.init();
     defer testing_context.deinit();
+    const host_context = testing_context.getHostContext();
+    var managed_context = try dx12.ManagedContext.init(testing.allocator, &host_context);
+    defer managed_context.deinit();
+    const dx12_context = dx12.Context.fromHostAndManaged(&testing_context.getHostContext(), &managed_context);
 
-    var dx12_context = try dx12.Context(3, 64).init(
-        testing.allocator,
-        testing_context.device,
-        testing_context.swap_chain,
-    );
-    defer dx12_context.deinit();
-
-    const ui_context = try Context.init(
-        3,
-        64,
-        testing.allocator,
-        null,
-        testing_context.window,
-        testing_context.device,
-        testing_context.command_queue,
-        dx12_context.srv_descriptor_heap,
-        dx12_context.srv_allocator,
-    );
+    const ui_context = try Context.init(testing.allocator, null, &dx12_context);
     defer ui_context.deinit();
 
     ui_context.newFrame();
@@ -235,7 +212,7 @@ test "should render hello world successfully" {
     imgui.igEnd();
     ui_context.endFrame();
 
-    const buffer_context = try dx12.beforeRender(3, 64, &dx12_context, testing_context.swap_chain);
+    const buffer_context = try dx12_context.beforeRender();
     ui_context.render(buffer_context.command_list);
-    try dx12.afterRender(buffer_context, testing_context.command_queue);
+    try dx12_context.afterRender(buffer_context);
 }

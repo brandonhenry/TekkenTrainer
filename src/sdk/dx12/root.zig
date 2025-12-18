@@ -1,9 +1,7 @@
 pub const HostContext = @import("context.zig").HostContext;
+pub const ManagedContext = @import("context.zig").ManagedContext;
 pub const Context = @import("context.zig").Context;
 pub const BufferContext = @import("context.zig").BufferContext;
-pub const FrameContext = @import("context.zig").FrameContext;
-pub const beforeRender = @import("context.zig").beforeRender;
-pub const afterRender = @import("context.zig").afterRender;
 pub const DescriptorHeapAllocator = @import("descriptor_heap_allocator.zig").DescriptorHeapAllocator;
 pub const Error = @import("error.zig").Error;
 pub const ErrorEnum = @import("error.zig").ErrorEnum;

@@ -127,9 +127,29 @@ pub const TestingContext = struct {
         _ = w32.UnregisterClassW(self.window_class.lpszClassName, self.window_class.hInstance);
         std.testing.allocator.destroy(self.test_allocation);
     }
+
+    pub fn getHostContext(self: *const Self) dx11.HostContext {
+        return .{
+            .window = self.window,
+            .device = self.device,
+            .swap_chain = self.swap_chain,
+        };
+    }
 };
+
+const testing = std.testing;
 
 test "should init without errors" {
     const context = try TestingContext.init();
     defer context.deinit();
+}
+
+test "getHostContext should return correct value" {
+    const context = try TestingContext.init();
+    defer context.deinit();
+    try testing.expectEqual(dx11.HostContext{
+        .window = context.window,
+        .device = context.device,
+        .swap_chain = context.swap_chain,
+    }, context.getHostContext());
 }

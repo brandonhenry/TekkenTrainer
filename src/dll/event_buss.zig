@@ -9,14 +9,13 @@ const game = @import("game/root.zig");
 
 pub const EventBuss = struct {
     timer: sdk.misc.Timer(.{}),
-    dx12_context: ?Dx12Context,
+    managed_dx12_context: ?sdk.dx12.ManagedContext,
     ui_context: ?sdk.ui.Context,
     settings_task: SettingsTask,
     core: core.Core,
     ui: ui.Ui,
 
     const Self = @This();
-    const Dx12Context = sdk.dx12.Context(buffer_count, srv_heap_size);
     const SettingsTask = sdk.misc.Task(model.Settings);
 
     const buffer_count = 3;
@@ -28,11 +27,7 @@ pub const EventBuss = struct {
         host_dx12_context: *const sdk.dx12.HostContext,
     ) Self {
         std.log.debug("Initializing DX12 context...", .{});
-        const dx12_context = if (Dx12Context.init(
-            allocator,
-            host_dx12_context.device,
-            host_dx12_context.swap_chain,
-        )) |context| block: {
+        var managed_dx12_context = if (sdk.dx12.ManagedContext.init(allocator, host_dx12_context)) |context| block: {
             std.log.info("DX12 context initialized.", .{});
             break :block context;
         } else |err| block: {
@@ -41,19 +36,13 @@ pub const EventBuss = struct {
             break :block null;
         };
 
-        const ui_context = if (dx12_context) |*dxc| block: {
+        const dx_12_context = if (managed_dx12_context) |*mdxc| block: {
+            break :block sdk.dx12.Context.fromHostAndManaged(host_dx12_context, mdxc);
+        } else null;
+
+        const ui_context = if (dx_12_context) |*dxc| block: {
             std.log.debug("Initializing UI context...", .{});
-            if (sdk.ui.Context.init(
-                buffer_count,
-                srv_heap_size,
-                allocator,
-                base_dir,
-                host_dx12_context.window,
-                host_dx12_context.device,
-                host_dx12_context.command_queue,
-                dxc.srv_descriptor_heap,
-                dxc.srv_allocator,
-            )) |context| {
+            if (sdk.ui.Context.init(allocator, base_dir, dxc)) |context| {
                 std.log.info("UI context initialized.", .{});
                 break :block context;
             } else |err| {
@@ -103,7 +92,7 @@ pub const EventBuss = struct {
 
         return .{
             .timer = .{},
-            .dx12_context = dx12_context,
+            .managed_dx12_context = managed_dx12_context,
             .ui_context = ui_context,
             .settings_task = settings_task,
             .core = c,
@@ -141,9 +130,9 @@ pub const EventBuss = struct {
         }
 
         std.log.debug("De-initializing DX12 context...", .{});
-        if (self.dx12_context) |*context| {
+        if (self.managed_dx12_context) |*context| {
             context.deinit();
-            self.dx12_context = null;
+            self.managed_dx12_context = null;
             std.log.info("DX12 context de-initialized.", .{});
         } else {
             std.log.debug("Nothing to de-initialize.", .{});
@@ -169,7 +158,8 @@ pub const EventBuss = struct {
         self.core.update(delta_time, self, processFrame);
         self.ui.update(delta_time, &self.core.controller);
 
-        const dx12_context = if (self.dx12_context) |*context| context else return;
+        const managed_dx12_context = if (self.managed_dx12_context) |*context| context else return;
+        const dx12_context = sdk.dx12.Context.fromHostAndManaged(host_dx12_context, managed_dx12_context);
         const ui_context = if (self.ui_context) |*context| context else return;
 
         ui_context.newFrame();
@@ -183,13 +173,13 @@ pub const EventBuss = struct {
         );
         ui_context.endFrame();
 
-        const buffer_context = sdk.dx12.beforeRender(buffer_count, srv_heap_size, dx12_context, host_dx12_context.swap_chain) catch |err| {
+        const buffer_context = dx12_context.beforeRender() catch |err| {
             sdk.misc.error_context.append("Failed to execute DX12 before render code.", .{});
             sdk.misc.error_context.logError(err);
             return;
         };
         ui_context.render(buffer_context.command_list);
-        sdk.dx12.afterRender(buffer_context, host_dx12_context.command_queue) catch |err| {
+        dx12_context.afterRender(buffer_context) catch |err| {
             sdk.misc.error_context.append("Failed to execute DX12 after render code.", .{});
             sdk.misc.error_context.logError(err);
             return;
@@ -204,7 +194,7 @@ pub const EventBuss = struct {
         _ = base_dir;
         _ = host_dx12_context;
         std.log.debug("De-initializing DX12 buffer contexts...", .{});
-        if (self.dx12_context) |*context| {
+        if (self.managed_dx12_context) |*context| {
             context.deinitBufferContexts();
             std.log.info("DX12 buffer contexts de-initialized.", .{});
         } else {
@@ -219,8 +209,8 @@ pub const EventBuss = struct {
     ) void {
         _ = base_dir;
         std.log.debug("Re-initializing DX12 buffer contexts...", .{});
-        if (self.dx12_context) |*context| {
-            if (context.reinitBufferContexts(host_dx12_context.device, host_dx12_context.swap_chain)) {
+        if (self.managed_dx12_context) |*context| {
+            if (context.reinitBufferContexts(host_dx12_context)) {
                 std.log.info("DX12 buffer contexts re-initialized.", .{});
             } else |err| {
                 sdk.misc.error_context.append("Failed to re-initialize DX12 buffer contexts.", .{});

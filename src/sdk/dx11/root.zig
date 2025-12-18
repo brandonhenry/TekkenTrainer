@@ -1,6 +1,11 @@
 pub const HostContext = @import("context.zig").HostContext;
+pub const ManagedContext = @import("context.zig").ManagedContext;
+pub const Context = @import("context.zig").Context;
+pub const BufferContext = @import("context.zig").BufferContext;
 pub const Error = @import("error.zig").Error;
+pub const ErrorEnum = @import("error.zig").ErrorEnum;
 pub const Functions = @import("functions.zig").Functions;
+pub const OnHookEvent = @import("hooks.zig").OnHookEvent;
 pub const Hooks = @import("hooks.zig").Hooks;
 pub const getWindowFromSwapChain = @import("misc.zig").getWindowFromSwapChain;
 pub const getDeviceFromSwapChain = @import("misc.zig").getDeviceFromSwapChain;

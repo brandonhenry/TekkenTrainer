@@ -1,4 +1,5 @@
 test {
+    _ = @import("sdk/dx11/context.zig");
     _ = @import("sdk/dx11/error.zig");
     _ = @import("sdk/dx11/functions.zig");
     _ = @import("sdk/dx11/hooks.zig");
