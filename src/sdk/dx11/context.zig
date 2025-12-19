@@ -12,7 +12,7 @@ pub const HostContext = struct {
 pub const ManagedContext = struct {
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator, host_context: *const dx11.HostContext) !Self {
+    pub fn init(allocator: std.mem.Allocator, host_context: *const dx11.HostContext) error{Dx11Error}!Self {
         _ = allocator;
         _ = host_context;
         return .{};
@@ -26,7 +26,7 @@ pub const ManagedContext = struct {
         _ = self;
     }
 
-    pub fn reinitBufferContexts(self: *Self, host_context: *const dx11.HostContext) !void {
+    pub fn reinitBufferContexts(self: *Self, host_context: *const dx11.HostContext) error{Dx11Error}!void {
         _ = self;
         _ = host_context;
     }
@@ -52,12 +52,12 @@ pub const Context = struct {
         };
     }
 
-    pub fn beforeRender(self: *const Self) !*BufferContext {
+    pub fn beforeRender(self: *const Self) error{Dx11Error}!*BufferContext {
         _ = self;
         return undefined;
     }
 
-    pub fn afterRender(self: *const Self, buffer_context: *BufferContext) !void {
+    pub fn afterRender(self: *const Self, buffer_context: *BufferContext) error{Dx11Error}!void {
         _ = self;
         _ = buffer_context;
     }

@@ -16,19 +16,23 @@ pub const std_options = std.Options{
         sdk.ui.toasts.logFn,
     }).logFn,
 };
+const dx = switch (build_info.rendering_api) {
+    .dx11 => sdk.dx11,
+    .dx12 => sdk.dx12,
+};
 
 const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
 const MemorySearchTask = sdk.misc.Task(dll.game.Memory);
 const Event = union(enum) {
-    present: sdk.dx12.HostContext,
+    present: dx.HostContext,
     tick: void,
-    before_resize: sdk.dx12.HostContext,
-    after_resize: sdk.dx12.HostContext,
+    before_resize: dx.HostContext,
+    after_resize: dx.HostContext,
     shut_down: void,
 };
 const ListeningToEvents = enum(u8) { none, all, only_present };
 
-const dx12_hooks = sdk.dx12.Hooks(onPresent, beforeResize, afterResize);
+const dx_hooks = dx.Hooks(onPresent, beforeResize, afterResize);
 const game_hooks = dll.game.Hooks(onTick);
 const number_of_hooking_retries = 10;
 const hooking_retry_sleep_time = 100 * std.time.ns_per_ms;
@@ -194,25 +198,25 @@ pub fn main() void {
         }
     }
 
-    std.log.debug("Initializing DX12 hooks...", .{});
+    std.log.debug("Initializing DirectX hooks...", .{});
     for (0..number_of_hooking_retries) |retry_number| {
-        dx12_hooks.init() catch |err| {
+        dx_hooks.init() catch |err| {
             if (retry_number < number_of_hooking_retries - 1) {
                 std.Thread.sleep(hooking_retry_sleep_time);
                 continue;
             } else {
-                sdk.misc.error_context.append("Failed to initialize DX12 hooks.", .{});
+                sdk.misc.error_context.append("Failed to initialize DirectX hooks.", .{});
                 sdk.misc.error_context.logError(err);
                 return;
             }
         };
         break;
     }
-    std.log.info("DX12 hooks initialized.", .{});
+    std.log.info("DirectX hooks initialized.", .{});
     defer {
-        std.log.debug("De-initializing DX12 hooks...", .{});
-        dx12_hooks.deinit();
-        std.log.info("DX12 hooks de-initialized.", .{});
+        std.log.debug("De-initializing DirectX hooks...", .{});
+        dx_hooks.deinit();
+        std.log.info("DirectX hooks de-initialized.", .{});
     }
 
     std.log.debug("Spawning memory search task...", .{});
@@ -409,7 +413,7 @@ fn isListeningToEvent(event: *const Event) bool {
     return listening_to == .all or (event.* == .present and listening_to == .only_present);
 }
 
-fn onPresent(context: sdk.dx12.HostContext) void {
+fn onPresent(context: dx.HostContext) void {
     sendEvent(&.{ .present = context });
 }
 
@@ -417,11 +421,11 @@ fn onTick() void {
     sendEvent(&.tick);
 }
 
-fn beforeResize(context: sdk.dx12.HostContext) void {
+fn beforeResize(context: dx.HostContext) void {
     sendEvent(&.{ .before_resize = context });
 }
 
-fn afterResize(context: sdk.dx12.HostContext) void {
+fn afterResize(context: dx.HostContext) void {
     sendEvent(&.{ .after_resize = context });
 }
 

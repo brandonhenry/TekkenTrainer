@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_info = @import("build_info");
 const w32 = @import("win32").everything;
 const imgui = @import("imgui");
 const sdk = @import("../sdk/root.zig");
@@ -7,9 +8,15 @@ const model = @import("model/root.zig");
 const ui = @import("ui/root.zig");
 const game = @import("game/root.zig");
 
+const rendering_api = build_info.rendering_api;
+const dx = switch (rendering_api) {
+    .dx11 => sdk.dx11,
+    .dx12 => sdk.dx12,
+};
+
 pub const EventBuss = struct {
     timer: sdk.misc.Timer(.{}),
-    managed_dx12_context: ?sdk.dx12.ManagedContext,
+    managed_dx_context: ?dx.ManagedContext,
     ui_context: ?UiContext,
     settings_task: SettingsTask,
     core: core.Core,
@@ -17,7 +24,7 @@ pub const EventBuss = struct {
 
     const Self = @This();
     const SettingsTask = sdk.misc.Task(model.Settings);
-    const UiContext = sdk.ui.Context(.dx12);
+    const UiContext = sdk.ui.Context(rendering_api);
 
     const buffer_count = 3;
     const srv_heap_size = 64;
@@ -25,23 +32,23 @@ pub const EventBuss = struct {
     pub fn init(
         allocator: std.mem.Allocator,
         base_dir: *const sdk.misc.BaseDir,
-        host_dx12_context: *const sdk.dx12.HostContext,
+        host_dx_context: *const dx.HostContext,
     ) Self {
-        std.log.debug("Initializing DX12 context...", .{});
-        var managed_dx12_context = if (sdk.dx12.ManagedContext.init(allocator, host_dx12_context)) |context| block: {
-            std.log.info("DX12 context initialized.", .{});
+        std.log.debug("Initializing DirectX context...", .{});
+        var managed_dx_context = if (dx.ManagedContext.init(allocator, host_dx_context)) |context| block: {
+            std.log.info("DirectX context initialized.", .{});
             break :block context;
         } else |err| block: {
-            sdk.misc.error_context.append("Failed to initialize DX12 context.", .{});
+            sdk.misc.error_context.append("Failed to initialize DirectX context.", .{});
             sdk.misc.error_context.logError(err);
             break :block null;
         };
 
-        const dx_12_context = if (managed_dx12_context) |*mdxc| block: {
-            break :block sdk.dx12.Context.fromHostAndManaged(host_dx12_context, mdxc);
+        const dx_context = if (managed_dx_context) |*mdxc| block: {
+            break :block dx.Context.fromHostAndManaged(host_dx_context, mdxc);
         } else null;
 
-        const ui_context = if (dx_12_context) |*dxc| block: {
+        const ui_context = if (dx_context) |*dxc| block: {
             std.log.debug("Initializing UI context...", .{});
             if (UiContext.init(allocator, base_dir, dxc)) |context| {
                 std.log.info("UI context initialized.", .{});
@@ -93,7 +100,7 @@ pub const EventBuss = struct {
 
         return .{
             .timer = .{},
-            .managed_dx12_context = managed_dx12_context,
+            .managed_dx_context = managed_dx_context,
             .ui_context = ui_context,
             .settings_task = settings_task,
             .core = c,
@@ -104,10 +111,10 @@ pub const EventBuss = struct {
     pub fn deinit(
         self: *Self,
         base_dir: *const sdk.misc.BaseDir,
-        host_dx12_context: *const sdk.dx12.HostContext,
+        host_dx_context: *const dx.HostContext,
     ) void {
         _ = base_dir;
-        _ = host_dx12_context;
+        _ = host_dx_context;
 
         std.log.debug("Deinitializing UI...", .{});
         self.ui.deinit();
@@ -130,11 +137,11 @@ pub const EventBuss = struct {
             std.log.debug("Nothing to de-initialize.", .{});
         }
 
-        std.log.debug("De-initializing DX12 context...", .{});
-        if (self.managed_dx12_context) |*context| {
+        std.log.debug("De-initializing DirectX context...", .{});
+        if (self.managed_dx_context) |*context| {
             context.deinit();
-            self.managed_dx12_context = null;
-            std.log.info("DX12 context de-initialized.", .{});
+            self.managed_dx_context = null;
+            std.log.info("DirectX context de-initialized.", .{});
         } else {
             std.log.debug("Nothing to de-initialize.", .{});
         }
@@ -152,15 +159,15 @@ pub const EventBuss = struct {
     pub fn draw(
         self: *Self,
         base_dir: *const sdk.misc.BaseDir,
-        host_dx12_context: *const sdk.dx12.HostContext,
+        host_dx_context: *const dx.HostContext,
         game_memory: ?*const game.Memory,
     ) void {
         const delta_time = self.timer.measureDeltaTime();
         self.core.update(delta_time, self, processFrame);
         self.ui.update(delta_time, &self.core.controller);
 
-        const managed_dx12_context = if (self.managed_dx12_context) |*context| context else return;
-        const dx12_context = sdk.dx12.Context.fromHostAndManaged(host_dx12_context, managed_dx12_context);
+        const managed_dx_context = if (self.managed_dx_context) |*context| context else return;
+        const dx_context = dx.Context.fromHostAndManaged(host_dx_context, managed_dx_context);
         const ui_context = if (self.ui_context) |*context| context else return;
 
         ui_context.newFrame();
@@ -174,14 +181,14 @@ pub const EventBuss = struct {
         );
         ui_context.endFrame();
 
-        const buffer_context = dx12_context.beforeRender() catch |err| {
-            sdk.misc.error_context.append("Failed to execute DX12 before render code.", .{});
+        const buffer_context = dx_context.beforeRender() catch |err| {
+            sdk.misc.error_context.append("Failed to execute DirectX before render code.", .{});
             sdk.misc.error_context.logError(err);
             return;
         };
         ui_context.render(buffer_context);
-        dx12_context.afterRender(buffer_context) catch |err| {
-            sdk.misc.error_context.append("Failed to execute DX12 after render code.", .{});
+        dx_context.afterRender(buffer_context) catch |err| {
+            sdk.misc.error_context.append("Failed to execute DirectX after render code.", .{});
             sdk.misc.error_context.logError(err);
             return;
         };
@@ -190,14 +197,14 @@ pub const EventBuss = struct {
     pub fn beforeResize(
         self: *Self,
         base_dir: *const sdk.misc.BaseDir,
-        host_dx12_context: *const sdk.dx12.HostContext,
+        host_dx_context: *const dx.HostContext,
     ) void {
         _ = base_dir;
-        _ = host_dx12_context;
-        std.log.debug("De-initializing DX12 buffer contexts...", .{});
-        if (self.managed_dx12_context) |*context| {
+        _ = host_dx_context;
+        std.log.debug("De-initializing DirectX buffer contexts...", .{});
+        if (self.managed_dx_context) |*context| {
             context.deinitBufferContexts();
-            std.log.info("DX12 buffer contexts de-initialized.", .{});
+            std.log.info("DirectX buffer contexts de-initialized.", .{});
         } else {
             std.log.debug("Nothing to de-initialize.", .{});
         }
@@ -206,15 +213,15 @@ pub const EventBuss = struct {
     pub fn afterResize(
         self: *Self,
         base_dir: *const sdk.misc.BaseDir,
-        host_dx12_context: *const sdk.dx12.HostContext,
+        host_dx_context: *const dx.HostContext,
     ) void {
         _ = base_dir;
-        std.log.debug("Re-initializing DX12 buffer contexts...", .{});
-        if (self.managed_dx12_context) |*context| {
-            if (context.reinitBufferContexts(host_dx12_context)) {
-                std.log.info("DX12 buffer contexts re-initialized.", .{});
+        std.log.debug("Re-initializing DirectX buffer contexts...", .{});
+        if (self.managed_dx_context) |*context| {
+            if (context.reinitBufferContexts(host_dx_context)) {
+                std.log.info("DirectX buffer contexts re-initialized.", .{});
             } else |err| {
-                sdk.misc.error_context.append("Failed to re-initialize DX12 buffer contexts.", .{});
+                sdk.misc.error_context.append("Failed to re-initialize DirectX buffer contexts.", .{});
                 sdk.misc.error_context.logError(err);
             }
         } else {
