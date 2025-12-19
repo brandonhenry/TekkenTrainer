@@ -83,6 +83,10 @@ test {
     _ = @import("dll/core/move_measurer.zig");
     _ = @import("dll/core/pause_detector.zig");
 
+    _ = @import("dll/game/t7/frame_detect_capturer.zig");
+    _ = @import("dll/game/t7/hooks.zig");
+    _ = @import("dll/game/t7/memory.zig");
+
     _ = @import("dll/game/t8/capturer.zig");
     _ = @import("dll/game/t8/conversions.zig");
     _ = @import("dll/game/t8/frame_detect_capturer.zig");

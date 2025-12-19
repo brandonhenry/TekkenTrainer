@@ -16,12 +16,12 @@ pub const Memory = struct {
         decryptHealth: ?*const t8.DecryptHealthFunction = null,
     };
 
-    const pattern_cache_file_name = "pattern_cache.json";
+    const pattern_cache_file_name = "pattern_cache_t8.json";
 
     pub fn init(
         allocator: std.mem.Allocator,
         base_dir: ?*const sdk.misc.BaseDir,
-        last_camera_manager_address_pointer: *const usize,
+        comptime game_hooks: type,
     ) Self {
         var cache = initPatternCache(allocator, base_dir) catch |err| block: {
             sdk.misc.error_context.append("Failed to initialize pattern cache.", .{});
@@ -80,7 +80,7 @@ pub const Memory = struct {
                 0x0,
             }, player_offsets),
             .camera = proxy("camera", t8.Camera, .{
-                @intFromPtr(last_camera_manager_address_pointer),
+                @intFromPtr(&game_hooks.last_camera_manager_address),
                 0x22D0,
             }),
             .functions = .{

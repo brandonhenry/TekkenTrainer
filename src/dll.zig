@@ -368,7 +368,7 @@ fn startFileLogging(base_dir: *const sdk.misc.BaseDir) !void {
 
 fn performMemorySearch(allocator: std.mem.Allocator, dir: *const sdk.misc.BaseDir) dll.game.Memory {
     std.log.debug("Initializing game memory...", .{});
-    const game_memory = dll.game.Memory.init(allocator, dir, &game_hooks.last_camera_manager_address);
+    const game_memory = dll.game.Memory.init(allocator, dir, game_hooks);
     std.log.info("Game memory initialized.", .{});
 
     std.log.debug("Initializing game hooks...", .{});
