@@ -1,19 +1,19 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const sdk = @import("../../sdk/root.zig");
-const game = @import("root.zig");
+const sdk = @import("../../../sdk/root.zig");
+const t8 = @import("root.zig");
 
 pub const Memory = struct {
-    player_1: sdk.memory.StructProxy(game.Player),
-    player_2: sdk.memory.StructProxy(game.Player),
-    camera: sdk.memory.Proxy(game.Camera),
+    player_1: sdk.memory.StructProxy(t8.Player),
+    player_2: sdk.memory.StructProxy(t8.Player),
+    camera: sdk.memory.Proxy(t8.Camera),
     functions: Functions,
 
     const Self = @This();
     pub const Functions = struct {
-        tick: ?*const game.TickFunction = null,
-        updateCamera: ?*const game.UpdateCameraFunction = null,
-        decryptHealth: ?*const game.DecryptHealthFunction = null,
+        tick: ?*const t8.TickFunction = null,
+        updateCamera: ?*const t8.UpdateCameraFunction = null,
+        decryptHealth: ?*const t8.DecryptHealthFunction = null,
     };
 
     const pattern_cache_file_name = "pattern_cache.json";
@@ -31,7 +31,7 @@ pub const Memory = struct {
         defer if (cache) |*pattern_cache| {
             deinitPatternCache(pattern_cache, base_dir);
         };
-        const player_offsets = structOffsets(game.Player, .{
+        const player_offsets = structOffsets(t8.Player, .{
             .is_picked_by_main_player = 0x0009,
             .character_id = 0x0168,
             .transform_matrix = 0x200,
@@ -69,39 +69,39 @@ pub const Memory = struct {
             .health = 0x3810,
         });
         const self = Self{
-            .player_1 = structProxy("player_1", game.Player, .{
+            .player_1 = structProxy("player_1", t8.Player, .{
                 relativeOffset(u32, add(3, pattern(&cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
                 0x30,
                 0x0,
             }, player_offsets),
-            .player_2 = structProxy("player_2", game.Player, .{
+            .player_2 = structProxy("player_2", t8.Player, .{
                 relativeOffset(u32, add(3, pattern(&cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
                 0x38,
                 0x0,
             }, player_offsets),
-            .camera = proxy("camera", game.Camera, .{
+            .camera = proxy("camera", t8.Camera, .{
                 @intFromPtr(last_camera_manager_address_pointer),
                 0x22D0,
             }),
             .functions = .{
                 .tick = functionPointer(
                     "tick_function",
-                    game.TickFunction,
+                    t8.TickFunction,
                     pattern(&cache, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 48 8B 01 0F 28 C8"),
                 ),
                 .updateCamera = functionPointer(
                     "update_camera_function",
-                    game.UpdateCameraFunction,
+                    t8.UpdateCameraFunction,
                     pattern(&cache, "48 8B C4 48 89 58 18 55 56 57 48 81 EC 50"),
                 ),
                 .decryptHealth = functionPointer(
                     "decrypt_health_function",
-                    game.DecryptHealthFunction,
+                    t8.DecryptHealthFunction,
                     pattern(&cache, "48 89 5C 24 08 57 48 83 EC ?? 48 8D 79 08 48 8B D9 48 8B CF E8 ?? ?? ?? ?? 85 C0"),
                 ),
             },
         };
-        game.conversion_globals.decryptHealth = self.functions.decryptHealth;
+        t8.conversion_globals.decryptHealth = self.functions.decryptHealth;
         return self;
     }
 

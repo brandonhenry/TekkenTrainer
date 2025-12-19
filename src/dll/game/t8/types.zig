@@ -1,6 +1,6 @@
 const std = @import("std");
-const sdk = @import("../../sdk/root.zig");
-const game = @import("root.zig");
+const sdk = @import("../../../sdk/root.zig");
+const t8 = @import("root.zig");
 
 pub const BooleanConfig = struct {
     BackingInt: type = u8,
@@ -288,8 +288,8 @@ pub const HitLine = extern struct {
 pub const HitLines = [4]sdk.memory.ConvertedValue(
     HitLine,
     HitLine,
-    game.hitLineToUnrealSpace,
-    game.hitLineFromUnrealSpace,
+    t8.hitLineToUnrealSpace,
+    t8.hitLineFromUnrealSpace,
 );
 comptime {
     std.debug.assert(@sizeOf(HitLines) == 256);
@@ -328,8 +328,8 @@ pub const HurtCylinders = extern struct {
     pub const Element = sdk.memory.ConvertedValue(
         HurtCylinder,
         HurtCylinder,
-        game.hurtCylinderToUnrealSpace,
-        game.hurtCylinderFromUnrealSpace,
+        t8.hurtCylinderToUnrealSpace,
+        t8.hurtCylinderFromUnrealSpace,
     );
 
     pub const len = @typeInfo(Self).@"struct".fields.len;
@@ -372,8 +372,8 @@ pub const CollisionSpheres = extern struct {
     pub const Element = sdk.memory.ConvertedValue(
         CollisionSphere,
         CollisionSphere,
-        game.collisionSphereToUnrealSpace,
-        game.collisionSphereFromUnrealSpace,
+        t8.collisionSphereToUnrealSpace,
+        t8.collisionSphereFromUnrealSpace,
     );
 
     pub const len = @typeInfo(Self).@"struct".fields.len;
@@ -399,20 +399,20 @@ pub const Player = struct {
     transform_matrix: sdk.memory.ConvertedValue(
         sdk.math.Mat4,
         sdk.math.Mat4,
-        game.matrixToUnrealSpace,
-        game.matrixFromUnrealSpace,
+        t8.matrixToUnrealSpace,
+        t8.matrixFromUnrealSpace,
     ),
     floor_z: sdk.memory.ConvertedValue(
         f32,
         f32,
-        game.scaleToUnrealSpace,
-        game.scaleFromUnrealSpace,
+        t8.scaleToUnrealSpace,
+        t8.scaleFromUnrealSpace,
     ),
     rotation: sdk.memory.ConvertedValue(
         u16,
         f32,
-        game.u16ToRadians,
-        game.u16FromRadians,
+        t8.u16ToRadians,
+        t8.u16FromRadians,
     ),
     animation_frame: u32,
     state_flags: StateFlags,
@@ -432,8 +432,8 @@ pub const Player = struct {
     heat_gauge: sdk.memory.ConvertedValue(
         u32,
         f32,
-        game.decryptHeatGauge,
-        game.encryptHeatGauge,
+        t8.decryptHeatGauge,
+        t8.encryptHeatGauge,
     ),
     used_heat: Boolean(.{}),
     in_heat: Boolean(.{}),
@@ -445,7 +445,7 @@ pub const Player = struct {
     health: sdk.memory.ConvertedValue(
         EncryptedHealth,
         ?i32,
-        game.decryptHealth,
+        t8.decryptHealth,
         null,
     ),
 };
@@ -467,8 +467,8 @@ pub const ConvertedCamera = extern struct {
 pub const Camera = sdk.memory.ConvertedValue(
     RawCamera,
     ConvertedCamera,
-    game.rawToConvertedCamera,
-    game.convertedToRawCamera,
+    t8.rawToConvertedCamera,
+    t8.convertedToRawCamera,
 );
 
 pub const TickFunction = fn (delta_time: f64) callconv(.c) void;

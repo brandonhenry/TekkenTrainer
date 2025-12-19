@@ -1,7 +1,7 @@
 const std = @import("std");
-const sdk = @import("../../sdk/root.zig");
-const model = @import("../model/root.zig");
-const game = @import("../game/root.zig");
+const sdk = @import("../../../sdk/root.zig");
+const model = @import("../../model/root.zig");
+const t8 = @import("root.zig");
 
 pub const Capturer = struct {
     player_1_state: PlayerState = .{},
@@ -9,13 +9,13 @@ pub const Capturer = struct {
 
     const Self = @This();
     pub const GameMemory = struct {
-        player_1: sdk.misc.Partial(game.Player),
-        player_2: sdk.misc.Partial(game.Player),
-        camera: ?game.Camera = null,
+        player_1: sdk.misc.Partial(t8.Player),
+        player_2: sdk.misc.Partial(t8.Player),
+        camera: ?t8.Camera = null,
     };
     pub const PlayerState = struct {
         airborne_state: AirborneState = .{},
-        previous_hit_lines: ?game.HitLines = null,
+        previous_hit_lines: ?t8.HitLines = null,
     };
     const AirborneState = packed struct {
         airborne_started: bool = false,
@@ -104,7 +104,7 @@ pub const Capturer = struct {
 
     fn capturePlayer(
         state: *PlayerState,
-        player: *const sdk.misc.Partial(game.Player),
+        player: *const sdk.misc.Partial(t8.Player),
         player_id: model.PlayerId,
     ) model.Player {
         updateAirborneState(state, player);
@@ -133,10 +133,10 @@ pub const Capturer = struct {
         return captured_player;
     }
 
-    fn updateAirborneState(state: *PlayerState, player: *const sdk.misc.Partial(game.Player)) void {
+    fn updateAirborneState(state: *PlayerState, player: *const sdk.misc.Partial(t8.Player)) void {
         const animation_frame: u32 = player.animation_frame orelse return;
-        const state_flags: game.StateFlags = player.state_flags orelse return;
-        const airborne_flags: game.AirborneFlags = player.airborne_flags orelse return;
+        const state_flags: t8.StateFlags = player.state_flags orelse return;
+        const airborne_flags: t8.AirborneFlags = player.airborne_flags orelse return;
         if (animation_frame == 1) {
             state.airborne_state = .{};
         }
@@ -159,12 +159,12 @@ pub const Capturer = struct {
         }
     }
 
-    fn updatePreviousHitLines(state: *PlayerState, player: *const sdk.misc.Partial(game.Player)) void {
+    fn updatePreviousHitLines(state: *PlayerState, player: *const sdk.misc.Partial(t8.Player)) void {
         state.previous_hit_lines = player.hit_lines;
     }
 
-    fn captureAttackType(player: *const sdk.misc.Partial(game.Player)) ?model.AttackType {
-        const attack_type: game.AttackType = player.attack_type orelse return null;
+    fn captureAttackType(player: *const sdk.misc.Partial(t8.Player)) ?model.AttackType {
+        const attack_type: t8.AttackType = player.attack_type orelse return null;
         return switch (attack_type) {
             .not_attack => .not_attack,
             .high => .high,
@@ -181,8 +181,8 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureHitOutcome(player: *const sdk.misc.Partial(game.Player)) ?model.HitOutcome {
-        const hit_outcome: game.HitOutcome = player.hit_outcome orelse return null;
+    fn captureHitOutcome(player: *const sdk.misc.Partial(t8.Player)) ?model.HitOutcome {
+        const hit_outcome: t8.HitOutcome = player.hit_outcome orelse return null;
         return switch (hit_outcome) {
             .none => .none,
             .blocked_standing => .blocked_standing,
@@ -205,8 +205,8 @@ pub const Capturer = struct {
         };
     }
 
-    fn capturePosture(state: *const PlayerState, player: *const sdk.misc.Partial(game.Player)) ?model.Posture {
-        const state_flags: game.StateFlags = player.state_flags orelse return null;
+    fn capturePosture(state: *const PlayerState, player: *const sdk.misc.Partial(t8.Player)) ?model.Posture {
+        const state_flags: t8.StateFlags = player.state_flags orelse return null;
         const airborne_state = state.airborne_state;
         if (state_flags.crouching) {
             return .crouching;
@@ -225,8 +225,8 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureBlocking(player: *const sdk.misc.Partial(game.Player)) ?model.Blocking {
-        const state_flags: game.StateFlags = player.state_flags orelse return null;
+    fn captureBlocking(player: *const sdk.misc.Partial(t8.Player)) ?model.Blocking {
+        const state_flags: t8.StateFlags = player.state_flags orelse return null;
         if (state_flags.blocking_mids) {
             if (state_flags.neutral_blocking) {
                 return .neutral_blocking_mids;
@@ -244,12 +244,12 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureCrushing(state: *PlayerState, player: *const sdk.misc.Partial(game.Player)) ?model.Crushing {
+    fn captureCrushing(state: *PlayerState, player: *const sdk.misc.Partial(t8.Player)) ?model.Crushing {
         const posture = capturePosture(state, player) orelse return null;
-        const state_flags: game.StateFlags = player.state_flags orelse return null;
+        const state_flags: t8.StateFlags = player.state_flags orelse return null;
         const airborne_state = state.airborne_state;
-        const power_crushing: game.Boolean(.{}) = player.power_crushing orelse return null;
-        const invincible: game.Boolean(.{}) = player.invincible orelse return null;
+        const power_crushing: t8.Boolean(.{}) = player.power_crushing orelse return null;
+        const invincible: t8.Boolean(.{}) = player.invincible orelse return null;
         return .{
             .high_crushing = posture == .crouching or posture == .downed_face_down or posture == .downed_face_up,
             .low_crushing = posture == .airborne and
@@ -262,9 +262,9 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureInput(player: *const sdk.misc.Partial(game.Player), player_id: model.PlayerId) ?model.Input {
-        const input: game.Input = player.input orelse return null;
-        const input_side: game.PlayerSide = player.input_side orelse (if (player_id == .player_1) .left else .right);
+    fn captureInput(player: *const sdk.misc.Partial(t8.Player), player_id: model.PlayerId) ?model.Input {
+        const input: t8.Input = player.input orelse return null;
+        const input_side: t8.PlayerSide = player.input_side orelse (if (player_id == .player_1) .left else .right);
         return .{
             .forward = if (input_side == .left) input.right else input.left,
             .back = if (input_side == .left) input.left else input.right,
@@ -282,7 +282,7 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureRage(player: *const sdk.misc.Partial(game.Player)) ?model.Rage {
+    fn captureRage(player: *const sdk.misc.Partial(t8.Player)) ?model.Rage {
         const in_rage = (if (player.in_rage) |b| b.toBool() else null) orelse return null;
         const used_rage = (if (player.used_rage) |b| b.toBool() else null) orelse return null;
         if (in_rage) {
@@ -294,7 +294,7 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureHeat(player: *const sdk.misc.Partial(game.Player)) ?model.Heat {
+    fn captureHeat(player: *const sdk.misc.Partial(t8.Player)) ?model.Heat {
         const in_heat = (if (player.in_heat) |b| b.toBool() else null) orelse return null;
         const used_heat = (if (player.used_heat) |b| b.toBool() else null) orelse return null;
         const heat_gauge = player.heat_gauge orelse return null;
@@ -307,7 +307,7 @@ pub const Capturer = struct {
         }
     }
 
-    fn capturePlayerRotation(player: *const sdk.misc.Partial(game.Player)) ?f32 {
+    fn capturePlayerRotation(player: *const sdk.misc.Partial(t8.Player)) ?f32 {
         if (player.rotation) |rotation| {
             return rotation.convert();
         }
@@ -322,10 +322,10 @@ pub const Capturer = struct {
         return angle;
     }
 
-    fn captureHurtCylinders(player: *const sdk.misc.Partial(game.Player)) ?model.HurtCylinders {
-        const cylinders: *const game.HurtCylinders = if (player.hurt_cylinders) |*c| c else return null;
+    fn captureHurtCylinders(player: *const sdk.misc.Partial(t8.Player)) ?model.HurtCylinders {
+        const cylinders: *const t8.HurtCylinders = if (player.hurt_cylinders) |*c| c else return null;
         const convert = struct {
-            fn call(input: *const game.HurtCylinders.Element) model.HurtCylinder {
+            fn call(input: *const t8.HurtCylinders.Element) model.HurtCylinder {
                 const converted = input.convert();
                 const cylinder = sdk.math.Cylinder{
                     .center = converted.center,
@@ -353,10 +353,10 @@ pub const Capturer = struct {
         });
     }
 
-    fn captureCollisionSpheres(player: *const sdk.misc.Partial(game.Player)) ?model.CollisionSpheres {
-        const spheres: *const game.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
+    fn captureCollisionSpheres(player: *const sdk.misc.Partial(t8.Player)) ?model.CollisionSpheres {
+        const spheres: *const t8.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
         const convert = struct {
-            fn call(input: *const game.CollisionSpheres.Element) model.CollisionSphere {
+            fn call(input: *const t8.CollisionSpheres.Element) model.CollisionSphere {
                 const converted = input.convert();
                 return .{ .center = converted.center, .radius = converted.radius };
             }
@@ -373,10 +373,10 @@ pub const Capturer = struct {
         });
     }
 
-    fn captureHitLines(state: *const PlayerState, player: *const sdk.misc.Partial(game.Player)) model.HitLines {
+    fn captureHitLines(state: *const PlayerState, player: *const sdk.misc.Partial(t8.Player)) model.HitLines {
         var result: model.HitLines = .{};
-        const previous_lines: *const game.HitLines = if (state.previous_hit_lines) |*l| l else return result;
-        const current_lines: *const game.HitLines = if (player.hit_lines) |*l| l else return result;
+        const previous_lines: *const t8.HitLines = if (state.previous_hit_lines) |*l| l else return result;
+        const current_lines: *const t8.HitLines = if (player.hit_lines) |*l| l else return result;
         for (previous_lines, current_lines) |*raw_previous_line, *raw_current_line| {
             const previous_line = raw_previous_line.convert();
             const current_line = raw_current_line.convert();
@@ -736,19 +736,19 @@ test "should capture input correctly" {
 
 test "should capture health correctly" {
     const DecryptHealth = struct {
-        var argument: ?game.EncryptedHealth = null;
-        fn call(encrypted_health: *const game.EncryptedHealth) callconv(.c) i64 {
+        var argument: ?t8.EncryptedHealth = null;
+        fn call(encrypted_health: *const t8.EncryptedHealth) callconv(.c) i64 {
             argument = encrypted_health.*;
             return 123 << 16;
         }
     };
-    const oldDecryptHealth = game.conversion_globals.decryptHealth;
-    defer game.conversion_globals.decryptHealth = oldDecryptHealth;
+    const oldDecryptHealth = t8.conversion_globals.decryptHealth;
+    defer t8.conversion_globals.decryptHealth = oldDecryptHealth;
 
     var capturer = Capturer{};
-    const encrypted = game.EncryptedHealth{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    const encrypted = t8.EncryptedHealth{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
-    game.conversion_globals.decryptHealth = null;
+    t8.conversion_globals.decryptHealth = null;
     const frame_1 = capturer.captureFrame(&.{
         .player_1 = .{ .health = .{ .raw = encrypted } },
         .player_2 = .{ .health = null },
@@ -757,7 +757,7 @@ test "should capture health correctly" {
     try testing.expectEqual(null, frame_1.getPlayerById(.player_2).health);
     try testing.expectEqual(null, DecryptHealth.argument);
 
-    game.conversion_globals.decryptHealth = DecryptHealth.call;
+    t8.conversion_globals.decryptHealth = DecryptHealth.call;
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{ .health = .{ .raw = encrypted } },
         .player_2 = .{ .health = null },
@@ -886,7 +886,7 @@ test "should capture player rotation correctly" {
 
 test "should capture hurt cylinders correctly" {
     const hurtCylinder = struct {
-        fn call(x: f32, y: f32, z: f32, r: f32, h: f32) game.HurtCylinders.Element {
+        fn call(x: f32, y: f32, z: f32, r: f32, h: f32) t8.HurtCylinders.Element {
             return .fromConverted(.{
                 .center = .fromArray(.{ x, y, z }),
                 .multiplier = 1.0,
@@ -951,7 +951,7 @@ test "should capture hurt cylinders correctly" {
 
 test "should capture collision spheres correctly" {
     const collisionSphere = struct {
-        fn call(x: f32, y: f32, z: f32, r: f32) game.CollisionSpheres.Element {
+        fn call(x: f32, y: f32, z: f32, r: f32) t8.CollisionSpheres.Element {
             return .fromConverted(.{
                 .center = .fromArray(.{ x, y, z }),
                 .multiplier = 1.0,
@@ -1001,7 +1001,7 @@ test "should capture collision spheres correctly" {
 
 test "should capture hit lines correctly" {
     const hitLine = struct {
-        fn call(points: [3][3]f32, ignore: bool) @typeInfo(game.HitLines).array.child {
+        fn call(points: [3][3]f32, ignore: bool) @typeInfo(t8.HitLines).array.child {
             return .fromConverted(.{
                 .points = .{
                     .{ .position = .fromArray(points[0]), ._padding = 0 },

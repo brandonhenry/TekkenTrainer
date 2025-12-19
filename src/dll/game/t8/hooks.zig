@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const sdk = @import("../../sdk/root.zig");
-const game = @import("root.zig");
+const sdk = @import("../../../sdk/root.zig");
+const t8 = @import("root.zig");
 
 pub fn Hooks(onTick: *const fn () void) type {
     return struct {
@@ -10,10 +10,10 @@ pub fn Hooks(onTick: *const fn () void) type {
         pub var last_camera_manager_address: usize = 0;
         var active_hook_calls = std.atomic.Value(u8).init(0);
 
-        const TickHook = sdk.memory.Hook(game.TickFunction);
-        const UpdateCameraHook = sdk.memory.Hook(game.UpdateCameraFunction);
+        const TickHook = sdk.memory.Hook(t8.TickFunction);
+        const UpdateCameraHook = sdk.memory.Hook(t8.UpdateCameraFunction);
 
-        pub fn init(game_functions: *const game.Memory.Functions) void {
+        pub fn init(game_functions: *const t8.Memory.Functions) void {
             std.log.debug("Creating tick hook...", .{});
             if (game_functions.tick) |function| {
                 if (TickHook.create(function, onTickInternal)) |hook| {

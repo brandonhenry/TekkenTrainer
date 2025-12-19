@@ -24,7 +24,7 @@ pub const HitLines = struct {
 
     const Self = @This();
 
-    pub const max_len = @typeInfo(game.HitLines).array.len * 2;
+    pub const max_len = 8;
 
     pub fn asConstSlice(self: *const Self) []const HitLine {
         return self.buffer[0..self.len];

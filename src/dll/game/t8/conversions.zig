@@ -1,12 +1,12 @@
 const std = @import("std");
-const sdk = @import("../../sdk/root.zig");
-const game = @import("root.zig");
+const sdk = @import("../../../sdk/root.zig");
+const t8 = @import("root.zig");
 
 const to_unreal_scale = 0.1;
 const from_unreal_scale = 1.0 / to_unreal_scale;
 
 pub const conversion_globals = struct {
-    pub var decryptHealth: ?*const game.DecryptHealthFunction = null;
+    pub var decryptHealth: ?*const t8.DecryptHealthFunction = null;
 };
 
 pub fn scaleToUnrealSpace(value: f32) f32 {
@@ -79,23 +79,23 @@ pub fn u16FromRadians(value: f32) u16 {
     return @intFromFloat(normalized * conversion_factor);
 }
 
-pub fn hitLineToUnrealSpace(value: game.HitLine) game.HitLine {
-    var converted: game.HitLine = value;
+pub fn hitLineToUnrealSpace(value: t8.HitLine) t8.HitLine {
+    var converted = value;
     for (value.points, 0..) |element, index| {
         converted.points[index].position = pointToUnrealSpace(element.position);
     }
     return converted;
 }
 
-pub fn hitLineFromUnrealSpace(value: game.HitLine) game.HitLine {
-    var converted: game.HitLine = value;
+pub fn hitLineFromUnrealSpace(value: t8.HitLine) t8.HitLine {
+    var converted = value;
     for (value.points, 0..) |element, index| {
         converted.points[index].position = pointFromUnrealSpace(element.position);
     }
     return converted;
 }
 
-pub fn hurtCylinderToUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
+pub fn hurtCylinderToUnrealSpace(value: t8.HurtCylinder) t8.HurtCylinder {
     var converted = value;
     converted.center = pointToUnrealSpace(value.center);
     converted.half_height = scaleToUnrealSpace(value.half_height);
@@ -104,7 +104,7 @@ pub fn hurtCylinderToUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
     return converted;
 }
 
-pub fn hurtCylinderFromUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
+pub fn hurtCylinderFromUnrealSpace(value: t8.HurtCylinder) t8.HurtCylinder {
     var converted = value;
     converted.center = pointFromUnrealSpace(value.center);
     converted.half_height = scaleFromUnrealSpace(value.half_height);
@@ -113,14 +113,14 @@ pub fn hurtCylinderFromUnrealSpace(value: game.HurtCylinder) game.HurtCylinder {
     return converted;
 }
 
-pub fn collisionSphereToUnrealSpace(value: game.CollisionSphere) game.CollisionSphere {
+pub fn collisionSphereToUnrealSpace(value: t8.CollisionSphere) t8.CollisionSphere {
     var converted = value;
     converted.center = pointToUnrealSpace(value.center);
     converted.radius = scaleToUnrealSpace(value.radius);
     return converted;
 }
 
-pub fn collisionSphereFromUnrealSpace(value: game.CollisionSphere) game.CollisionSphere {
+pub fn collisionSphereFromUnrealSpace(value: t8.CollisionSphere) t8.CollisionSphere {
     var converted = value;
     converted.center = pointFromUnrealSpace(value.center);
     converted.radius = scaleFromUnrealSpace(value.radius);
@@ -141,7 +141,7 @@ pub fn encryptHeatGauge(value: f32) u32 {
     return std.math.rotr(u32, int_value, @as(usize, 8));
 }
 
-pub fn decryptHealth(value: game.EncryptedHealth) ?i32 {
+pub fn decryptHealth(value: t8.EncryptedHealth) ?i32 {
     if (value[0] != 0 and value[0] != 1) {
         return null; // Decrypting invalid encrypted health value can cause a crash. This prevents it.
     }
@@ -150,7 +150,7 @@ pub fn decryptHealth(value: game.EncryptedHealth) ?i32 {
     return @intCast(shifted >> 16);
 }
 
-pub fn rawToConvertedCamera(value: game.RawCamera) game.ConvertedCamera {
+pub fn rawToConvertedCamera(value: t8.RawCamera) t8.ConvertedCamera {
     return .{
         .position = .fromArray(.{
             @floatCast(value.position.array[0]),
@@ -163,7 +163,7 @@ pub fn rawToConvertedCamera(value: game.RawCamera) game.ConvertedCamera {
     };
 }
 
-pub fn convertedToRawCamera(value: game.ConvertedCamera) game.RawCamera {
+pub fn convertedToRawCamera(value: t8.ConvertedCamera) t8.RawCamera {
     return .{
         .position = .fromArray(.{
             @floatCast(value.position.array[0]),
@@ -213,7 +213,7 @@ test "u16ToRadians and u16FromRadians should cancel out" {
 }
 
 test "hitLineToUnrealSpace and hitLineFromUnrealSpace should cancel out" {
-    const value = game.HitLine{
+    const value = t8.HitLine{
         .points = .{
             .{ .position = .fromArray(.{ 1, 2, 3 }), ._padding = undefined },
             .{ .position = .fromArray(.{ 4, 5, 6 }), ._padding = undefined },
@@ -228,7 +228,7 @@ test "hitLineToUnrealSpace and hitLineFromUnrealSpace should cancel out" {
 }
 
 test "hurtCylinderToUnrealSpace and hurtCylinderFromUnrealSpace should cancel out" {
-    const value = game.HurtCylinder{
+    const value = t8.HurtCylinder{
         .center = .fromArray(.{ 1, 2, 3 }),
         .multiplier = 4,
         .half_height = 5,
@@ -241,7 +241,7 @@ test "hurtCylinderToUnrealSpace and hurtCylinderFromUnrealSpace should cancel ou
 }
 
 test "collisionSphereToUnrealSpace and collisionSphereFromUnrealSpace should cancel out" {
-    const value = game.CollisionSphere{
+    const value = t8.CollisionSphere{
         .center = .fromArray(.{ 1, 2, 3 }),
         .multiplier = 4,
         .radius = 5,
@@ -257,14 +257,14 @@ test "decryptHeatGauge and encryptHeatGauge should cancel out" {
 }
 
 test "rawToConvertedCamera and convertedToRawCamera should cancel out" {
-    const converted = game.ConvertedCamera{
+    const converted = t8.ConvertedCamera{
         .position = .fromArray(.{ 1, 2, 3 }),
         .pitch = 0.25 * std.math.pi,
         .roll = 0.5 * std.math.pi,
         .yaw = 0.75 * std.math.pi,
     };
     try testing.expectEqual(converted, rawToConvertedCamera(convertedToRawCamera(converted)));
-    const raw = game.RawCamera{
+    const raw = t8.RawCamera{
         .position = .fromArray(.{ 1, 2, 3 }),
         .pitch = 45,
         .roll = 90,
