@@ -337,9 +337,9 @@ pub const CollisionSpheres = extern struct {
     }
 };
 
-pub const EncryptedHealth = extern struct {
-    value: u32,
-    key: u64,
+pub const HealthWithEncryptionKey = extern struct {
+    health: u32,
+    encryption_key: u64,
 };
 
 pub const Player = struct {
@@ -381,7 +381,12 @@ pub const Player = struct {
     hit_lines: HitLines,
     hurt_cylinders: HurtCylinders,
     collision_spheres: CollisionSpheres,
-    health: EncryptedHealth,
+    health: sdk.memory.ConvertedValue(
+        HealthWithEncryptionKey,
+        HealthWithEncryptionKey,
+        t7.decryptHealth,
+        t7.encryptHealth,
+    ),
 };
 
 pub const TickFunction = fn (game_mode_address: usize, delta_time: f32) callconv(.c) void;
