@@ -99,6 +99,8 @@ test {
     _ = @import("dll/game/t8/memory.zig");
     _ = @import("dll/game/t8/types.zig");
 
+    _ = @import("dll/game/memory_helpers.zig");
+
     _ = @import("dll/model/collision_sphere.zig");
     _ = @import("dll/model/frame.zig");
     _ = @import("dll/model/hit_lines.zig");
