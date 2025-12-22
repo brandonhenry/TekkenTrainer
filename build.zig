@@ -55,7 +55,9 @@ pub fn build(b: *std.Build) void {
     dll_t7.root_module.addImport("imgui", imgui.module);
     dll_t7.root_module.linkLibrary(xz.library);
     dll_t7.root_module.addImport("xz", xz.module);
-    b.installArtifact(dll_t7);
+    if (b.option(bool, "t7", "Whether to build the T7 dll.") orelse true) {
+        b.installArtifact(dll_t7);
+    }
 
     const build_info_t8 = b.createModule(.{ .root_source_file = b.path("build_info_t8.zig") });
     const dll_t8 = b.addLibrary(.{
@@ -76,7 +78,9 @@ pub fn build(b: *std.Build) void {
     dll_t8.root_module.addImport("imgui", imgui.module);
     dll_t8.root_module.linkLibrary(xz.library);
     dll_t8.root_module.addImport("xz", xz.module);
-    b.installArtifact(dll_t8);
+    if (b.option(bool, "t8", "Whether to build the T8 dll.") orelse true) {
+        b.installArtifact(dll_t8);
+    }
 
     const injector = b.addExecutable(.{
         .name = "irony_injector",
