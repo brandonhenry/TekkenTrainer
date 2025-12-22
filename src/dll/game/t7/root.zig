@@ -1,3 +1,4 @@
+pub const Capturer = @import("capturer.zig").Capturer;
 pub const scaleToUnrealSpace = @import("conversions.zig").scaleToUnrealSpace;
 pub const scaleFromUnrealSpace = @import("conversions.zig").scaleFromUnrealSpace;
 pub const pointToUnrealSpace = @import("conversions.zig").pointToUnrealSpace;
@@ -23,6 +24,7 @@ pub const Memory = @import("memory.zig").Memory;
 pub const PlayerSide = @import("types.zig").PlayerSide;
 pub const StateFlags = @import("types.zig").StateFlags;
 pub const AirborneFlags = @import("types.zig").AirborneFlags;
+pub const PhaseFlags = @import("types.zig").PhaseFlags;
 pub const AttackType = @import("types.zig").AttackType;
 pub const HitOutcome = @import("types.zig").HitOutcome;
 pub const Input = @import("types.zig").Input;

@@ -3,6 +3,7 @@ const t7 = @import("root.zig");
 
 pub const FrameDetectCapturer = struct {
     detector: t7.FrameDetector = .{},
+    capturer: t7.Capturer = .{},
 
     const Self = @This();
 
@@ -12,6 +13,11 @@ pub const FrameDetectCapturer = struct {
         if (!self.detector.detect(&player_1, &player_2)) {
             return null;
         }
-        return .{}; // TODO Capture frame.
+        const camera = memory.camera.takeCopy();
+        return self.capturer.captureFrame(&.{
+            .player_1 = player_1,
+            .player_2 = player_2,
+            .camera = camera,
+        });
     }
 };

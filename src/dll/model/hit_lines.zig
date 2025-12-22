@@ -19,7 +19,7 @@ pub const HitLineFlags = packed struct {
 };
 
 pub const HitLines = struct {
-    buffer: [max_len]HitLine = undefined,
+    buffer: [max_len]HitLine = std.mem.zeroes([max_len]HitLine),
     len: usize = 0,
 
     const Self = @This();

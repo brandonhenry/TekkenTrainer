@@ -1,7 +1,7 @@
 const std = @import("std");
 const sdk = @import("../../../sdk/root.zig");
 const model = @import("../../model/root.zig");
-const t8 = @import("root.zig");
+const t7 = @import("root.zig");
 
 pub const Capturer = struct {
     player_1_state: PlayerState = .{},
@@ -9,13 +9,18 @@ pub const Capturer = struct {
 
     const Self = @This();
     pub const GameMemory = struct {
-        player_1: sdk.misc.Partial(t8.Player),
-        player_2: sdk.misc.Partial(t8.Player),
-        camera: ?t8.Camera = null,
+        player_1: sdk.misc.Partial(t7.Player),
+        player_2: sdk.misc.Partial(t7.Player),
+        camera: ?t7.Camera = null,
     };
     pub const PlayerState = struct {
         airborne_state: AirborneState = .{},
-        previous_hit_lines: ?t8.HitLines = null,
+        rage_state: RageState = .{},
+        previous_hit_lines: ?t7.HitLines = null,
+    };
+    const RageState = struct {
+        previous_frames_since_round_start: u32 = 0,
+        was_in_rage_this_round: bool = false,
     };
     const AirborneState = packed struct {
         airborne_started: bool = false,
@@ -104,10 +109,11 @@ pub const Capturer = struct {
 
     fn capturePlayer(
         state: *PlayerState,
-        player: *const sdk.misc.Partial(t8.Player),
+        player: *const sdk.misc.Partial(t7.Player),
         player_id: model.PlayerId,
     ) model.Player {
         updateAirborneState(state, player);
+        updateRageState(state, player);
         const captured_player = model.Player{
             .character_id = player.character_id,
             .animation_id = player.animation_id,
@@ -121,9 +127,9 @@ pub const Capturer = struct {
             .crushing = captureCrushing(state, player),
             .can_move = if (player.can_move) |can_move| can_move.toBool() else null,
             .input = captureInput(player, player_id),
-            .health = if (player.health) |*health| health.convert() else null,
-            .rage = captureRage(player),
-            .heat = captureHeat(player),
+            .health = if (player.health) |*health| @intCast(health.convert().health) else null,
+            .rage = captureRage(state, player),
+            .heat = .used_up,
             .rotation = capturePlayerRotation(player),
             .hurt_cylinders = captureHurtCylinders(player),
             .collision_spheres = captureCollisionSpheres(player),
@@ -133,10 +139,10 @@ pub const Capturer = struct {
         return captured_player;
     }
 
-    fn updateAirborneState(state: *PlayerState, player: *const sdk.misc.Partial(t8.Player)) void {
+    fn updateAirborneState(state: *PlayerState, player: *const sdk.misc.Partial(t7.Player)) void {
         const animation_frame: u32 = player.animation_frame orelse return;
-        const state_flags: t8.StateFlags = player.state_flags orelse return;
-        const airborne_flags: t8.AirborneFlags = player.airborne_flags orelse return;
+        const state_flags: t7.StateFlags = player.state_flags orelse return;
+        const airborne_flags: t7.AirborneFlags = player.airborne_flags orelse return;
         if (animation_frame == 1) {
             state.airborne_state = .{};
         }
@@ -159,12 +165,25 @@ pub const Capturer = struct {
         }
     }
 
-    fn updatePreviousHitLines(state: *PlayerState, player: *const sdk.misc.Partial(t8.Player)) void {
+    fn updateRageState(state: *PlayerState, player: *const sdk.misc.Partial(t7.Player)) void {
+        const frames_since_round_start: u32 = player.frames_since_round_start orelse return;
+        const previous_frames_since_round_start = &state.rage_state.previous_frames_since_round_start;
+        defer previous_frames_since_round_start.* = frames_since_round_start;
+        if (frames_since_round_start < previous_frames_since_round_start.*) {
+            state.rage_state.was_in_rage_this_round = false;
+        }
+        const in_rage = (if (player.in_rage) |b| b.toBool() else null) orelse return;
+        if (in_rage) {
+            state.rage_state.was_in_rage_this_round = true;
+        }
+    }
+
+    fn updatePreviousHitLines(state: *PlayerState, player: *const sdk.misc.Partial(t7.Player)) void {
         state.previous_hit_lines = player.hit_lines;
     }
 
-    fn captureAttackType(player: *const sdk.misc.Partial(t8.Player)) ?model.AttackType {
-        const attack_type: t8.AttackType = player.attack_type orelse return null;
+    fn captureAttackType(player: *const sdk.misc.Partial(t7.Player)) ?model.AttackType {
+        const attack_type: t7.AttackType = player.attack_type orelse return null;
         return switch (attack_type) {
             .not_attack => .not_attack,
             .high => .high,
@@ -181,8 +200,8 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureHitOutcome(player: *const sdk.misc.Partial(t8.Player)) ?model.HitOutcome {
-        const hit_outcome: t8.HitOutcome = player.hit_outcome orelse return null;
+    fn captureHitOutcome(player: *const sdk.misc.Partial(t7.Player)) ?model.HitOutcome {
+        const hit_outcome: t7.HitOutcome = player.hit_outcome orelse return null;
         return switch (hit_outcome) {
             .none => .none,
             .blocked_standing => .blocked_standing,
@@ -205,8 +224,8 @@ pub const Capturer = struct {
         };
     }
 
-    fn capturePosture(state: *const PlayerState, player: *const sdk.misc.Partial(t8.Player)) ?model.Posture {
-        const state_flags: t8.StateFlags = player.state_flags orelse return null;
+    fn capturePosture(state: *const PlayerState, player: *const sdk.misc.Partial(t7.Player)) ?model.Posture {
+        const state_flags: t7.StateFlags = player.state_flags orelse return null;
         const airborne_state = state.airborne_state;
         if (state_flags.crouching) {
             return .crouching;
@@ -225,8 +244,8 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureBlocking(player: *const sdk.misc.Partial(t8.Player)) ?model.Blocking {
-        const state_flags: t8.StateFlags = player.state_flags orelse return null;
+    fn captureBlocking(player: *const sdk.misc.Partial(t7.Player)) ?model.Blocking {
+        const state_flags: t7.StateFlags = player.state_flags orelse return null;
         if (state_flags.blocking_mids) {
             if (state_flags.neutral_blocking) {
                 return .neutral_blocking_mids;
@@ -244,9 +263,9 @@ pub const Capturer = struct {
         }
     }
 
-    fn captureCrushing(state: *PlayerState, player: *const sdk.misc.Partial(t8.Player)) ?model.Crushing {
+    fn captureCrushing(state: *PlayerState, player: *const sdk.misc.Partial(t7.Player)) ?model.Crushing {
         const posture = capturePosture(state, player) orelse return null;
-        const state_flags: t8.StateFlags = player.state_flags orelse return null;
+        const state_flags: t7.StateFlags = player.state_flags orelse return null;
         const airborne_state = state.airborne_state;
         const power_crushing: sdk.memory.Boolean(.{}) = player.power_crushing orelse return null;
         const invincible: sdk.memory.Boolean(.{}) = player.invincible orelse return null;
@@ -262,9 +281,9 @@ pub const Capturer = struct {
         };
     }
 
-    fn captureInput(player: *const sdk.misc.Partial(t8.Player), player_id: model.PlayerId) ?model.Input {
-        const input: t8.Input = player.input orelse return null;
-        const input_side: t8.PlayerSide = player.input_side orelse (if (player_id == .player_1) .left else .right);
+    fn captureInput(player: *const sdk.misc.Partial(t7.Player), player_id: model.PlayerId) ?model.Input {
+        const input: t7.Input = player.input orelse return null;
+        const input_side: t7.PlayerSide = player.input_side orelse (if (player_id == .player_1) .left else .right);
         return .{
             .forward = if (input_side == .left) input.right else input.left,
             .back = if (input_side == .left) input.left else input.right,
@@ -278,36 +297,22 @@ pub const Capturer = struct {
             .button_4 = input.button_4,
             .special_style = input.special_style,
             .rage = input.rage,
-            .heat = input.heat,
+            .heat = false,
         };
     }
 
-    fn captureRage(player: *const sdk.misc.Partial(t8.Player)) ?model.Rage {
+    fn captureRage(state: *PlayerState, player: *const sdk.misc.Partial(t7.Player)) ?model.Rage {
         const in_rage = (if (player.in_rage) |b| b.toBool() else null) orelse return null;
-        const used_rage = (if (player.used_rage) |b| b.toBool() else null) orelse return null;
         if (in_rage) {
             return .activated;
-        } else if (used_rage) {
+        } else if (state.rage_state.was_in_rage_this_round) {
             return .used_up;
         } else {
             return .available;
         }
     }
 
-    fn captureHeat(player: *const sdk.misc.Partial(t8.Player)) ?model.Heat {
-        const in_heat = (if (player.in_heat) |b| b.toBool() else null) orelse return null;
-        const used_heat = (if (player.used_heat) |b| b.toBool() else null) orelse return null;
-        const heat_gauge = player.heat_gauge orelse return null;
-        if (in_heat) {
-            return .{ .activated = .{ .gauge = heat_gauge.convert() } };
-        } else if (used_heat) {
-            return .used_up;
-        } else {
-            return .available;
-        }
-    }
-
-    fn capturePlayerRotation(player: *const sdk.misc.Partial(t8.Player)) ?f32 {
+    fn capturePlayerRotation(player: *const sdk.misc.Partial(t7.Player)) ?f32 {
         if (player.rotation) |rotation| {
             return rotation.convert();
         }
@@ -322,10 +327,10 @@ pub const Capturer = struct {
         return angle;
     }
 
-    fn captureHurtCylinders(player: *const sdk.misc.Partial(t8.Player)) ?model.HurtCylinders {
-        const cylinders: *const t8.HurtCylinders = if (player.hurt_cylinders) |*c| c else return null;
+    fn captureHurtCylinders(player: *const sdk.misc.Partial(t7.Player)) ?model.HurtCylinders {
+        const cylinders: *const t7.HurtCylinders = if (player.hurt_cylinders) |*c| c else return null;
         const convert = struct {
-            fn call(input: *const t8.HurtCylinders.Element) model.HurtCylinder {
+            fn call(input: *const t7.HurtCylinders.Element) model.HurtCylinder {
                 const converted = input.convert();
                 const cylinder = sdk.math.Cylinder{
                     .center = converted.center,
@@ -353,10 +358,10 @@ pub const Capturer = struct {
         });
     }
 
-    fn captureCollisionSpheres(player: *const sdk.misc.Partial(t8.Player)) ?model.CollisionSpheres {
-        const spheres: *const t8.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
+    fn captureCollisionSpheres(player: *const sdk.misc.Partial(t7.Player)) ?model.CollisionSpheres {
+        const spheres: *const t7.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
         const convert = struct {
-            fn call(input: *const t8.CollisionSpheres.Element) model.CollisionSphere {
+            fn call(input: *const t7.CollisionSpheres.Element) model.CollisionSphere {
                 const converted = input.convert();
                 return .{ .center = converted.center, .radius = converted.radius };
             }
@@ -373,30 +378,34 @@ pub const Capturer = struct {
         });
     }
 
-    fn captureHitLines(state: *const PlayerState, player: *const sdk.misc.Partial(t8.Player)) model.HitLines {
-        const previous_lines: *const t8.HitLines = if (state.previous_hit_lines) |*l| l else return .{};
-        const current_lines: *const t8.HitLines = if (player.hit_lines) |*l| l else return .{};
+    fn captureHitLines(state: *const PlayerState, player: *const sdk.misc.Partial(t7.Player)) model.HitLines {
+        const flags: t7.PhaseFlags = player.phase_flags orelse return .{};
+        if (!flags.is_active) {
+            return .{};
+        }
+        const previous_lines: *const t7.HitLines = if (state.previous_hit_lines) |*l| l else return .{};
+        const current_lines: *const t7.HitLines = if (player.hit_lines) |*l| l else return .{};
+        var changed_points_buffer: [current_lines.len]t7.HitLinePoint = undefined;
+        var changed_points_len: usize = 0;
+        for (previous_lines, current_lines) |*raw_previous_point, *raw_current_point| {
+            const previous_point = raw_previous_point.convert();
+            const current_point = raw_current_point.convert();
+            if (std.meta.eql(previous_point, current_point)) {
+                continue;
+            }
+            changed_points_buffer[changed_points_len] = current_point;
+            changed_points_len += 1;
+        }
         var result: model.HitLines = .{};
-        for (previous_lines, current_lines) |*raw_previous_line, *raw_current_line| {
-            const previous_line = raw_previous_line.convert();
-            const current_line = raw_current_line.convert();
-            if (current_line.ignore != .false) {
-                continue;
-            }
-            if (std.meta.eql(previous_line.points, current_line.points)) {
-                continue;
-            }
-            const line_1 = sdk.math.LineSegment3{
-                .point_1 = current_line.points[0].position,
-                .point_2 = current_line.points[1].position,
+        var index: usize = changed_points_len -% 2;
+        while (index < changed_points_len) {
+            const line = sdk.math.LineSegment3{
+                .point_1 = changed_points_buffer[index].position,
+                .point_2 = changed_points_buffer[index + 1].position,
             };
-            const line_2 = sdk.math.LineSegment3{
-                .point_1 = current_line.points[1].position,
-                .point_2 = current_line.points[2].position,
-            };
-            result.buffer[result.len] = .{ .line = line_1 };
-            result.buffer[result.len + 1] = .{ .line = line_2 };
-            result.len += 2;
+            result.buffer[result.len] = .{ .line = line };
+            result.len += 1;
+            index -%= 2;
         }
         return result;
     }
@@ -707,7 +716,6 @@ test "should capture input correctly" {
                 .button_4 = true,
                 .special_style = false,
                 .rage = true,
-                .heat = false,
             },
             .input_side = null,
         },
@@ -735,36 +743,16 @@ test "should capture input correctly" {
 }
 
 test "should capture health correctly" {
-    const DecryptHealth = struct {
-        var argument: ?t8.EncryptedHealth = null;
-        fn call(encrypted_health: *const t8.EncryptedHealth) callconv(.c) i64 {
-            argument = encrypted_health.*;
-            return 123 << 16;
-        }
-    };
-    const oldDecryptHealth = t8.conversion_globals.decryptHealth;
-    defer t8.conversion_globals.decryptHealth = oldDecryptHealth;
-
     var capturer = Capturer{};
-    const encrypted = t8.EncryptedHealth{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-
-    t8.conversion_globals.decryptHealth = null;
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .health = .{ .raw = encrypted } },
-        .player_2 = .{ .health = null },
-    });
-    try testing.expectEqual(null, frame_1.getPlayerById(.player_1).health);
-    try testing.expectEqual(null, frame_1.getPlayerById(.player_2).health);
-    try testing.expectEqual(null, DecryptHealth.argument);
-
-    t8.conversion_globals.decryptHealth = DecryptHealth.call;
     const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .health = .{ .raw = encrypted } },
+        .player_1 = .{ .health = .fromConverted(.{
+            .health = 123,
+            .encryption_key = 0xBD20A1539B61342F,
+        }) },
         .player_2 = .{ .health = null },
     });
     try testing.expectEqual(123, frame_2.getPlayerById(.player_1).health);
     try testing.expectEqual(null, frame_2.getPlayerById(.player_2).health);
-    try testing.expectEqual(encrypted, DecryptHealth.argument);
 }
 
 test "should capture forward/back correctly depending on the input side" {
@@ -817,53 +805,40 @@ test "should capture forward/back correctly depending on the input side" {
 
 test "should capture rage correctly" {
     var capturer = Capturer{};
+
     const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .false, .used_rage = .false },
-        .player_2 = .{ .in_rage = .true, .used_rage = .false },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .false, .used_rage = .true },
-        .player_2 = .{ .in_rage = null, .used_rage = null },
+        .player_1 = .{ .in_rage = .false, .frames_since_round_start = 100 },
+        .player_2 = .{ .in_rage = .true, .frames_since_round_start = 100 },
     });
     try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).rage);
     try testing.expectEqual(.activated, frame_1.getPlayerById(.player_2).rage);
-    try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_1).rage);
-    try testing.expectEqual(null, frame_2.getPlayerById(.player_2).rage);
+
+    const frame_2 = capturer.captureFrame(&.{
+        .player_1 = .{ .in_rage = .false, .frames_since_round_start = 101 },
+        .player_2 = .{ .in_rage = .false, .frames_since_round_start = 101 },
+    });
+    try testing.expectEqual(.available, frame_2.getPlayerById(.player_1).rage);
+    try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_2).rage);
+
+    const frame_3 = capturer.captureFrame(&.{
+        .player_1 = .{ .in_rage = .true, .frames_since_round_start = 100 },
+        .player_2 = .{ .in_rage = .false, .frames_since_round_start = 100 },
+    });
+    try testing.expectEqual(.activated, frame_3.getPlayerById(.player_1).rage);
+    try testing.expectEqual(.available, frame_3.getPlayerById(.player_2).rage);
+
+    const frame_4 = capturer.captureFrame(&.{
+        .player_1 = .{ .in_rage = null, .frames_since_round_start = 101 },
+        .player_2 = .{ .in_rage = .false, .frames_since_round_start = null },
+    });
+    try testing.expectEqual(null, frame_4.getPlayerById(.player_1).rage);
+    try testing.expectEqual(.available, frame_4.getPlayerById(.player_2).rage);
 }
 
 test "should capture heat correctly" {
     var capturer = Capturer{};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{
-            .in_heat = .false,
-            .used_heat = .false,
-            .heat_gauge = .fromConverted(0.5),
-        },
-        .player_2 = .{
-            .in_heat = .true,
-            .used_heat = .false,
-            .heat_gauge = .fromConverted(0.5),
-        },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{
-            .in_heat = .false,
-            .used_heat = .true,
-            .heat_gauge = .fromConverted(0.5),
-        },
-        .player_2 = .{
-            .in_heat = null,
-            .used_heat = null,
-            .heat_gauge = null,
-        },
-    });
-    try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).heat);
-    try testing.expectEqual(
-        model.Heat{ .activated = .{ .gauge = 0.5 } },
-        frame_1.getPlayerById(.player_2).heat,
-    );
-    try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_1).heat);
-    try testing.expectEqual(null, frame_2.getPlayerById(.player_2).heat);
+    const frame = capturer.captureFrame(&.{ .player_1 = .{}, .player_2 = .{} });
+    try testing.expectEqual(.used_up, frame.getPlayerById(.player_2).heat);
 }
 
 test "should capture player rotation correctly" {
@@ -886,7 +861,7 @@ test "should capture player rotation correctly" {
 
 test "should capture hurt cylinders correctly" {
     const hurtCylinder = struct {
-        fn call(x: f32, y: f32, z: f32, r: f32, h: f32) t8.HurtCylinders.Element {
+        fn call(x: f32, y: f32, z: f32, r: f32, h: f32) t7.HurtCylinders.Element {
             return .fromConverted(.{
                 .center = .fromArray(.{ x, y, z }),
                 .multiplier = 1.0,
@@ -951,7 +926,7 @@ test "should capture hurt cylinders correctly" {
 
 test "should capture collision spheres correctly" {
     const collisionSphere = struct {
-        fn call(x: f32, y: f32, z: f32, r: f32) t8.CollisionSpheres.Element {
+        fn call(x: f32, y: f32, z: f32, r: f32) t7.CollisionSpheres.Element {
             return .fromConverted(.{
                 .center = .fromArray(.{ x, y, z }),
                 .multiplier = 1.0,
@@ -1000,17 +975,11 @@ test "should capture collision spheres correctly" {
 }
 
 test "should capture hit lines correctly" {
-    const hitLine = struct {
-        fn call(points: [3][3]f32, ignore: bool) @typeInfo(t8.HitLines).array.child {
+    const point = struct {
+        fn call(points: [3]f32) @typeInfo(t7.HitLines).array.child {
             return .fromConverted(.{
-                .points = .{
-                    .{ .position = .fromArray(points[0]), ._padding = 0 },
-                    .{ .position = .fromArray(points[1]), ._padding = 0 },
-                    .{ .position = .fromArray(points[2]), ._padding = 0 },
-                },
-                ._padding_1 = [1]u8{0} ** 8,
-                .ignore = .fromBool(ignore),
-                ._padding_2 = [1]u8{0} ** 7,
+                .position = .fromArray(points),
+                ._padding = 0,
             });
         }
     }.call;
@@ -1028,78 +997,111 @@ test "should capture hit lines correctly" {
     var capturer = Capturer{};
 
     const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = .{
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-        } },
-        .player_2 = .{ .hit_lines = .{
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-            hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
-        } },
+        .player_1 = .{
+            .hit_lines = .{
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+            },
+            .phase_flags = .{ .is_active = false },
+        },
+        .player_2 = .{
+            .hit_lines = .{
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+            },
+            .phase_flags = .{ .is_active = false },
+        },
     });
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asConstSlice());
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asConstSlice());
 
     const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = .{
-            hitLine(.{ .{ 1, 2, 3 }, .{ 4, 5, 6 }, .{ 7, 8, 9 } }, true),
-            hitLine(.{ .{ 10, 11, 12 }, .{ 13, 14, 15 }, .{ 16, 17, 18 } }, false),
-            hitLine(.{ .{ 19, 20, 21 }, .{ 22, 23, 24 }, .{ 25, 26, 27 } }, true),
-            hitLine(.{ .{ 28, 29, 30 }, .{ 31, 32, 33 }, .{ 34, 35, 36 } }, false),
-        } },
-        .player_2 = .{ .hit_lines = .{
-            hitLine(.{ .{ 37, 38, 39 }, .{ 40, 41, 42 }, .{ 43, 44, 45 } }, false),
-            hitLine(.{ .{ 46, 47, 48 }, .{ 49, 50, 51 }, .{ 52, 53, 54 } }, true),
-            hitLine(.{ .{ 55, 56, 57 }, .{ 58, 59, 60 }, .{ 61, 62, 63 } }, false),
-            hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 72 } }, true),
-        } },
+        .player_1 = .{
+            .hit_lines = .{
+                point(.{ 1, 2, 3 }),
+                point(.{ 4, 5, 6 }),
+                point(.{ 7, 8, 9 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+            },
+            .phase_flags = .{ .is_active = true },
+        },
+        .player_2 = .{
+            .hit_lines = .{
+                point(.{ 10, 11, 12 }),
+                point(.{ 13, 14, 15 }),
+                point(.{ 16, 17, 18 }),
+                point(.{ 19, 20, 21 }),
+                point(.{ 0, 0, 0 }),
+                point(.{ 0, 0, 0 }),
+            },
+            .phase_flags = .{ .is_active = true },
+        },
     });
     try testing.expectEqualSlices(model.HitLine, &.{
-        line(.{ 10, 11, 12 }, .{ 13, 14, 15 }),
-        line(.{ 13, 14, 15 }, .{ 16, 17, 18 }),
-        line(.{ 28, 29, 30 }, .{ 31, 32, 33 }),
-        line(.{ 31, 32, 33 }, .{ 34, 35, 36 }),
+        line(.{ 4, 5, 6 }, .{ 7, 8, 9 }),
     }, frame_2.getPlayerById(.player_1).hit_lines.asConstSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
-        line(.{ 37, 38, 39 }, .{ 40, 41, 42 }),
-        line(.{ 40, 41, 42 }, .{ 43, 44, 45 }),
-        line(.{ 55, 56, 57 }, .{ 58, 59, 60 }),
-        line(.{ 58, 59, 60 }, .{ 61, 62, 63 }),
+        line(.{ 16, 17, 18 }, .{ 19, 20, 21 }),
+        line(.{ 10, 11, 12 }, .{ 13, 14, 15 }),
     }, frame_2.getPlayerById(.player_2).hit_lines.asConstSlice());
 
     const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = .{
-            hitLine(.{ .{ 1, 2, 3 }, .{ 4, 5, 6 }, .{ 7, 8, 9 } }, false),
-            hitLine(.{ .{ 1000, 11, 12 }, .{ 13, 14, 15 }, .{ 16, 17, 18 } }, true),
-            hitLine(.{ .{ 19, 20, 21 }, .{ 22, 1000, 24 }, .{ 25, 26, 27 } }, true),
-            hitLine(.{ .{ 28, 29, 30 }, .{ 31, 32, 33 }, .{ 34, 35, 1000 } }, true),
-        } },
-        .player_2 = .{ .hit_lines = .{
-            hitLine(.{ .{ 1000, 38, 39 }, .{ 40, 41, 42 }, .{ 43, 44, 45 } }, false),
-            hitLine(.{ .{ 46, 1000, 48 }, .{ 49, 50, 51 }, .{ 52, 53, 54 } }, false),
-            hitLine(.{ .{ 55, 56, 57 }, .{ 1000, 59, 60 }, .{ 61, 62, 63 } }, false),
-            hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 1000 } }, false),
-        } },
+        .player_1 = .{
+            .hit_lines = .{
+                point(.{ 36, 35, 34 }),
+                point(.{ 33, 32, 31 }),
+                point(.{ 30, 29, 28 }),
+                point(.{ 27, 26, 25 }),
+                point(.{ 24, 23, 22 }),
+                point(.{ 21, 20, 19 }),
+            },
+            .phase_flags = .{ .is_active = false },
+        },
+        .player_2 = .{
+            .hit_lines = .{
+                point(.{ 18, 17, 16 }),
+                point(.{ 15, 14, 13 }),
+                point(.{ 12, 11, 10 }),
+                point(.{ 9, 8, 7 }),
+                point(.{ 6, 5, 4 }),
+                point(.{ 3, 2, 1 }),
+            },
+            .phase_flags = .{ .is_active = true },
+        },
     });
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asConstSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
-        line(.{ 1000, 38, 39 }, .{ 40, 41, 42 }),
-        line(.{ 40, 41, 42 }, .{ 43, 44, 45 }),
-        line(.{ 46, 1000, 48 }, .{ 49, 50, 51 }),
-        line(.{ 49, 50, 51 }, .{ 52, 53, 54 }),
-        line(.{ 55, 56, 57 }, .{ 1000, 59, 60 }),
-        line(.{ 1000, 59, 60 }, .{ 61, 62, 63 }),
-        line(.{ 64, 65, 66 }, .{ 67, 68, 69 }),
-        line(.{ 67, 68, 69 }, .{ 70, 71, 1000 }),
+        line(.{ 6, 5, 4 }, .{ 3, 2, 1 }),
+        line(.{ 12, 11, 10 }, .{ 9, 8, 7 }),
+        line(.{ 18, 17, 16 }, .{ 15, 14, 13 }),
     }, frame_3.getPlayerById(.player_2).hit_lines.asConstSlice());
 
     const frame_4 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = null },
-        .player_2 = .{ .hit_lines = null },
+        .player_1 = .{
+            .hit_lines = .{
+                point(.{ 1, 2, 3 }),
+                point(.{ 4, 5, 6 }),
+                point(.{ 7, 8, 9 }),
+                point(.{ 10, 11, 12 }),
+                point(.{ 13, 14, 15 }),
+                point(.{ 16, 17, 18 }),
+            },
+            .phase_flags = null,
+        },
+        .player_2 = .{
+            .hit_lines = null,
+            .phase_flags = .{ .is_active = true },
+        },
     });
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asConstSlice());
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asConstSlice());
