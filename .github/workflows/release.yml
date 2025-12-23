@@ -77,17 +77,21 @@ jobs:
                   NAME=$(grep -Po '\.display_name\s*=\s*"\K[^"]+' build.zig.zon)
                   VERSION=$(grep -Po '\.version\s*=\s*"\K[^"]+' build.zig.zon)
                   T8_VERSION=$(grep -Po '\.t8_version\s*=\s*"\K[^"]+' build.zig.zon)
+                  T7_VERSION=$(grep -Po '\.t7_version\s*=\s*"\K[^"]+' build.zig.zon)
                   ARCHIVE_NAME="${NAME}_${VERSION}.zip"
                   zip -j "$ARCHIVE_NAME" ./LICENSE.md ./zig-out/bin/irony_injector.exe ./zig-out/bin/irony_t7.dll ./zig-out/bin/irony_t8.dll
                   echo "name=$NAME" >> $GITHUB_OUTPUT
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
                   echo "t8_version=$T8_VERSION" >> $GITHUB_OUTPUT
+                  echo "t7_version=$T7_VERSION" >> $GITHUB_OUTPUT
                   echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
             - name: Publish Release
               uses: softprops/action-gh-release@v2
               with:
                   name: "${{ steps.package_release.outputs.name }} version ${{ steps.package_release.outputs.version }}"
                   tag_name: "${{ steps.package_release.outputs.version }}"
-                  body: "- Compatible with game version: ${{ steps.package_release.outputs.t8_version }}"
+                  body: |
+                      - Compatible with T8 version: ${{ steps.package_release.outputs.t8_version }}
+                      - Compatible with T7 version: ${{ steps.package_release.outputs.t7_version }}
                   files: "${{ steps.package_release.outputs.archive_name }}"
                   fail_on_unmatched_files: true
