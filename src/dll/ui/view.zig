@@ -26,6 +26,7 @@ pub const View = struct {
     pub fn update(self: *Self, delta_time: f32) void {
         self.hurt_cylinders.update(delta_time);
         self.hit_lines.update(delta_time);
+        self.camera.flushWindowMeasurements();
     }
 
     pub fn draw(
@@ -34,7 +35,7 @@ pub const View = struct {
         frame: *const model.Frame,
         direction: ViewDirection,
     ) void {
-        self.camera.updateWindowState(direction);
+        self.camera.measureWindow(direction);
         const matrix = self.camera.calculateMatrix(frame, direction) orelse return;
         const inverse_matrix = matrix.inverse() orelse sdk.math.Mat4.identity;
 

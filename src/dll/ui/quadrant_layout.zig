@@ -52,7 +52,7 @@ pub const QuadrantLayout = struct {
         imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_ItemSpacing, .{ .x = 0, .y = 0 });
         defer imgui.igPopStyleVar(1);
 
-        if (self.division.x > 0.0001 and self.division.y > 0.0001) {
+        if (size_1.x > 0.0 and size_1.y > 0.0) {
             imgui.igSetCursorPos(.{ .x = border_size, .y = border_size });
             if (imgui.igBeginChild_Str(
                 quadrants.top_left.id,
@@ -65,7 +65,7 @@ pub const QuadrantLayout = struct {
             imgui.igEndChild();
         }
 
-        if (self.division.x < 0.9999 and self.division.y > 0.0001) {
+        if (size_2.x > 0.0 and size_1.y > 0.0) {
             imgui.igSetCursorPos(.{ .x = size_1.x + (2.0 * border_size), .y = border_size });
             if (imgui.igBeginChild_Str(
                 quadrants.top_right.id,
@@ -78,7 +78,7 @@ pub const QuadrantLayout = struct {
             imgui.igEndChild();
         }
 
-        if (self.division.x > 0.0001 and self.division.y < 0.9999) {
+        if (size_1.x > 0.0 and size_2.y > 0.0) {
             imgui.igSetCursorPos(.{ .x = border_size, .y = size_1.y + (2.0 * border_size) });
             if (imgui.igBeginChild_Str(
                 quadrants.bottom_left.id,
@@ -91,7 +91,7 @@ pub const QuadrantLayout = struct {
             imgui.igEndChild();
         }
 
-        if (self.division.x < 0.9999 and self.division.y < 0.9999) {
+        if (size_2.x > 0.0 and size_2.y > 0.0) {
             imgui.igSetCursorPos(.{ .x = size_1.x + (2.0 * border_size), .y = size_1.y + (2.0 * border_size) });
             if (imgui.igBeginChild_Str(
                 quadrants.bottom_right.id,

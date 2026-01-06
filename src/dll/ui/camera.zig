@@ -5,6 +5,7 @@ const model = @import("../model/root.zig");
 const ui = @import("../ui/root.zig");
 
 pub const Camera = struct {
+    pending_windows: std.EnumArray(ui.ViewDirection, Window) = .initFill(.{}),
     windows: std.EnumArray(ui.ViewDirection, Window) = .initFill(.{}),
     follow_target: FollowTarget = .ingame_camera,
     transform: Transform = .{},
@@ -16,7 +17,7 @@ pub const Camera = struct {
     const Self = @This();
     pub const Window = struct {
         position: sdk.math.Vec2 = .zero,
-        size: sdk.math.Vec2 = .zero,
+        size: sdk.math.Vec2 = .fill(1_000_000),
     };
     pub const FollowTarget = enum {
         ingame_camera,
@@ -29,11 +30,16 @@ pub const Camera = struct {
         rotation: f32 = 0.0,
     };
 
-    pub fn updateWindowState(self: *Self, direction: ui.ViewDirection) void {
+    pub fn measureWindow(self: *Self, direction: ui.ViewDirection) void {
         var window: Window = undefined;
         imgui.igGetCursorScreenPos(window.position.asImVec());
         imgui.igGetContentRegionAvail(window.size.asImVec());
-        self.windows.set(direction, window);
+        self.pending_windows.set(direction, window);
+    }
+
+    pub fn flushWindowMeasurements(self: *Self) void {
+        self.windows = self.pending_windows;
+        self.pending_windows = .initFill(.{});
     }
 
     pub fn processInput(self: *Self, direction: ui.ViewDirection, inverse_matrix: sdk.math.Mat4) void {
@@ -418,7 +424,7 @@ test "should project correctly when follow target is players" {
             imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
             if (imgui.igBegin("Front", null, window_flags)) {
                 defer imgui.igEnd();
-                camera.updateWindowState(.front);
+                camera.measureWindow(.front);
                 const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
                 matrices.set(.front, matrix);
             } else imgui.igEnd();
@@ -427,7 +433,7 @@ test "should project correctly when follow target is players" {
             imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
             if (imgui.igBegin("Top", null, window_flags)) {
                 defer imgui.igEnd();
-                camera.updateWindowState(.top);
+                camera.measureWindow(.top);
                 const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
                 matrices.set(.top, matrix);
             } else imgui.igEnd();
@@ -436,10 +442,12 @@ test "should project correctly when follow target is players" {
             imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
             if (imgui.igBegin("Side", null, window_flags)) {
                 defer imgui.igEnd();
-                camera.updateWindowState(.side);
+                camera.measureWindow(.side);
                 const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
                 matrices.set(.side, matrix);
             } else imgui.igEnd();
+
+            camera.flushWindowMeasurements();
         }
 
         fn testFunction(_: sdk.ui.TestContext) !void {
@@ -562,7 +570,7 @@ test "should project correctly when follow target is ingame camera" {
             imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
             if (imgui.igBegin("Front", null, window_flags)) {
                 defer imgui.igEnd();
-                camera.updateWindowState(.front);
+                camera.measureWindow(.front);
                 const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
                 matrices.set(.front, matrix);
             } else imgui.igEnd();
@@ -571,7 +579,7 @@ test "should project correctly when follow target is ingame camera" {
             imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
             if (imgui.igBegin("Top", null, window_flags)) {
                 defer imgui.igEnd();
-                camera.updateWindowState(.top);
+                camera.measureWindow(.top);
                 const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
                 matrices.set(.top, matrix);
             } else imgui.igEnd();
@@ -580,10 +588,12 @@ test "should project correctly when follow target is ingame camera" {
             imgui.igSetNextWindowSize(.{ .x = 400, .y = 200 }, imgui.ImGuiCond_Always);
             if (imgui.igBegin("Side", null, window_flags)) {
                 defer imgui.igEnd();
-                camera.updateWindowState(.side);
+                camera.measureWindow(.side);
                 const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
                 matrices.set(.side, matrix);
             } else imgui.igEnd();
+
+            camera.flushWindowMeasurements();
         }
 
         fn testFunction(_: sdk.ui.TestContext) !void {
@@ -703,7 +713,7 @@ test "should zoom in/out on the point that the mouse pointer is pointing when mo
             if (imgui.igBegin("Front", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.front, inverse_matrices.get(.front));
-                camera.updateWindowState(.front);
+                camera.measureWindow(.front);
                 const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 matrices.set(.front, matrix);
@@ -715,7 +725,7 @@ test "should zoom in/out on the point that the mouse pointer is pointing when mo
             if (imgui.igBegin("Top", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.top, inverse_matrices.get(.top));
-                camera.updateWindowState(.top);
+                camera.measureWindow(.top);
                 const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 matrices.set(.top, matrix);
@@ -727,12 +737,14 @@ test "should zoom in/out on the point that the mouse pointer is pointing when mo
             if (imgui.igBegin("Side", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.side, inverse_matrices.get(.side));
-                camera.updateWindowState(.side);
+                camera.measureWindow(.side);
                 const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 matrices.set(.side, matrix);
                 inverse_matrices.set(.side, inverse_matrix);
             } else imgui.igEnd();
+
+            camera.flushWindowMeasurements();
         }
 
         fn testFunction(ctx: sdk.ui.TestContext) !void {
@@ -852,7 +864,7 @@ test "should translate the view when the view is right mouse button dragged with
             if (imgui.igBegin("Front", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.front, inverse_matrices.get(.front));
-                camera.updateWindowState(.front);
+                camera.measureWindow(.front);
                 const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 inverse_matrices.set(.front, inverse_matrix);
@@ -863,7 +875,7 @@ test "should translate the view when the view is right mouse button dragged with
             if (imgui.igBegin("Top", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.top, inverse_matrices.get(.top));
-                camera.updateWindowState(.top);
+                camera.measureWindow(.top);
                 const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 inverse_matrices.set(.top, inverse_matrix);
@@ -874,12 +886,13 @@ test "should translate the view when the view is right mouse button dragged with
             if (imgui.igBegin("Side", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.side, inverse_matrices.get(.side));
-                camera.updateWindowState(.side);
+                camera.measureWindow(.side);
                 const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 inverse_matrices.set(.side, inverse_matrix);
             } else imgui.igEnd();
 
+            camera.flushWindowMeasurements();
             cursor = imgui.igGetMouseCursor();
         }
 
@@ -1006,7 +1019,7 @@ test "should rotate the view when the view is right mouse button dragged with a 
             if (imgui.igBegin("Front", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.front, inverse_matrices.get(.front));
-                camera.updateWindowState(.front);
+                camera.measureWindow(.front);
                 const matrix = camera.calculateMatrix(&frame, .front) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 matrices.set(.front, matrix);
@@ -1018,7 +1031,7 @@ test "should rotate the view when the view is right mouse button dragged with a 
             if (imgui.igBegin("Top", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.top, inverse_matrices.get(.top));
-                camera.updateWindowState(.top);
+                camera.measureWindow(.top);
                 const matrix = camera.calculateMatrix(&frame, .top) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 matrices.set(.top, matrix);
@@ -1030,13 +1043,14 @@ test "should rotate the view when the view is right mouse button dragged with a 
             if (imgui.igBegin("Side", null, window_flags)) {
                 defer imgui.igEnd();
                 camera.processInput(.side, inverse_matrices.get(.side));
-                camera.updateWindowState(.side);
+                camera.measureWindow(.side);
                 const matrix = camera.calculateMatrix(&frame, .side) orelse return error.MatrixCalculationFailed;
                 const inverse_matrix = matrix.inverse() orelse return error.InverseMatrixCalculationFailed;
                 matrices.set(.side, matrix);
                 inverse_matrices.set(.side, inverse_matrix);
             } else imgui.igEnd();
 
+            camera.flushWindowMeasurements();
             cursor = imgui.igGetMouseCursor();
         }
 
