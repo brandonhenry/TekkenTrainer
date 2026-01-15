@@ -39,139 +39,141 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             defer if (cache) |*pattern_cache| {
                 deinitPatternCache(pattern_cache, base_dir, pattern_cache_file_name);
             };
+            return switch (game_id) {
+                .t7 => t7Init(&cache, last_camera_manager_address_pointer),
+                .t8 => t8Init(&cache, last_camera_manager_address_pointer),
+            };
+        }
 
-            const player_offsets = structOffsets(game.Player(game_id), switch (game_id) {
-                .t7 => .{
-                    .is_picked_by_main_player = 0x9,
-                    .character_id = 0xD8,
-                    .transform_matrix = 0x130,
-                    .floor_z = 0x1B0,
-                    .rotation = 0x1BE,
-                    .animation_frame = 0x1D4,
-                    .state_flags = 0x264,
-                    .attack_damage = 0x324,
-                    .attack_type = 0x328,
-                    .animation_id = 0x350,
-                    .can_move = 0x390,
-                    .animation_total_frames = 0x39C,
-                    .hit_outcome = 0x3D8,
-                    .simple_state = 0x428,
-                    .power_crushing = 0x6C0,
-                    .airborne_flags = 0x8D8,
-                    .frames_since_round_start = 0x95C,
-                    .in_rage = 0xC00,
-                    .phase_flags = 0xC40,
-                    .input_side = 0xDE4,
-                    .input = 0xE0C,
-                    .hit_lines = 0xE50,
-                    .hurt_cylinders = 0xF10,
-                    .collision_spheres = 0x10D0,
-                    .health = 0x14E8,
-                },
-                .t8 => .{
-                    .is_picked_by_main_player = 0x9,
-                    .character_id = 0x168,
-                    .transform_matrix = 0x200,
-                    .floor_z = 0x354,
-                    .rotation = 0x376,
-                    .state_flags = 0x434,
-                    .animation_frame = deref(u32, add(8, pattern(
-                        &cache,
-                        "8B 81 ?? ?? 00 00 39 81 ?? ?? 00 00 0F 84 ?? ?? 00 00 48 C7 81",
-                    ))),
-                    .attack_damage = 0x504,
-                    .attack_type = deref(u32, add(2, pattern(
-                        &cache,
-                        "89 8E ?? ?? 00 00 48 8D 8E ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8D 8E ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 86",
-                    ))),
-                    .animation_id = 0x548,
-                    .can_move = 0x5C8,
-                    .animation_total_frames = 0x5D4,
-                    .hit_outcome = 0x610,
-                    .simple_state = 0x660,
-                    .is_a_parry_move = 0xA2C,
-                    .power_crushing = 0xBEC,
-                    .airborne_flags = 0xF1C,
-                    .in_rage = 0xF51,
-                    .used_rage = 0xF88,
-                    .frames_since_round_start = 0x1590,
-                    .phase_flags = 0x1BC4,
-                    .heat_gauge = 0x2440,
-                    .used_heat = 0x2450,
-                    .in_heat = 0x2471,
-                    .input_side = 0x27BC,
-                    .input = 0x27E4,
-                    .hit_lines = 0x2850,
-                    .hurt_cylinders = 0x2C50,
-                    .collision_spheres = 0x3090,
-                    .health = 0x3810,
-                },
+        fn t7Init(cache: *?sdk.memory.PatternCache, last_camera_manager_address_pointer: *const usize) Self {
+            const player_offsets = structOffsets(game.Player(.t7), .{
+                .is_picked_by_main_player = 0x9,
+                .character_id = 0xD8,
+                .transform_matrix = 0x130,
+                .floor_z = 0x1B0,
+                .rotation = 0x1BE,
+                .animation_frame = 0x1D4,
+                .state_flags = 0x264,
+                .attack_damage = 0x324,
+                .attack_type = 0x328,
+                .animation_id = 0x350,
+                .can_move = 0x390,
+                .animation_total_frames = 0x39C,
+                .hit_outcome = 0x3D8,
+                .simple_state = 0x428,
+                .power_crushing = 0x6C0,
+                .airborne_flags = 0x8D8,
+                .frames_since_round_start = 0x95C,
+                .in_rage = 0xC00,
+                .phase_flags = 0xC40,
+                .input_side = 0xDE4,
+                .input = 0xE0C,
+                .hit_lines = 0xE50,
+                .hurt_cylinders = 0xF10,
+                .collision_spheres = 0x10D0,
+                .health = 0x14E8,
             });
-
-            const self: Self = switch (game_id) {
-                .t7 => .{
-                    .player_1 = structProxy("player_1", game.Player(.t7), .{
-                        relativeOffset(u32, add(0x3, pattern(&cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
-                        0x0,
-                    }, player_offsets),
-                    .player_2 = structProxy("player_2", game.Player(.t7), .{
-                        relativeOffset(u32, add(0xD, pattern(&cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
-                        0x0,
-                    }, player_offsets),
-                    .camera = proxy("camera", game.Camera(.t7), .{
-                        @intFromPtr(last_camera_manager_address_pointer),
-                        0x03F8,
-                    }),
-                    .functions = .{
-                        .tick = functionPointer(
-                            "tick",
-                            game.TickFunction(.t7),
-                            pattern(&cache, "4C 8B DC 55 41 57 49 8D 6B A1 48 81 EC E8"),
-                        ),
-                        .updateCamera = functionPointer(
-                            "updateCamera",
-                            game.UpdateCameraFunction,
-                            pattern(&cache, "4C 8B DC 55 49 8D AB 68 FC"),
-                        ),
-                    },
-                },
-                .t8 => .{
-                    .player_1 = structProxy("player_1", game.Player(.t8), .{
-                        relativeOffset(u32, add(3, pattern(&cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
-                        0x30,
-                        0x0,
-                    }, player_offsets),
-                    .player_2 = structProxy("player_2", game.Player(.t8), .{
-                        relativeOffset(u32, add(3, pattern(&cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
-                        0x38,
-                        0x0,
-                    }, player_offsets),
-                    .camera = proxy("camera", game.Camera(.t8), .{
-                        @intFromPtr(last_camera_manager_address_pointer),
-                        0x22D0,
-                    }),
-                    .functions = .{
-                        .tick = functionPointer(
-                            "tick",
-                            game.TickFunction(.t8),
-                            pattern(&cache, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 48 8B 01 0F 28 C8"),
-                        ),
-                        .updateCamera = functionPointer(
-                            "updateCamera",
-                            game.UpdateCameraFunction,
-                            pattern(&cache, "48 8B C4 48 89 58 18 55 56 57 48 81 EC 50"),
-                        ),
-                        .decryptHealth = functionPointer(
-                            "decryptHealth",
-                            game.DecryptT8HealthFunction,
-                            pattern(&cache, "48 89 5C 24 08 57 48 83 EC ?? 48 8D 79 08 48 8B D9 48 8B CF E8 ?? ?? ?? ?? 85 C0"),
-                        ),
-                    },
+            return .{
+                .player_1 = structProxy("player_1", game.Player(.t7), .{
+                    relativeOffset(u32, add(0x3, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
+                    0x0,
+                }, player_offsets),
+                .player_2 = structProxy("player_2", game.Player(.t7), .{
+                    relativeOffset(u32, add(0xD, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
+                    0x0,
+                }, player_offsets),
+                .camera = proxy("camera", game.Camera(.t7), .{
+                    @intFromPtr(last_camera_manager_address_pointer),
+                    0x03F8,
+                }),
+                .functions = .{
+                    .tick = functionPointer(
+                        "tick",
+                        game.TickFunction(.t7),
+                        pattern(cache, "4C 8B DC 55 41 57 49 8D 6B A1 48 81 EC E8"),
+                    ),
+                    .updateCamera = functionPointer(
+                        "updateCamera",
+                        game.UpdateCameraFunction,
+                        pattern(cache, "4C 8B DC 55 49 8D AB 68 FC"),
+                    ),
                 },
             };
-            if (game_id == .t8) {
-                game.conversion_globals.decryptT8Health = self.functions.decryptHealth;
-            }
+        }
+
+        fn t8Init(cache: *?sdk.memory.PatternCache, last_camera_manager_address_pointer: *const usize) Self {
+            const player_offsets = structOffsets(game.Player(.t8), .{
+                .is_picked_by_main_player = 0x9,
+                .character_id = 0x168,
+                .transform_matrix = 0x200,
+                .floor_z = 0x354,
+                .rotation = 0x376,
+                .state_flags = 0x434,
+                .animation_frame = deref(u32, add(8, pattern(
+                    cache,
+                    "8B 81 ?? ?? 00 00 39 81 ?? ?? 00 00 0F 84 ?? ?? 00 00 48 C7 81",
+                ))),
+                .attack_damage = 0x504,
+                .attack_type = deref(u32, add(2, pattern(
+                    cache,
+                    "89 8E ?? ?? 00 00 48 8D 8E ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8D 8E ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 86",
+                ))),
+                .animation_id = 0x548,
+                .can_move = 0x5C8,
+                .animation_total_frames = 0x5D4,
+                .hit_outcome = 0x610,
+                .simple_state = 0x660,
+                .is_a_parry_move = 0xA2C,
+                .power_crushing = 0xBEC,
+                .airborne_flags = 0xF1C,
+                .in_rage = 0xF51,
+                .used_rage = 0xF88,
+                .frames_since_round_start = 0x1590,
+                .phase_flags = 0x1BC4,
+                .heat_gauge = 0x2440,
+                .used_heat = 0x2450,
+                .in_heat = 0x2471,
+                .input_side = 0x27BC,
+                .input = 0x27E4,
+                .hit_lines = 0x2850,
+                .hurt_cylinders = 0x2C50,
+                .collision_spheres = 0x3090,
+                .health = 0x3810,
+            });
+            const self = Self{
+                .player_1 = structProxy("player_1", game.Player(.t8), .{
+                    relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
+                    0x30,
+                    0x0,
+                }, player_offsets),
+                .player_2 = structProxy("player_2", game.Player(.t8), .{
+                    relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
+                    0x38,
+                    0x0,
+                }, player_offsets),
+                .camera = proxy("camera", game.Camera(.t8), .{
+                    @intFromPtr(last_camera_manager_address_pointer),
+                    0x22D0,
+                }),
+                .functions = .{
+                    .tick = functionPointer(
+                        "tick",
+                        game.TickFunction(.t8),
+                        pattern(cache, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 48 8B 01 0F 28 C8"),
+                    ),
+                    .updateCamera = functionPointer(
+                        "updateCamera",
+                        game.UpdateCameraFunction,
+                        pattern(cache, "48 8B C4 48 89 58 18 55 56 57 48 81 EC 50"),
+                    ),
+                    .decryptHealth = functionPointer(
+                        "decryptHealth",
+                        game.DecryptT8HealthFunction,
+                        pattern(cache, "48 89 5C 24 08 57 48 83 EC ?? 48 8D 79 08 48 8B D9 48 8B CF E8 ?? ?? ?? ?? 85 C0"),
+                    ),
+                },
+            };
+            game.conversion_globals.decryptT8Health = self.functions.decryptHealth;
             return self;
         }
 
