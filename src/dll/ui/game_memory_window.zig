@@ -41,6 +41,14 @@ pub const GameMemoryWindow = struct {
         //     const array: *const [3000]u32 = @ptrFromInt(address);
         //     ui.drawData("player_2_array", array);
         // }
+        // if (game_memory.player_1_animation.findBaseAddress()) |address| {
+        //     const array: *const [275]u32 = @ptrFromInt(address);
+        //     ui.drawData("player_animation_1_array", array);
+        // }
+        // if (game_memory.player_2_animation.findBaseAddress()) |address| {
+        //     const array: *const [275]u32 = @ptrFromInt(address);
+        //     ui.drawData("player_animation_2_array", array);
+        // }
     }
 };
 

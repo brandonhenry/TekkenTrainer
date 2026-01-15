@@ -43,6 +43,7 @@ pub const CollisionSphere = @import("types.zig").CollisionSphere;
 pub const CollisionSpheres = @import("types.zig").CollisionSpheres;
 pub const Health = @import("types.zig").Health;
 pub const Player = @import("types.zig").Player;
+pub const Animation = @import("types.zig").Animation;
 pub const RawCamera = @import("types.zig").RawCamera;
 pub const ConvertedCamera = @import("types.zig").ConvertedCamera;
 pub const Camera = @import("types.zig").Camera;
