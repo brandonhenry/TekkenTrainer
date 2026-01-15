@@ -11,21 +11,11 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
 
         const Self = @This();
         const PartialPlayer = sdk.misc.Partial(game.Player(game_id));
-        pub const GameMemory = struct {
-            player_1: PartialPlayer,
-            player_2: PartialPlayer,
-            camera: ?game.Camera(game_id) = null,
-        };
+        const PartialAnimation = sdk.misc.Partial(game.Animation);
+        const PartialGameMemory = game.Memory(game_id).PartialCopy;
         pub const PlayerState = struct {
-            airborne_state: AirborneState = .{},
             rage_state: RageState = .{},
             previous_hit_lines: ?game.HitLines(game_id) = null,
-        };
-        const AirborneState = packed struct {
-            airborne_started: bool = false,
-            airborne_ended: bool = false,
-            low_crushing_started: bool = false,
-            low_crushing_ended: bool = false,
         };
         const RageState = switch (game_id) {
             .t7 => struct {
@@ -35,11 +25,21 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             .t8 => struct {},
         };
 
-        pub fn captureFrame(self: *Self, game_memory: *const GameMemory) model.Frame {
+        pub fn captureFrame(self: *Self, game_memory: *const game.Memory(game_id).PartialCopy) model.Frame {
             const frames_since_round_start = captureFramesSinceRoundStart(game_memory);
             const floor_z = captureFloorZ(game_memory);
-            const player_1 = capturePlayer(&self.player_1_state, &game_memory.player_1, .player_1);
-            const player_2 = capturePlayer(&self.player_2_state, &game_memory.player_2, .player_2);
+            const player_1 = capturePlayer(
+                &self.player_1_state,
+                &game_memory.player_1,
+                &game_memory.player_1_animation,
+                .player_1,
+            );
+            const player_2 = capturePlayer(
+                &self.player_2_state,
+                &game_memory.player_2,
+                &game_memory.player_2_animation,
+                .player_2,
+            );
             const camera = captureCamera(game_memory);
             const main_player_id = captureMainPlayerId(game_memory);
             const left_player_id = captureLeftPlayerId(game_memory, main_player_id);
@@ -53,7 +53,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn captureFramesSinceRoundStart(game_memory: *const GameMemory) ?u32 {
+        fn captureFramesSinceRoundStart(game_memory: *const PartialGameMemory) ?u32 {
             if (game_memory.player_1.frames_since_round_start) |frames| {
                 return frames;
             }
@@ -63,7 +63,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             return null;
         }
 
-        fn captureFloorZ(game_memory: *const GameMemory) ?f32 {
+        fn captureFloorZ(game_memory: *const PartialGameMemory) ?f32 {
             if (game_memory.player_1.floor_z) |raw_z1| {
                 const z1 = raw_z1.convert();
                 if (game_memory.player_2.floor_z) |raw_z2| {
@@ -80,7 +80,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn captureCamera(game_memory: *const GameMemory) ?model.Camera {
+        fn captureCamera(game_memory: *const PartialGameMemory) ?model.Camera {
             const camera = if (game_memory.camera) |c| c.convert() else return null;
             return .{
                 .position = camera.position,
@@ -90,7 +90,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn captureMainPlayerId(game_memory: *const GameMemory) model.PlayerId {
+        fn captureMainPlayerId(game_memory: *const PartialGameMemory) model.PlayerId {
             if (game_memory.player_1.is_picked_by_main_player) |boolean| {
                 if (boolean.toBool()) |is_main| {
                     return if (is_main) .player_1 else .player_2;
@@ -104,7 +104,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             return .player_1;
         }
 
-        fn captureLeftPlayerId(game_memory: *const GameMemory, main_player_id: model.PlayerId) model.PlayerId {
+        fn captureLeftPlayerId(game_memory: *const PartialGameMemory, main_player_id: model.PlayerId) model.PlayerId {
             const main_player = if (main_player_id == .player_1) &game_memory.player_1 else &game_memory.player_2;
             if (main_player.input_side) |side| {
                 return if (side == .left) main_player_id else main_player_id.getOther();
@@ -116,9 +116,9 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
         fn capturePlayer(
             state: *PlayerState,
             player: *const PartialPlayer,
+            animation: *const PartialAnimation,
             player_id: model.PlayerId,
         ) model.Player {
-            updateAirborneState(state, player);
             updateRageState(state, player);
             const captured_player = model.Player{
                 .character_id = player.character_id,
@@ -128,9 +128,9 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 .attack_type = captureAttackType(player),
                 .attack_damage = player.attack_damage,
                 .hit_outcome = captureHitOutcome(player),
-                .posture = capturePosture(state, player),
+                .posture = capturePosture(player, animation),
                 .blocking = captureBlocking(player),
-                .crushing = captureCrushing(state, player),
+                .crushing = captureCrushing(player, animation),
                 .can_move = if (player.can_move) |can_move| can_move.toBool() else null,
                 .input = captureInput(player, player_id),
                 .health = switch (game_id) {
@@ -146,32 +146,6 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
             updatePreviousHitLines(state, player);
             return captured_player;
-        }
-
-        fn updateAirborneState(state: *PlayerState, player: *const PartialPlayer) void {
-            const animation_frame: u32 = player.animation_frame orelse return;
-            const state_flags: game.StateFlags = player.state_flags orelse return;
-            const airborne_flags: game.AirborneFlags = player.airborne_flags orelse return;
-            if (animation_frame == 1) {
-                state.airborne_state = .{};
-            }
-            if (!state_flags.airborne_move_or_downed or !state_flags.airborne_move_and_not_juggled) {
-                return;
-            }
-            if (airborne_flags.probably_airborne or !airborne_flags.not_airborne_and_not_downed) {
-                state.airborne_state.airborne_started = true;
-            }
-            if (airborne_flags.low_crushing_start) {
-                state.airborne_state.airborne_started = true;
-                state.airborne_state.low_crushing_started = true;
-            }
-            if (airborne_flags.low_crushing_end) {
-                state.airborne_state.low_crushing_ended = true;
-            }
-            if (airborne_flags.airborne_end) {
-                state.airborne_state.low_crushing_ended = true;
-                state.airborne_state.airborne_ended = true;
-            }
         }
 
         fn updateRageState(state: *PlayerState, player: *const PartialPlayer) void {
@@ -236,9 +210,11 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn capturePosture(state: *const PlayerState, player: *const PartialPlayer) ?model.Posture {
+        fn capturePosture(player: *const PartialPlayer, animation: *const PartialAnimation) ?model.Posture {
+            const animation_frame: u32 = player.animation_frame orelse return null;
             const state_flags: game.StateFlags = player.state_flags orelse return null;
-            const airborne_state = state.airborne_state;
+            const airborne_start: u32 = animation.airborne_start orelse return null;
+            const airborne_end: u32 = animation.airborne_end orelse return null;
             if (state_flags.crouching) {
                 return .crouching;
             } else if (state_flags.downed) {
@@ -247,9 +223,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 } else {
                     return .downed_face_up;
                 }
-            } else if (state_flags.being_juggled or
-                (airborne_state.airborne_started and !airborne_state.airborne_ended))
-            {
+            } else if (animation_frame >= airborne_start and animation_frame <= airborne_end) {
                 return .airborne;
             } else {
                 return .standing;
@@ -275,18 +249,21 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn captureCrushing(state: *PlayerState, player: *const PartialPlayer) ?model.Crushing {
-            const posture = capturePosture(state, player) orelse return null;
+        fn captureCrushing(
+            player: *const PartialPlayer,
+            animation: *const PartialAnimation,
+        ) ?model.Crushing {
+            const posture = capturePosture(player, animation) orelse return null;
             const state_flags: game.StateFlags = player.state_flags orelse return null;
             const simple_state: game.SimpleState = player.simple_state orelse return null;
-            const airborne_state = state.airborne_state;
             const power_crushing: sdk.memory.Boolean(.{}) = player.power_crushing orelse return null;
+            const animation_frame: u32 = player.animation_frame orelse return null;
+            const airborne_end: u32 = animation.airborne_end orelse return null;
             return .{
                 .high_crushing = posture == .crouching or posture == .downed_face_down or posture == .downed_face_up,
                 .low_crushing = posture == .airborne and
-                    airborne_state.airborne_started and
-                    !airborne_state.low_crushing_ended and
-                    !state_flags.being_juggled,
+                    !state_flags.being_juggled and
+                    animation_frame <= airborne_end -| 3,
                 .anti_air_only_crushing = posture != .airborne,
                 .power_crushing = power_crushing.toBool() orelse return null,
                 .invincibility = simple_state == .invincible,
@@ -735,7 +712,61 @@ test "should capture hit outcome correctly" {
     try testing.expectEqual(null, frame.getPlayerById(.player_2).hit_outcome);
 }
 
-// TODO test posture
+test "should capture posture correctly" {
+    var capturer = Capturer(.t8){};
+    const frame_1 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 3,
+            .state_flags = .{},
+        },
+        .player_2 = .{
+            .animation_frame = 5,
+            .state_flags = .{},
+        },
+        .player_1_animation = .{
+            .airborne_start = 4,
+            .airborne_end = 6,
+        },
+        .player_2_animation = .{
+            .airborne_start = 4,
+            .airborne_end = 6,
+        },
+    });
+    const frame_2 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 1,
+            .state_flags = .{ .downed = true, .face_down = false },
+        },
+        .player_2 = .{
+            .animation_frame = 1,
+            .state_flags = .{ .downed = true, .face_down = true },
+        },
+        .player_1_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+        .player_2_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+    });
+    const frame_3 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 1,
+            .state_flags = .{ .crouching = true },
+        },
+        .player_1_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+    });
+    try testing.expectEqual(.standing, frame_1.getPlayerById(.player_1).posture);
+    try testing.expectEqual(.airborne, frame_1.getPlayerById(.player_2).posture);
+    try testing.expectEqual(.downed_face_up, frame_2.getPlayerById(.player_1).posture);
+    try testing.expectEqual(.downed_face_down, frame_2.getPlayerById(.player_2).posture);
+    try testing.expectEqual(.crouching, frame_3.getPlayerById(.player_1).posture);
+    try testing.expectEqual(null, frame_3.getPlayerById(.player_2).posture);
+}
 
 test "should capture blocking correctly" {
     var capturer = Capturer(.t8){};
@@ -759,7 +790,134 @@ test "should capture blocking correctly" {
     try testing.expectEqual(.fully_blocking_lows, frame_3.getPlayerById(.player_2).blocking);
 }
 
-// TODO test crushing
+test "should capture crushing correctly" {
+    var capturer = Capturer(.t8){};
+    const frame_1 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 4,
+            .state_flags = .{},
+            .simple_state = .airborne,
+            .power_crushing = .false,
+        },
+        .player_2 = .{
+            .animation_frame = 5,
+            .state_flags = .{},
+            .simple_state = .airborne,
+            .power_crushing = .false,
+        },
+        .player_1_animation = .{
+            .airborne_start = 5,
+            .airborne_end = 10,
+        },
+        .player_2_animation = .{
+            .airborne_start = 5,
+            .airborne_end = 10,
+        },
+    });
+    const frame_2 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 7,
+            .state_flags = .{},
+            .simple_state = .airborne,
+            .power_crushing = .false,
+        },
+        .player_2 = .{
+            .animation_frame = 8,
+            .state_flags = .{},
+            .simple_state = .airborne,
+            .power_crushing = .false,
+        },
+        .player_1_animation = .{
+            .airborne_start = 5,
+            .airborne_end = 10,
+        },
+        .player_2_animation = .{
+            .airborne_start = 5,
+            .airborne_end = 10,
+        },
+    });
+    const frame_3 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 1,
+            .state_flags = .{ .downed = true, .face_down = false },
+            .simple_state = .ground_face_up,
+            .power_crushing = .false,
+        },
+        .player_2 = .{
+            .animation_frame = 1,
+            .state_flags = .{ .downed = true, .face_down = true },
+            .simple_state = .ground_face_down,
+            .power_crushing = .false,
+        },
+        .player_1_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+        .player_2_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+    });
+    const frame_4 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 1,
+            .state_flags = .{ .crouching = true },
+            .simple_state = .crouch,
+            .power_crushing = .false,
+        },
+        .player_1_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+    });
+    const frame_5 = capturer.captureFrame(&.{
+        .player_1 = .{
+            .animation_frame = 1,
+            .state_flags = .{},
+            .simple_state = .standing,
+            .power_crushing = .true,
+        },
+        .player_2 = .{
+            .animation_frame = 1,
+            .state_flags = .{},
+            .simple_state = .invincible,
+            .power_crushing = .false,
+        },
+        .player_1_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+        .player_2_animation = .{
+            .airborne_start = 0,
+            .airborne_end = 0,
+        },
+    });
+    try testing.expectEqual(model.Crushing{ .anti_air_only_crushing = true }, frame_1.getPlayerById(.player_1).crushing);
+    try testing.expectEqual(model.Crushing{ .low_crushing = true }, frame_1.getPlayerById(.player_2).crushing);
+    try testing.expectEqual(model.Crushing{ .low_crushing = true }, frame_2.getPlayerById(.player_1).crushing);
+    try testing.expectEqual(model.Crushing{}, frame_2.getPlayerById(.player_2).crushing);
+    try testing.expectEqual(
+        model.Crushing{ .anti_air_only_crushing = true, .high_crushing = true },
+        frame_3.getPlayerById(.player_1).crushing,
+    );
+    try testing.expectEqual(
+        model.Crushing{ .anti_air_only_crushing = true, .high_crushing = true },
+        frame_3.getPlayerById(.player_2).crushing,
+    );
+    try testing.expectEqual(
+        model.Crushing{ .anti_air_only_crushing = true, .high_crushing = true },
+        frame_4.getPlayerById(.player_1).crushing,
+    );
+    try testing.expectEqual(null, frame_4.getPlayerById(.player_2).crushing);
+    try testing.expectEqual(
+        model.Crushing{ .anti_air_only_crushing = true, .power_crushing = true },
+        frame_5.getPlayerById(.player_1).crushing,
+    );
+    try testing.expectEqual(
+        model.Crushing{ .anti_air_only_crushing = true, .invincibility = true },
+        frame_5.getPlayerById(.player_2).crushing,
+    );
+}
 
 test "should capture can move correctly" {
     var capturer = Capturer(.t8){};

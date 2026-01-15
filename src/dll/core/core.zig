@@ -37,13 +37,11 @@ pub const Core = struct {
         context: anytype,
         processFrame: *const fn (context: @TypeOf(context), frame: *const model.Frame) void,
     ) void {
-        const player_1 = game_memory.player_1.takePartialCopy();
-        const player_2 = game_memory.player_2.takePartialCopy();
-        if (!self.frame_detector.detect(build_info.game, &player_1, &player_2)) {
+        const game_memory_copy = game_memory.takePartialCopy();
+        if (!self.frame_detector.detect(build_info.game, &game_memory_copy.player_1, &game_memory_copy.player_2)) {
             return;
         }
-        const camera = game_memory.camera.takeCopy();
-        var frame = self.capturer.captureFrame(&.{ .player_1 = player_1, .player_2 = player_2, .camera = camera });
+        var frame = self.capturer.captureFrame(&game_memory_copy);
         self.pause_detector.update();
         self.hit_detector.detect(&frame);
         self.move_detector.detect(&frame);

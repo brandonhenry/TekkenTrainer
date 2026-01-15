@@ -25,6 +25,13 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 decryptHealth: ?*const game.DecryptT8HealthFunction = null,
             },
         };
+        pub const PartialCopy = struct {
+            player_1: sdk.misc.Partial(game.Player(game_id)) = .{},
+            player_2: sdk.misc.Partial(game.Player(game_id)) = .{},
+            player_1_animation: sdk.misc.Partial(game.Animation) = .{},
+            player_2_animation: sdk.misc.Partial(game.Animation) = .{},
+            camera: ?game.Camera(game_id) = null,
+        };
 
         const pattern_cache_file_name = "pattern_cache_" ++ @tagName(game_id) ++ ".json";
 
@@ -44,6 +51,16 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             return switch (game_id) {
                 .t7 => t7Init(&cache, last_camera_manager_address_pointer),
                 .t8 => t8Init(&cache, last_camera_manager_address_pointer),
+            };
+        }
+
+        pub fn takePartialCopy(self: *const Self) PartialCopy {
+            return .{
+                .player_1 = self.player_1.takePartialCopy(),
+                .player_2 = self.player_2.takePartialCopy(),
+                .player_1_animation = self.player_1_animation.takePartialCopy(),
+                .player_2_animation = self.player_2_animation.takePartialCopy(),
+                .camera = self.camera.takeCopy(),
             };
         }
 
@@ -125,17 +142,17 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .transform_matrix = 0x200,
                 .floor_z = 0x354,
                 .rotation = 0x376,
-                .animation_pointer = 0x3D8,
-                .state_flags = 0x434,
                 .animation_frame = deref(u32, add(8, pattern(
                     cache,
                     "8B 81 ?? ?? 00 00 39 81 ?? ?? 00 00 0F 84 ?? ?? 00 00 48 C7 81",
-                ))),
+                ))), // 0x390
+                .animation_pointer = 0x3D8,
+                .state_flags = 0x434,
                 .attack_damage = 0x504,
                 .attack_type = deref(u32, add(2, pattern(
                     cache,
                     "89 8E ?? ?? 00 00 48 8D 8E ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8D 8E ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 86",
-                ))),
+                ))), // 0x510
                 .animation_id = 0x548,
                 .can_move = 0x5C8,
                 .animation_total_frames = 0x5D4,

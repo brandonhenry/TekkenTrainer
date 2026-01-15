@@ -216,7 +216,6 @@ pub const HitOutcome = enum(u32) {
 };
 
 pub const SimpleState = enum(u32) {
-    uninitialized = 0,
     standing_forward = 1,
     standing_back = 2,
     standing = 3,
@@ -592,8 +591,8 @@ pub fn Player(comptime game_id: build_info.Game) type {
                 game.u16ToRadians,
                 game.u16FromRadians,
             ),
-            animation_pointer: u64,
             animation_frame: u32,
+            animation_pointer: u64,
             state_flags: StateFlags,
             attack_damage: i32,
             attack_type: AttackType,
