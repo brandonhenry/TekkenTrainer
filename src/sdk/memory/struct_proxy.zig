@@ -12,9 +12,10 @@ pub fn StructProxy(comptime Struct: type) type {
     };
     return struct {
         base_trail: memory.PointerTrail,
-        field_offsets: misc.FieldMap(Struct, ?usize, null),
+        field_offsets: FieldOffsets,
 
         const Self = @This();
+        const FieldOffsets = misc.FieldMap(Struct, ?usize, null);
         pub const tag = struct_proxy_tag;
         pub const Child = Struct;
 
@@ -24,58 +25,44 @@ pub fn StructProxy(comptime Struct: type) type {
 
         pub fn findFieldAddress(self: *const Self, comptime field_name: []const u8) ?usize {
             const base_address = self.findBaseAddress() orelse return null;
-            const field_offset = @field(self.field_offsets, field_name) orelse return null;
-            const add_result = @addWithOverflow(base_address, field_offset);
-            if (add_result[1] == 1) {
-                return null;
-            }
-            return add_result[0];
+            return findFieldAddressInternal(base_address, &self.field_offsets, field_name);
         }
 
         pub fn findConstFieldPointer(
             self: *const Self,
             comptime field_name: []const u8,
         ) ?*const @FieldType(Struct, field_name) {
-            const Field = @FieldType(Struct, field_name);
-            const address = self.findFieldAddress(field_name) orelse return null;
-            if (address % @alignOf(Field) != 0) {
-                return null;
-            }
-            if (!os.isMemoryReadable(address, @sizeOf(Field))) {
-                return null;
-            }
-            return @ptrFromInt(address);
+            const base_address = self.findBaseAddress() orelse return null;
+            return findConstFieldPointerInternal(base_address, &self.field_offsets, field_name);
         }
 
         pub fn findMutableFieldPointer(
             self: *const Self,
             comptime field_name: []const u8,
         ) ?*@FieldType(Struct, field_name) {
-            const Field = @FieldType(Struct, field_name);
-            const address = self.findFieldAddress(field_name) orelse return null;
-            if (address % @alignOf(Field) != 0) {
-                return null;
-            }
-            if (!os.isMemoryWriteable(address, @sizeOf(Field))) {
-                return null;
-            }
-            return @ptrFromInt(address);
+            const base_address = self.findBaseAddress() orelse return null;
+            return findMutableFieldPointerInternal(base_address, &self.field_offsets, field_name);
         }
 
         pub fn takeFullCopy(self: *const Self) ?Struct {
+            const base_address = self.findBaseAddress() orelse return null;
             var copy: Struct = undefined;
             inline for (struct_fields) |*field| {
-                const value_pointer = self.findConstFieldPointer(field.name) orelse return null;
-                @field(copy, field.name) = value_pointer.*;
+                if (findConstFieldPointerInternal(base_address, &self.field_offsets, field.name)) |field_pointer| {
+                    @field(copy, field.name) = field_pointer.*;
+                } else {
+                    return null;
+                }
             }
             return copy;
         }
 
         pub fn takePartialCopy(self: *const Self) misc.Partial(Struct) {
+            const base_address = self.findBaseAddress() orelse return .{};
             var copy: misc.Partial(Struct) = undefined;
             inline for (struct_fields) |*field| {
-                if (self.findConstFieldPointer(field.name)) |value_pointer| {
-                    @field(copy, field.name) = value_pointer.*;
+                if (findConstFieldPointerInternal(base_address, &self.field_offsets, field.name)) |field_pointer| {
+                    @field(copy, field.name) = field_pointer.*;
                 } else {
                     @field(copy, field.name) = null;
                 }
@@ -94,6 +81,51 @@ pub fn StructProxy(comptime Struct: type) type {
                 }
             }
             return max;
+        }
+
+        fn findFieldAddressInternal(
+            base_address: usize,
+            field_offsets: *const FieldOffsets,
+            comptime field_name: []const u8,
+        ) ?usize {
+            const field_offset = @field(field_offsets, field_name) orelse return null;
+            const add_result = @addWithOverflow(base_address, field_offset);
+            if (add_result[1] == 1) {
+                return null;
+            }
+            return add_result[0];
+        }
+
+        fn findConstFieldPointerInternal(
+            base_address: usize,
+            field_offsets: *const FieldOffsets,
+            comptime field_name: []const u8,
+        ) ?*const @FieldType(Struct, field_name) {
+            const Field = @FieldType(Struct, field_name);
+            const address = findFieldAddressInternal(base_address, field_offsets, field_name) orelse return null;
+            if (address % @alignOf(Field) != 0) {
+                return null;
+            }
+            if (!os.isMemoryReadable(address, @sizeOf(Field))) {
+                return null;
+            }
+            return @ptrFromInt(address);
+        }
+
+        fn findMutableFieldPointerInternal(
+            base_address: usize,
+            field_offsets: *const FieldOffsets,
+            comptime field_name: []const u8,
+        ) ?*@FieldType(Struct, field_name) {
+            const Field = @FieldType(Struct, field_name);
+            const address = findFieldAddressInternal(base_address, field_offsets, field_name) orelse return null;
+            if (address % @alignOf(Field) != 0) {
+                return null;
+            }
+            if (!os.isMemoryWriteable(address, @sizeOf(Field))) {
+                return null;
+            }
+            return @ptrFromInt(address);
         }
     };
 }
