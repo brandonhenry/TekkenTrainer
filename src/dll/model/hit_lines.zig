@@ -26,18 +26,14 @@ pub const HitLines = struct {
 
     pub const max_len = 8;
 
-    pub fn asConstSlice(self: *const Self) []const HitLine {
-        return self.buffer[0..self.len];
-    }
-
-    pub fn asMutableSlice(self: *Self) []HitLine {
+    pub fn asSlice(self: anytype) sdk.misc.SelfBasedSlice(@TypeOf(self), Self, HitLine) {
         return self.buffer[0..self.len];
     }
 };
 
 const testing = std.testing;
 
-test "HitLines.asConstSlice, asMutableSlice should return correct value" {
+test "HitLines.asSlice should return correct value" {
     const line_1 = HitLine{
         .line = .{ .point_1 = .fromArray(.{ 1, 2, 3 }), .point_2 = .fromArray(.{ 4, 5, 6 }) },
     };
@@ -48,6 +44,5 @@ test "HitLines.asConstSlice, asMutableSlice should return correct value" {
     lines.buffer[0] = line_1;
     lines.buffer[1] = line_2;
     lines.len = 2;
-    try testing.expectEqualSlices(HitLine, &.{ line_1, line_2 }, lines.asConstSlice());
-    try testing.expectEqualSlices(HitLine, &.{ line_1, line_2 }, lines.asMutableSlice());
+    try testing.expectEqualSlices(HitLine, &.{ line_1, line_2 }, lines.asSlice());
 }

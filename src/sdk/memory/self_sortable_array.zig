@@ -1,4 +1,5 @@
 const std = @import("std");
+const misc = @import("../misc/root.zig");
 
 pub const self_sortable_array_tag = opaque {};
 
@@ -13,7 +14,15 @@ pub fn SelfSortableArray(
         const Self = @This();
         pub const tag = self_sortable_array_tag;
 
-        pub fn sortedConst(self: *const Self) [length]*const Element {
+        pub fn sorted(self: anytype) [length]misc.SelfBasedPointer(@TypeOf(self), Self, Element) {
+            return switch (@TypeOf(self)) {
+                *Self => self.sortedMutable(),
+                *const Self => self.sortedConst(),
+                else => unreachable,
+            };
+        }
+
+        fn sortedConst(self: *const Self) [length]*const Element {
             var pointers: [length]*const Element = undefined;
             for (0..length) |i| {
                 pointers[i] = &self.raw[i];
@@ -22,7 +31,7 @@ pub fn SelfSortableArray(
             return pointers;
         }
 
-        pub fn sortedMutable(self: *Self) [length]*Element {
+        fn sortedMutable(self: *Self) [length]*Element {
             var pointers: [length]*Element = undefined;
             for (0..length) |i| {
                 pointers[i] = &self.raw[i];
@@ -52,28 +61,29 @@ test "should have same size as raw array" {
     try testing.expectEqual(@sizeOf([32]i32), @sizeOf(SelfSortableArray(32, i32, lessThanFn)));
 }
 
-test "sortedConst should return a array of pointers sorted by value" {
+test "sorted should return a array of pointers sorted by value when value is immutable" {
     const lessThanFn = struct {
         fn call(lhs: *const i32, rhs: *const i32) bool {
             return lhs.* < rhs.*;
         }
     }.call;
     const array = SelfSortableArray(3, i32, lessThanFn){ .raw = .{ 2, 3, 1 } };
-    const sorted = array.sortedConst();
+    const sorted = array.sorted();
     try testing.expectEqual(&array.raw[2], sorted[0]);
     try testing.expectEqual(&array.raw[0], sorted[1]);
     try testing.expectEqual(&array.raw[1], sorted[2]);
 }
 
-test "sortedMutable should return a array of pointers sorted by value" {
+test "sorted should return a array of pointers sorted by value when value is mutable" {
     const lessThanFn = struct {
         fn call(lhs: *const i32, rhs: *const i32) bool {
             return lhs.* < rhs.*;
         }
     }.call;
     var array = SelfSortableArray(3, i32, lessThanFn){ .raw = .{ 2, 3, 1 } };
-    const sorted = array.sortedMutable();
+    const sorted = array.sorted();
     try testing.expectEqual(&array.raw[2], sorted[0]);
     try testing.expectEqual(&array.raw[0], sorted[1]);
     try testing.expectEqual(&array.raw[1], sorted[2]);
+    sorted[0].* += 1;
 }

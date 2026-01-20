@@ -64,7 +64,7 @@ pub const HurtCylinders = struct {
 
     fn updateLingering(self: *Self, delta_time: f32) void {
         for (0..self.lingering.len) |index| {
-            const cylinder = self.lingering.getMut(index) catch unreachable;
+            const cylinder = self.lingering.get(index) catch unreachable;
             cylinder.remaining_time -= delta_time;
         }
         while (self.lingering.getFirst() catch null) |cylinder| {

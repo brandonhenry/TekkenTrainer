@@ -1,5 +1,35 @@
 const std = @import("std");
 
+pub fn SelfBasedPointer(comptime SelfPointer: type, comptime Self: type, comptime Type: type) type {
+    return switch (SelfPointer) {
+        *Self => *Type,
+        *const Self => *const Type,
+        else => @compileError(
+            "Expected self to be of type \"" ++
+                @typeName(*const Self) ++
+                "\" or \"" ++
+                @typeName(*Self) ++
+                "\" but got: " ++
+                @typeName(SelfPointer),
+        ),
+    };
+}
+
+pub fn SelfBasedSlice(comptime SelfPointer: type, comptime Self: type, comptime Element: type) type {
+    return switch (SelfPointer) {
+        *Self => []Element,
+        *const Self => []const Element,
+        else => @compileError(
+            "Expected self to be of type \"" ++
+                @typeName(*const Self) ++
+                "\" or \"" ++
+                @typeName(*Self) ++
+                "\" but got: " ++
+                @typeName(SelfPointer),
+        ),
+    };
+}
+
 pub fn Partial(comptime Struct: type) type {
     const fields: []const std.builtin.Type.StructField = switch (@typeInfo(Struct)) {
         .@"struct" => |info| info.fields,
@@ -97,6 +127,16 @@ pub fn enumArrayToEnumFieldStruct(
 }
 
 const testing = std.testing;
+
+test "SelfBasedPointer should return a pointer type with same mutability as SelfPointer" {
+    try testing.expect(SelfBasedPointer(*const u64, u64, f32) == *const f32);
+    try testing.expect(SelfBasedPointer(*u64, u64, f32) == *f32);
+}
+
+test "SelfBasedSlice should return a slice type with same mutability as SelfPointer" {
+    try testing.expect(SelfBasedSlice(*const u64, u64, f32) == []const f32);
+    try testing.expect(SelfBasedSlice(*u64, u64, f32) == []f32);
+}
 
 test "FieldMap should make every field typed with the specified type" {
     const Struct = struct {

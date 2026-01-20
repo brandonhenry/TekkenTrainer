@@ -628,7 +628,7 @@ fn drawSelfSortableArray(ctx: *const Context, pointer: anytype) void {
     };
     drawAny(&raw_ctx, raw_pointer);
 
-    const sorted_pointer = &pointer.sortedConst();
+    const sorted_pointer = &pointer.sorted();
     const sorted_ctx = Context{
         .label = "sorted",
         .type_name = @typeName(@TypeOf(sorted_pointer.*)),
@@ -644,7 +644,7 @@ fn drawVector(ctx: *const Context, pointer: anytype) void {
     if (pointer.array.len > 4) {
         drawAny(ctx, &pointer.array);
     } else {
-        drawAny(ctx, pointer.asConstCoords());
+        drawAny(ctx, pointer.asCoords());
     }
 }
 

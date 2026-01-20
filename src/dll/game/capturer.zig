@@ -1380,8 +1380,8 @@ test "should capture hit lines correctly in T7" {
             .phase_flags = .{ .is_active = false },
         },
     });
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asSlice());
 
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{
@@ -1409,11 +1409,11 @@ test "should capture hit lines correctly in T7" {
     });
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 4, 5, 6 }, .{ 7, 8, 9 }),
-    }, frame_2.getPlayerById(.player_1).hit_lines.asConstSlice());
+    }, frame_2.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 16, 17, 18 }, .{ 19, 20, 21 }),
         line(.{ 10, 11, 12 }, .{ 13, 14, 15 }),
-    }, frame_2.getPlayerById(.player_2).hit_lines.asConstSlice());
+    }, frame_2.getPlayerById(.player_2).hit_lines.asSlice());
 
     const frame_3 = capturer.captureFrame(&.{
         .player_1 = .{
@@ -1439,12 +1439,12 @@ test "should capture hit lines correctly in T7" {
             .phase_flags = .{ .is_active = true },
         },
     });
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 6, 5, 4 }, .{ 3, 2, 1 }),
         line(.{ 12, 11, 10 }, .{ 9, 8, 7 }),
         line(.{ 18, 17, 16 }, .{ 15, 14, 13 }),
-    }, frame_3.getPlayerById(.player_2).hit_lines.asConstSlice());
+    }, frame_3.getPlayerById(.player_2).hit_lines.asSlice());
 
     const frame_4 = capturer.captureFrame(&.{
         .player_1 = .{
@@ -1463,8 +1463,8 @@ test "should capture hit lines correctly in T7" {
             .phase_flags = .{ .is_active = true },
         },
     });
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asSlice());
 }
 
 test "should capture hit lines correctly in T8" {
@@ -1509,8 +1509,8 @@ test "should capture hit lines correctly in T8" {
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
         } },
     });
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asSlice());
 
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{ .hit_lines = .{
@@ -1531,13 +1531,13 @@ test "should capture hit lines correctly in T8" {
         line(.{ 13, 14, 15 }, .{ 16, 17, 18 }),
         line(.{ 28, 29, 30 }, .{ 31, 32, 33 }),
         line(.{ 31, 32, 33 }, .{ 34, 35, 36 }),
-    }, frame_2.getPlayerById(.player_1).hit_lines.asConstSlice());
+    }, frame_2.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 37, 38, 39 }, .{ 40, 41, 42 }),
         line(.{ 40, 41, 42 }, .{ 43, 44, 45 }),
         line(.{ 55, 56, 57 }, .{ 58, 59, 60 }),
         line(.{ 58, 59, 60 }, .{ 61, 62, 63 }),
-    }, frame_2.getPlayerById(.player_2).hit_lines.asConstSlice());
+    }, frame_2.getPlayerById(.player_2).hit_lines.asSlice());
 
     const frame_3 = capturer.captureFrame(&.{
         .player_1 = .{ .hit_lines = .{
@@ -1553,7 +1553,7 @@ test "should capture hit lines correctly in T8" {
             hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 1000 } }, false),
         } },
     });
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 1000, 38, 39 }, .{ 40, 41, 42 }),
         line(.{ 40, 41, 42 }, .{ 43, 44, 45 }),
@@ -1563,12 +1563,12 @@ test "should capture hit lines correctly in T8" {
         line(.{ 1000, 59, 60 }, .{ 61, 62, 63 }),
         line(.{ 64, 65, 66 }, .{ 67, 68, 69 }),
         line(.{ 67, 68, 69 }, .{ 70, 71, 1000 }),
-    }, frame_3.getPlayerById(.player_2).hit_lines.asConstSlice());
+    }, frame_3.getPlayerById(.player_2).hit_lines.asSlice());
 
     const frame_4 = capturer.captureFrame(&.{
         .player_1 = .{ .hit_lines = null },
         .player_2 = .{ .hit_lines = null },
     });
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asConstSlice());
-    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asConstSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asSlice());
+    try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asSlice());
 }

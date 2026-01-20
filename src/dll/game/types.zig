@@ -449,11 +449,7 @@ pub fn HurtCylinders(comptime game_id: build_info.Game) type {
 
         pub const len = @typeInfo(Self).@"struct".fields.len;
 
-        pub fn asConstArray(self: *const Self) *const [len]Element {
-            return @ptrCast(self);
-        }
-
-        pub fn asMutableArray(self: *Self) *[len]Element {
+        pub fn asArray(self: anytype) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, [len]Element) {
             return @ptrCast(self);
         }
 
@@ -497,11 +493,7 @@ pub const CollisionSpheres = extern struct {
 
     pub const len = @typeInfo(Self).@"struct".fields.len;
 
-    pub fn asConstArray(self: *const Self) *const [len]Element {
-        return @ptrCast(self);
-    }
-
-    pub fn asMutableArray(self: *Self) *[len]Element {
+    pub fn asArray(self: anytype) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, [len]Element) {
         return @ptrCast(self);
     }
 

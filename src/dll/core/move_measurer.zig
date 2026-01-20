@@ -48,7 +48,7 @@ pub const MoveMeasurer = struct {
     }
 
     fn updateMoveState(state: *PlayerState, player: *model.Player) void {
-        const lines = player.hit_lines.asConstSlice();
+        const lines: []model.HitLine = player.hit_lines.asSlice();
         for (lines) |*hit_line| {
             if (findHitLineRange(state, hit_line)) |line_range| {
                 if (state.attack_range) |state_range| {

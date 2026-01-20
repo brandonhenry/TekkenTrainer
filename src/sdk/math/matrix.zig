@@ -1,5 +1,6 @@
 const std = @import("std");
 const imgui = @import("imgui");
+const misc = @import("../misc/root.zig");
 const math = @import("root.zig");
 
 pub const matrix_tag = opaque {};
@@ -87,11 +88,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             return @bitCast(self);
         }
 
-        pub fn asFlat(self: *Self) *Flat {
-            return @ptrCast(self);
-        }
-
-        pub fn asConstFlat(self: *const Self) *const Flat {
+        pub fn asFlat(self: anytype) misc.SelfBasedPointer(@TypeOf(self), Self, Flat) {
             return @ptrCast(self);
         }
 
@@ -102,14 +99,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
             return @bitCast(self);
         }
 
-        pub fn asCoords(self: *Self) *Coords {
-            if (size > 4) {
-                @compileError("This operation is not defined for matrices larger then 4x4.");
-            }
-            return @ptrCast(self);
-        }
-
-        pub fn asConstCoords(self: *const Self) *const Coords {
+        pub fn asCoords(self: anytype) misc.SelfBasedPointer(@TypeOf(self), Self, Coords) {
             if (size > 4) {
                 @compileError("This operation is not defined for matrices larger then 4x4.");
             }
@@ -702,7 +692,7 @@ pub fn Matrix(comptime size: usize, comptime Element: type) type {
         }
 
         pub fn jsonStringify(self: *const Self, jsonWriter: anytype) !void {
-            try jsonWriter.write(self.asConstFlat());
+            try jsonWriter.write(self.asFlat());
         }
 
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) !Self {
@@ -831,31 +821,6 @@ test "asFlat should return correct value" {
     try testing.expectEqual(&matrix.array[3][3], &matrix.asFlat()[15]);
 }
 
-test "asConstFlat should return correct value" {
-    const matrix = Matrix(4, f32).fromArray(.{
-        .{ 1, 2, 3, 4 },
-        .{ 5, 6, 7, 8 },
-        .{ 9, 10, 11, 12 },
-        .{ 13, 14, 15, 16 },
-    });
-    try testing.expectEqual(&matrix.array[0][0], &matrix.asConstFlat()[0]);
-    try testing.expectEqual(&matrix.array[0][1], &matrix.asConstFlat()[1]);
-    try testing.expectEqual(&matrix.array[0][2], &matrix.asConstFlat()[2]);
-    try testing.expectEqual(&matrix.array[0][3], &matrix.asConstFlat()[3]);
-    try testing.expectEqual(&matrix.array[1][0], &matrix.asConstFlat()[4]);
-    try testing.expectEqual(&matrix.array[1][1], &matrix.asConstFlat()[5]);
-    try testing.expectEqual(&matrix.array[1][2], &matrix.asConstFlat()[6]);
-    try testing.expectEqual(&matrix.array[1][3], &matrix.asConstFlat()[7]);
-    try testing.expectEqual(&matrix.array[2][0], &matrix.asConstFlat()[8]);
-    try testing.expectEqual(&matrix.array[2][1], &matrix.asConstFlat()[9]);
-    try testing.expectEqual(&matrix.array[2][2], &matrix.asConstFlat()[10]);
-    try testing.expectEqual(&matrix.array[2][3], &matrix.asConstFlat()[11]);
-    try testing.expectEqual(&matrix.array[3][0], &matrix.asConstFlat()[12]);
-    try testing.expectEqual(&matrix.array[3][1], &matrix.asConstFlat()[13]);
-    try testing.expectEqual(&matrix.array[3][2], &matrix.asConstFlat()[14]);
-    try testing.expectEqual(&matrix.array[3][3], &matrix.asConstFlat()[15]);
-}
-
 test "toCoords should return correct value" {
     const matrix = Matrix(4, f32).fromArray(.{
         .{ 1, 2, 3, 4 },
@@ -906,31 +871,6 @@ test "asCoords should return correct value" {
     try testing.expectEqual(&matrix.array[3][1], &matrix.asCoords().wy);
     try testing.expectEqual(&matrix.array[3][2], &matrix.asCoords().wz);
     try testing.expectEqual(&matrix.array[3][3], &matrix.asCoords().ww);
-}
-
-test "asConstCoords should return correct value" {
-    const matrix = Matrix(4, f32).fromArray(.{
-        .{ 1, 2, 3, 4 },
-        .{ 5, 6, 7, 8 },
-        .{ 9, 10, 11, 12 },
-        .{ 13, 14, 15, 16 },
-    });
-    try testing.expectEqual(&matrix.array[0][0], &matrix.asConstCoords().xx);
-    try testing.expectEqual(&matrix.array[0][1], &matrix.asConstCoords().xy);
-    try testing.expectEqual(&matrix.array[0][2], &matrix.asConstCoords().xz);
-    try testing.expectEqual(&matrix.array[0][3], &matrix.asConstCoords().xw);
-    try testing.expectEqual(&matrix.array[1][0], &matrix.asConstCoords().yx);
-    try testing.expectEqual(&matrix.array[1][1], &matrix.asConstCoords().yy);
-    try testing.expectEqual(&matrix.array[1][2], &matrix.asConstCoords().yz);
-    try testing.expectEqual(&matrix.array[1][3], &matrix.asConstCoords().yw);
-    try testing.expectEqual(&matrix.array[2][0], &matrix.asConstCoords().zx);
-    try testing.expectEqual(&matrix.array[2][1], &matrix.asConstCoords().zy);
-    try testing.expectEqual(&matrix.array[2][2], &matrix.asConstCoords().zz);
-    try testing.expectEqual(&matrix.array[2][3], &matrix.asConstCoords().zw);
-    try testing.expectEqual(&matrix.array[3][0], &matrix.asConstCoords().wx);
-    try testing.expectEqual(&matrix.array[3][1], &matrix.asConstCoords().wy);
-    try testing.expectEqual(&matrix.array[3][2], &matrix.asConstCoords().wz);
-    try testing.expectEqual(&matrix.array[3][3], &matrix.asConstCoords().ww);
 }
 
 test "transpose should return correct value" {

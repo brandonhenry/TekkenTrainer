@@ -104,7 +104,7 @@ pub fn Toasts(comptime config: ToastsConfig) type {
             mutex.lock();
             defer mutex.unlock();
             for (0..toasts.len) |index| {
-                const toast = toasts.getMut(index) catch unreachable;
+                const toast = toasts.get(index) catch unreachable;
                 toast.life_time += delta_time;
             }
             while (toasts.getFirst() catch null) |toast| {

@@ -9,7 +9,6 @@ pub fn Proxy(comptime Type: type) type {
         trail: memory.PointerTrail,
 
         const Self = @This();
-        const max_len = 32;
         pub const tag = proxy_tag;
         pub const Child = Type;
 

@@ -284,7 +284,7 @@ pub const Player = struct {
     }
 
     pub fn getHitLinesHeight(self: *const Self, floor_z: ?f32) model.F32MinMax {
-        const lines = self.hit_lines.asConstSlice();
+        const lines: []const model.HitLine = self.hit_lines.asSlice();
         if (lines.len == 0) {
             return .{ .min = null, .max = null };
         }

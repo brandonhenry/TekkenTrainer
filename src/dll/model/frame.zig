@@ -1,4 +1,5 @@
 const std = @import("std");
+const sdk = @import("../../sdk/root.zig");
 const model = @import("root.zig");
 
 pub const Frame = struct {
@@ -11,21 +12,30 @@ pub const Frame = struct {
 
     const Self = @This();
 
-    pub fn getPlayerById(self: *const Self, id: model.PlayerId) *const model.Player {
+    pub fn getPlayerById(
+        self: anytype,
+        id: model.PlayerId,
+    ) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, model.Player) {
         switch (id) {
             .player_1 => return &self.players[0],
             .player_2 => return &self.players[1],
         }
     }
 
-    pub fn getPlayerBySide(self: *const Self, side: model.PlayerSide) *const model.Player {
+    pub fn getPlayerBySide(
+        self: anytype,
+        side: model.PlayerSide,
+    ) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, model.Player) {
         return switch (side) {
             .left => return self.getPlayerById(self.left_player_id),
             .right => return self.getPlayerById(self.left_player_id.getOther()),
         };
     }
 
-    pub fn getPlayerByRole(self: *const Self, role: model.PlayerRole) *const model.Player {
+    pub fn getPlayerByRole(
+        self: anytype,
+        role: model.PlayerRole,
+    ) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, model.Player) {
         return switch (role) {
             .main => return self.getPlayerById(self.main_player_id),
             .secondary => return self.getPlayerById(self.main_player_id.getOther()),

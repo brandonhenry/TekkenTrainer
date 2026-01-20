@@ -618,7 +618,7 @@ pub const Controller = struct {
         }
     }
 
-    pub fn getFrameAt(self: *const Self, index: usize) ?*const model.Frame {
+    pub fn getFrameAt(self: anytype, index: usize) ?sdk.misc.SelfBasedPointer(@TypeOf(self), Self, model.Frame) {
         switch (self.mode) {
             .record => |*state| {
                 const recording_len = self.recording.items.len;
@@ -642,7 +642,7 @@ pub const Controller = struct {
         }
     }
 
-    pub fn getCurrentFrame(self: *const Self) ?*const model.Frame {
+    pub fn getCurrentFrame(self: anytype) ?sdk.misc.SelfBasedPointer(@TypeOf(self), Self, model.Frame) {
         switch (self.mode) {
             .live => |*state| return &state.frame,
             else => if (self.getCurrentFrameIndex()) |index| {

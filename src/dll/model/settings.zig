@@ -345,7 +345,11 @@ pub fn PlayerSettings(comptime Type: type) type {
 
         const Self = @This();
 
-        pub fn getById(self: *const Self, frame: *const model.Frame, id: model.PlayerId) *const Type {
+        pub fn getById(
+            self: anytype,
+            frame: *const model.Frame,
+            id: model.PlayerId,
+        ) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, Type) {
             return switch (self.mode) {
                 .same => &self.players[0],
                 .id_separated => switch (id) {
@@ -357,7 +361,11 @@ pub fn PlayerSettings(comptime Type: type) type {
             };
         }
 
-        pub fn getBySide(self: *const Self, frame: *const model.Frame, side: model.PlayerSide) *const Type {
+        pub fn getBySide(
+            self: anytype,
+            frame: *const model.Frame,
+            side: model.PlayerSide,
+        ) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, Type) {
             return switch (self.mode) {
                 .same => &self.players[0],
                 .id_separated => switch (frame.left_player_id) {
@@ -381,7 +389,11 @@ pub fn PlayerSettings(comptime Type: type) type {
             };
         }
 
-        pub fn getByRole(self: *const Self, frame: *const model.Frame, role: model.PlayerRole) *const Type {
+        pub fn getByRole(
+            self: anytype,
+            frame: *const model.Frame,
+            role: model.PlayerRole,
+        ) sdk.misc.SelfBasedPointer(@TypeOf(self), Self, Type) {
             return switch (self.mode) {
                 .same => &self.players[0],
                 .id_separated => switch (frame.main_player_id) {

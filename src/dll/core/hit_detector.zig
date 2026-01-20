@@ -14,7 +14,7 @@ pub const HitDetector = struct {
     }
 
     fn detectSide(attacker: *model.Player, defender: *model.Player, already_connected: *bool) void {
-        const lines = attacker.hit_lines.asMutableSlice();
+        const lines = attacker.hit_lines.asSlice();
         if (lines.len == 0) {
             already_connected.* = false;
             return;
@@ -198,9 +198,9 @@ test "should detect a whiff correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
-    try testing.expectEqual(model.HitLineFlags{}, frame.players[0].hit_lines.asConstSlice()[0].flags);
-    try testing.expectEqual(model.HitLineFlags{}, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
+    try testing.expectEqual(model.HitLineFlags{}, frame.players[0].hit_lines.asSlice()[0].flags);
+    try testing.expectEqual(model.HitLineFlags{}, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values) |*cylinder| {
@@ -241,15 +241,15 @@ test "should detect a high crush correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -293,15 +293,15 @@ test "should detect a low crush correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -345,15 +345,15 @@ test "should detect a mid crush correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -397,15 +397,15 @@ test "should detect a anti air only crush correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -449,17 +449,17 @@ test "should detect a power crush correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_connected = false,
         .is_power_crushed = false,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_connected = true,
         .is_power_crushed = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -504,17 +504,17 @@ test "should detect a block correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_connected = false,
         .is_blocked = false,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_connected = true,
         .is_blocked = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -559,17 +559,17 @@ test "should detect a normal hit correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_connected = false,
         .is_normal_hitting = false,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_connected = true,
         .is_normal_hitting = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -614,17 +614,17 @@ test "should detect a counter hit correctly" {
     var hit_detector = HitDetector{};
     hit_detector.detect(&frame);
 
-    try testing.expectEqual(2, frame.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(2, frame.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = false,
         .is_connected = false,
         .is_counter_hitting = false,
-    }, frame.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame.players[0].hit_lines.asSlice()[0].flags);
     try testing.expectEqual(model.HitLineFlags{
         .is_intersecting = true,
         .is_connected = true,
         .is_counter_hitting = true,
-    }, frame.players[0].hit_lines.asConstSlice()[1].flags);
+    }, frame.players[0].hit_lines.asSlice()[1].flags);
 
     try testing.expect(frame.players[1].hurt_cylinders != null);
     for (&frame.players[1].hurt_cylinders.?.values, 0..) |*cylinder, index| {
@@ -662,39 +662,39 @@ test "should detect inactive lines correctly" {
     var frame_1 = frame;
     hit_detector.detect(&frame_1);
 
-    try testing.expectEqual(1, frame_1.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(1, frame_1.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_inactive = false,
         .is_intersecting = true,
         .is_connected = true,
         .is_blocked = true,
-    }, frame_1.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame_1.players[0].hit_lines.asSlice()[0].flags);
 
     var frame_2 = frame;
     hit_detector.detect(&frame_2);
 
-    try testing.expectEqual(1, frame_2.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(1, frame_2.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_inactive = true,
         .is_intersecting = true,
         .is_connected = false,
         .is_blocked = false,
-    }, frame_2.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame_2.players[0].hit_lines.asSlice()[0].flags);
 
     var frame_3 = frame;
     frame_3.players[0].hit_lines = hitLines(.{});
     hit_detector.detect(&frame_3);
 
-    try testing.expectEqual(0, frame_3.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(0, frame_3.players[0].hit_lines.asSlice().len);
 
     var frame_4 = frame;
     hit_detector.detect(&frame_4);
 
-    try testing.expectEqual(1, frame_4.players[0].hit_lines.asConstSlice().len);
+    try testing.expectEqual(1, frame_4.players[0].hit_lines.asSlice().len);
     try testing.expectEqual(model.HitLineFlags{
         .is_inactive = false,
         .is_intersecting = true,
         .is_connected = true,
         .is_blocked = true,
-    }, frame_4.players[0].hit_lines.asConstSlice()[0].flags);
+    }, frame_4.players[0].hit_lines.asSlice()[0].flags);
 }

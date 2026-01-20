@@ -61,7 +61,7 @@ pub fn main() !void {
     std.log.info("{s} Injector version {s}", .{ build_info.display_name, build_info.version });
 
     std.log.debug("Checking for only inject mode...", .{});
-    mode = getGetMode() catch |err| {
+    mode = getMode() catch |err| {
         sdk.misc.error_context.append("Failed to get the injector mode.", .{});
         sdk.misc.error_context.logError(err);
         return;
@@ -96,7 +96,7 @@ pub fn main() !void {
     );
 }
 
-fn getGetMode() !Mode {
+fn getMode() !Mode {
     const allocator = std.heap.page_allocator;
     const args = std.process.argsAlloc(allocator) catch |err| {
         sdk.misc.error_context.new("Failed to get process command line arguments.", .{});

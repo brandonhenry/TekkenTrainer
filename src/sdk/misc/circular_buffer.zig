@@ -1,4 +1,5 @@
 const std = @import("std");
+const misc = @import("root.zig");
 
 pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
     if (capacity == 0) {
@@ -44,29 +45,21 @@ pub fn CircularBuffer(comptime capacity: usize, comptime Element: type) type {
             self.len = 0;
         }
 
-        pub fn getFirst(self: *const Self) !(*const Element) {
+        pub fn getFirst(self: anytype) !misc.SelfBasedPointer(@TypeOf(self), Self, Element) {
             if (self.len == 0) {
                 return error.Empty;
             }
             return self.get(0) catch unreachable;
         }
 
-        pub fn getLast(self: *const Self) !(*const Element) {
+        pub fn getLast(self: anytype) !misc.SelfBasedPointer(@TypeOf(self), Self, Element) {
             if (self.len == 0) {
                 return error.Empty;
             }
             return self.get(self.len - 1) catch unreachable;
         }
 
-        pub fn get(self: *const Self, index: usize) !(*const Element) {
-            if (index >= self.len) {
-                return error.IndexOutOfBounds;
-            }
-            const array_index = self.getArrayIndex(index);
-            return &self.array[array_index];
-        }
-
-        pub fn getMut(self: *Self, index: usize) !*Element {
+        pub fn get(self: anytype, index: usize) !misc.SelfBasedPointer(@TypeOf(self), Self, Element) {
             if (index >= self.len) {
                 return error.IndexOutOfBounds;
             }
@@ -225,24 +218,6 @@ test "get should error when index out of bounds" {
     _ = buffer.addToBack(2);
     _ = buffer.addToFront(3);
     try testing.expectError(error.IndexOutOfBounds, buffer.get(3));
-}
-
-test "getMut should return correct element when index in bounds" {
-    var buffer = CircularBuffer(5, i32){};
-    _ = buffer.addToBack(1);
-    _ = buffer.addToBack(2);
-    _ = buffer.addToFront(3);
-    try testing.expectEqual(3, (try buffer.getMut(0)).*);
-    try testing.expectEqual(1, (try buffer.getMut(1)).*);
-    try testing.expectEqual(2, (try buffer.getMut(2)).*);
-}
-
-test "getMut should error when index out of bounds" {
-    var buffer = CircularBuffer(5, i32){};
-    _ = buffer.addToBack(1);
-    _ = buffer.addToBack(2);
-    _ = buffer.addToFront(3);
-    try testing.expectError(error.IndexOutOfBounds, buffer.getMut(3));
 }
 
 test "set should set value of correct element when index in bounds" {

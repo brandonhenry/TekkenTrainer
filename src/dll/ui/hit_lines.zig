@@ -27,7 +27,8 @@ pub const HitLines = struct {
                 continue;
             }
             const player = frame.getPlayerById(player_id);
-            for (player.hit_lines.asConstSlice()) |*hit_line| {
+            const hit_lines: []const model.HitLine = player.hit_lines.asSlice();
+            for (hit_lines) |*hit_line| {
                 _ = self.lingering.addToBack(.{
                     .line = hit_line.line,
                     .player_id = player_id,
@@ -41,7 +42,7 @@ pub const HitLines = struct {
 
     pub fn update(self: *Self, delta_time: f32) void {
         for (0..self.lingering.len) |index| {
-            const line = self.lingering.getMut(index) catch unreachable;
+            const line = self.lingering.get(index) catch unreachable;
             line.remaining_time -= delta_time;
         }
         while (self.lingering.getFirst() catch null) |line| {
@@ -73,7 +74,7 @@ pub const HitLines = struct {
                 continue;
             }
             const player = frame.getPlayerById(player_id);
-            for (player.hit_lines.asConstSlice()) |hit_line| {
+            for (player.hit_lines.asSlice()) |hit_line| {
                 const line_settings = if (hit_line.flags.is_inactive or hit_line.flags.is_crushed) block: {
                     if (!player_settings.inactive_or_crushed.enabled) {
                         continue;
@@ -97,7 +98,7 @@ pub const HitLines = struct {
                 continue;
             }
             const player = frame.getPlayerById(player_id);
-            for (player.hit_lines.asConstSlice()) |hit_line| {
+            for (player.hit_lines.asSlice()) |hit_line| {
                 const line_settings = if (hit_line.flags.is_inactive or hit_line.flags.is_crushed) block: {
                     if (!player_settings.inactive_or_crushed.enabled) {
                         continue;
@@ -524,7 +525,7 @@ test "should draw with correct color and thickness depending on attack type, ina
             try testing.expectEqual(sdk.math.Vec4.fill(0.14), pair.?.thicker.color);
             try testing.expectEqual(5, pair.?.thicker.thickness);
 
-            frame.players[0].hit_lines.asMutableSlice()[0].flags.is_inactive = true;
+            frame.players[0].hit_lines.asSlice()[0].flags.is_inactive = true;
             ctx.yield(1);
             pair = ui.testing_shapes.findLinePairWithWorldPoints(.fill(1), .fill(2), 0.0001);
             try testing.expect(pair != null);
