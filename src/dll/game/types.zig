@@ -23,9 +23,9 @@ pub const StateFlags = packed struct(u32) {
     being_juggled: bool = false,
     not_blocking_or_neutral_blocking: bool = false,
     blocking: bool = false,
-    crouching_or_downed_or_being_juggled: bool = false,
+    force_airborne_no_low_crushing: bool = false,
     airborne_move_or_downed: bool = false,
-    airborne_move_and_not_juggled: bool = false,
+    low_crushing_move: bool = false,
     forward_move_modifier: bool = false,
     backward_move_modifier: bool = false,
     _18: bool = false,
@@ -67,62 +67,9 @@ pub const StateFlags = packed struct(u32) {
         std.debug.assert((Self{ .being_juggled = true }).toInt() == 1024);
         std.debug.assert((Self{ .not_blocking_or_neutral_blocking = true }).toInt() == 2048);
         std.debug.assert((Self{ .blocking = true }).toInt() == 4096);
-        std.debug.assert((Self{ .crouching_or_downed_or_being_juggled = true }).toInt() == 8192);
+        std.debug.assert((Self{ .force_airborne_no_low_crushing = true }).toInt() == 8192);
         std.debug.assert((Self{ .airborne_move_or_downed = true }).toInt() == 16384);
-        std.debug.assert((Self{ .airborne_move_and_not_juggled = true }).toInt() == 32768);
-    }
-};
-
-pub const AirborneFlags = packed struct(u32) {
-    _0: bool = false,
-    _1: bool = false,
-    _2: bool = false,
-    _3: bool = false,
-    _4: bool = false,
-    _5: bool = false,
-    _6: bool = false,
-    _7: bool = false,
-    _8: bool = false,
-    low_crushing_end: bool = false,
-    _10: bool = false,
-    _11: bool = false,
-    _12: bool = false,
-    _13: bool = false,
-    _14: bool = false,
-    _15: bool = false,
-    _16: bool = false,
-    _17: bool = false,
-    _18: bool = false,
-    _19: bool = false,
-    _20: bool = false,
-    probably_airborne: bool = false,
-    low_crushing_start: bool = false,
-    airborne_end: bool = false,
-    _24: bool = false,
-    _25: bool = false,
-    _26: bool = false,
-    _27: bool = false,
-    _28: bool = false,
-    _29: bool = false,
-    not_airborne_and_not_downed: bool = false,
-    _31: bool = false,
-
-    const Self = @This();
-
-    pub fn fromInt(int: u32) Self {
-        return @bitCast(int);
-    }
-
-    pub fn toInt(self: Self) u32 {
-        return @bitCast(self);
-    }
-
-    comptime {
-        std.debug.assert((Self{ .low_crushing_end = true }).toInt() == 512);
-        std.debug.assert((Self{ .probably_airborne = true }).toInt() == 2097152);
-        std.debug.assert((Self{ .low_crushing_start = true }).toInt() == 4194304);
-        std.debug.assert((Self{ .airborne_end = true }).toInt() == 8388608);
-        std.debug.assert((Self{ .not_airborne_and_not_downed = true }).toInt() == 1073741824);
+        std.debug.assert((Self{ .low_crushing_move = true }).toInt() == 32768);
     }
 };
 
@@ -546,7 +493,6 @@ pub fn Player(comptime game_id: build_info.Game) type {
             hit_outcome: HitOutcome,
             simple_state: SimpleState,
             power_crushing: sdk.memory.Boolean(.{}),
-            airborne_flags: AirborneFlags,
             frames_since_round_start: u32,
             in_rage: sdk.memory.Boolean(.{}),
             phase_flags: PhaseFlags,
@@ -595,7 +541,6 @@ pub fn Player(comptime game_id: build_info.Game) type {
             simple_state: SimpleState,
             is_a_parry_move: sdk.memory.Boolean(.{ .true_value = 2 }),
             power_crushing: sdk.memory.Boolean(.{}),
-            airborne_flags: AirborneFlags,
             in_rage: sdk.memory.Boolean(.{}),
             used_rage: sdk.memory.Boolean(.{}),
             frames_since_round_start: u32,

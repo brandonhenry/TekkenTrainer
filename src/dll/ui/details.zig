@@ -201,11 +201,6 @@ pub const Details = struct {
         \\Downed Face Up - Gets hit by mid and low attacks. Crushes high attacks.
         \\Downed Face Down - Gets hit by mid and low attacks. Crushes high attacks.
         \\Airborne - Getting hit results in getting floated. Does not necessarily crush low attacks.
-        \\
-        \\IMPORTANT:
-        \\The detection of Airborne is currently not working correctly.
-        \\Do not rely on this application to show you on what frame the Airborne state of a move starts and stops.
-        \\Doing so will give you incorrect information.
     ,
         model.Posture,
         null,
@@ -232,11 +227,6 @@ pub const Details = struct {
         \\Lows - Low and unblockable low and special low attacks are guaranteed to whiff.
         \\Anti-Airs - Anti-air attacks are guaranteed to whiff.
         \\Power-Crushing - Absorbs non low and non throw attacks.
-        \\
-        \\IMPORTANT:
-        \\The detection of low crushing is currently not working correctly.
-        \\Do not rely on this application to show you on what frame the low crushing of a move starts and stops.
-        \\Doing so will give you incorrect information.
     ,
         model.Crushing,
         null,

@@ -215,6 +215,8 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             const state_flags: game.StateFlags = player.state_flags orelse return null;
             const airborne_start: u32 = animation.airborne_start orelse return null;
             const airborne_end: u32 = animation.airborne_end orelse return null;
+            const is_airborne = (animation_frame >= airborne_start and animation_frame <= airborne_end) or
+                state_flags.force_airborne_no_low_crushing;
             if (state_flags.crouching) {
                 return .crouching;
             } else if (state_flags.downed) {
@@ -223,7 +225,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 } else {
                     return .downed_face_up;
                 }
-            } else if (animation_frame >= airborne_start and animation_frame <= airborne_end) {
+            } else if (is_airborne) {
                 return .airborne;
             } else {
                 return .standing;
@@ -258,11 +260,14 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             const simple_state: game.SimpleState = player.simple_state orelse return null;
             const power_crushing: sdk.memory.Boolean(.{}) = player.power_crushing orelse return null;
             const animation_frame: u32 = player.animation_frame orelse return null;
+            const airborne_start: u32 = animation.airborne_start orelse return null;
             const airborne_end: u32 = animation.airborne_end orelse return null;
             return .{
                 .high_crushing = posture == .crouching or posture == .downed_face_down or posture == .downed_face_up,
                 .low_crushing = posture == .airborne and
-                    !state_flags.being_juggled and
+                    state_flags.low_crushing_move and
+                    !state_flags.force_airborne_no_low_crushing and
+                    animation_frame >= airborne_start and
                     animation_frame <= airborne_end -| 3,
                 .anti_air_only_crushing = posture != .airborne,
                 .power_crushing = power_crushing.toBool() orelse return null,
@@ -795,13 +800,13 @@ test "should capture crushing correctly" {
     const frame_1 = capturer.captureFrame(&.{
         .player_1 = .{
             .animation_frame = 4,
-            .state_flags = .{},
+            .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
         },
         .player_2 = .{
             .animation_frame = 5,
-            .state_flags = .{},
+            .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
         },
@@ -817,13 +822,13 @@ test "should capture crushing correctly" {
     const frame_2 = capturer.captureFrame(&.{
         .player_1 = .{
             .animation_frame = 7,
-            .state_flags = .{},
+            .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
         },
         .player_2 = .{
             .animation_frame = 8,
-            .state_flags = .{},
+            .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
         },
