@@ -13,6 +13,7 @@ pub const MainWindow = struct {
     controls: ui.Controls(.{}) = .{},
     file_menu: ui.FileMenu(.{}) = .{},
     controls_height: f32 = 0,
+    memory_usage_width: f32 = 0,
 
     const Self = @This();
     const QuadrantContext = struct {
@@ -43,6 +44,7 @@ pub const MainWindow = struct {
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
         settings: *model.Settings,
+        memory_usage: usize,
     ) void {
         const display_size = imgui.igGetIO_Nil().*.DisplaySize;
         imgui.igSetNextWindowPos(
@@ -67,7 +69,7 @@ pub const MainWindow = struct {
             return;
         }
 
-        self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller);
+        self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller, memory_usage);
         if (imgui.igBeginChild_Str("views", .{ .y = -self.controls_height }, 0, imgui.ImGuiWindowFlags_NoScrollbar)) {
             const context = QuadrantContext{
                 .self = self,
@@ -96,6 +98,7 @@ pub const MainWindow = struct {
         base_dir: *const sdk.misc.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
+        memory_usage: usize,
     ) void {
         if (!imgui.igBeginMenuBar()) {
             return;
@@ -104,54 +107,73 @@ pub const MainWindow = struct {
 
         self.file_menu.draw(base_dir, file_dialog_context, controller, &ui_instance.is_open);
         self.view.camera.drawMenuBar();
+        drawSettingsButton(ui_instance);
+        drawHelpMenu(ui_instance);
 
-        if (imgui.igMenuItem_Bool(ui.SettingsWindow.name, null, false, true)) {
-            ui_instance.settings_window.is_open = !ui_instance.settings_window.is_open;
-            if (ui_instance.settings_window.is_open) {
-                imgui.igSetWindowFocus_Str(ui.SettingsWindow.name);
+        var available_size: imgui.ImVec2 = undefined;
+        imgui.igGetContentRegionAvail(&available_size);
+        const empty_space_width = @max(available_size.x - self.memory_usage_width, 0);
+        imgui.igSetCursorPosX(imgui.igGetCursorPosX() + empty_space_width);
+
+        ui.drawMemoryUsage(memory_usage);
+
+        var memory_usage_size: imgui.ImVec2 = undefined;
+        imgui.igGetItemRectSize(&memory_usage_size);
+        self.memory_usage_width = memory_usage_size.x;
+    }
+
+    fn drawSettingsButton(ui_instance: *ui.Ui) void {
+        if (!imgui.igMenuItem_Bool(ui.SettingsWindow.name, null, false, true)) {
+            return;
+        }
+        ui_instance.settings_window.is_open = !ui_instance.settings_window.is_open;
+        if (ui_instance.settings_window.is_open) {
+            imgui.igSetWindowFocus_Str(ui.SettingsWindow.name);
+        }
+    }
+
+    fn drawHelpMenu(ui_instance: *ui.Ui) void {
+        if (!imgui.igBeginMenu("Help", true)) {
+            return;
+        }
+        defer imgui.igEndMenu();
+        if (imgui.igMenuItem_Bool(ui.LogsWindow.name, null, false, true)) {
+            ui_instance.logs_window.is_open = true;
+            imgui.igSetWindowFocus_Str(ui.LogsWindow.name);
+        }
+        if (imgui.igMenuItem_Bool(ui.GameMemoryWindow.name, null, false, true)) {
+            ui_instance.game_memory_window.is_open = true;
+            imgui.igSetWindowFocus_Str(ui.GameMemoryWindow.name);
+        }
+        if (imgui.igMenuItem_Bool(ui.FrameWindow.name, null, false, true)) {
+            ui_instance.frame_window.is_open = true;
+            imgui.igSetWindowFocus_Str(ui.FrameWindow.name);
+        }
+        imgui.igSeparator();
+        if (imgui.igBeginMenu("Donate", true)) {
+            defer imgui.igEndMenu();
+            if (imgui.igMenuItem_Bool("One Time Donation", null, false, true)) {
+                const link = build_info.donation_links.one_time;
+                if (openLink(link)) {
+                    sdk.ui.toasts.send(.info, null, "The donation page has been opened in the browser.", .{});
+                } else |err| {
+                    sdk.misc.error_context.append("Failed to open link: {s}", .{link});
+                    sdk.misc.error_context.logError(err);
+                }
+            }
+            if (imgui.igMenuItem_Bool("Recurring Donation", null, false, true)) {
+                const link = build_info.donation_links.recurring;
+                if (openLink(link)) {
+                    sdk.ui.toasts.send(.info, null, "The donation page has been opened in the browser.", .{});
+                } else |err| {
+                    sdk.misc.error_context.append("Failed to open link: {s}", .{link});
+                    sdk.misc.error_context.logError(err);
+                }
             }
         }
-
-        if (imgui.igBeginMenu("Help", true)) {
-            defer imgui.igEndMenu();
-            if (imgui.igMenuItem_Bool(ui.LogsWindow.name, null, false, true)) {
-                ui_instance.logs_window.is_open = true;
-                imgui.igSetWindowFocus_Str(ui.LogsWindow.name);
-            }
-            if (imgui.igMenuItem_Bool(ui.GameMemoryWindow.name, null, false, true)) {
-                ui_instance.game_memory_window.is_open = true;
-                imgui.igSetWindowFocus_Str(ui.GameMemoryWindow.name);
-            }
-            if (imgui.igMenuItem_Bool(ui.FrameWindow.name, null, false, true)) {
-                ui_instance.frame_window.is_open = true;
-                imgui.igSetWindowFocus_Str(ui.FrameWindow.name);
-            }
-            imgui.igSeparator();
-            if (imgui.igBeginMenu("Donate", true)) {
-                defer imgui.igEndMenu();
-                if (imgui.igMenuItem_Bool("One Time Donation", null, false, true)) {
-                    const link = build_info.donation_links.one_time;
-                    if (openLink(link)) {
-                        sdk.ui.toasts.send(.info, null, "The donation page has been opened in the browser.", .{});
-                    } else |err| {
-                        sdk.misc.error_context.append("Failed to open link: {s}", .{link});
-                        sdk.misc.error_context.logError(err);
-                    }
-                }
-                if (imgui.igMenuItem_Bool("Recurring Donation", null, false, true)) {
-                    const link = build_info.donation_links.recurring;
-                    if (openLink(link)) {
-                        sdk.ui.toasts.send(.info, null, "The donation page has been opened in the browser.", .{});
-                    } else |err| {
-                        sdk.misc.error_context.append("Failed to open link: {s}", .{link});
-                        sdk.misc.error_context.logError(err);
-                    }
-                }
-            }
-            if (imgui.igMenuItem_Bool(ui.AboutWindow(.{}).name, null, false, true)) {
-                ui_instance.about_window.is_open = true;
-                imgui.igSetWindowFocus_Str(ui.AboutWindow(.{}).name);
-            }
+        if (imgui.igMenuItem_Bool(ui.AboutWindow(.{}).name, null, false, true)) {
+            ui_instance.about_window.is_open = true;
+            imgui.igSetWindowFocus_Str(ui.AboutWindow(.{}).name);
         }
     }
 

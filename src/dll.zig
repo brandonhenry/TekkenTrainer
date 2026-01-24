@@ -21,7 +21,7 @@ const dx = switch (build_info.rendering_api) {
     .dx12 => sdk.dx12,
 };
 
-const MainAllocator = std.heap.GeneralPurposeAllocator(.{});
+const MainAllocator = std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true });
 const MemorySearchTask = sdk.misc.Task(dll.game.Memory(build_info.game));
 const Event = union(enum) {
     present: dx.HostContext,
@@ -280,7 +280,8 @@ pub fn main() void {
                 .up => {
                     if (event_buss) |*buss| {
                         const game_memory = memory_search_task.peek();
-                        buss.draw(&base_dir, host_context, game_memory);
+                        const memory_usage = main_allocator.total_requested_bytes;
+                        buss.draw(&base_dir, host_context, game_memory, memory_usage);
                     }
                 },
                 .shutting_down => {

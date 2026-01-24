@@ -19,6 +19,7 @@ pub const drawIngameCamera = @import("ingame_camera.zig").drawIngameCamera;
 pub const LogsWindow = @import("logs_window.zig").LogsWindow;
 pub const MainWindow = @import("main_window.zig").MainWindow;
 pub const MeasureTool = @import("measure_tool.zig").MeasureTool;
+pub const drawMemoryUsage = @import("memory_usage.zig").drawMemoryUsage;
 pub const MessageWindowPlacement = @import("message_window.zig").MessageWindowPlacement;
 pub const drawMessageWindow = @import("message_window.zig").drawMessageWindow;
 pub const NavigationLayout = @import("navigation_layout.zig").NavigationLayout;

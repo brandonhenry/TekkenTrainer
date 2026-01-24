@@ -161,6 +161,7 @@ pub const EventBuss = struct {
         base_dir: *const sdk.misc.BaseDir,
         host_dx_context: *const dx.HostContext,
         game_memory: ?*const game.Memory(build_info.game),
+        memory_usage: usize,
     ) void {
         const delta_time = self.timer.measureDeltaTime();
         self.core.update(delta_time, self, processFrame);
@@ -178,6 +179,7 @@ pub const EventBuss = struct {
             self.settings_task.peek(),
             game_memory,
             &self.core.controller,
+            memory_usage,
         );
         ui_context.endFrame();
 
