@@ -70,7 +70,15 @@ pub const MainWindow = struct {
             return;
         }
 
-        self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller, latest_version, memory_usage);
+        self.drawMenuBar(
+            ui_instance,
+            base_dir,
+            file_dialog_context,
+            controller,
+            &settings.misc,
+            latest_version,
+            memory_usage,
+        );
         if (imgui.igBeginChild_Str("views", .{ .y = -self.controls_height }, 0, imgui.ImGuiWindowFlags_NoScrollbar)) {
             const context = QuadrantContext{
                 .self = self,
@@ -99,6 +107,7 @@ pub const MainWindow = struct {
         base_dir: *const sdk.misc.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
+        settings: *const model.MiscSettings,
         latest_version: ui.LatestVersion,
         memory_usage: usize,
     ) void {
@@ -112,14 +121,22 @@ pub const MainWindow = struct {
         drawSettingsButton(ui_instance);
         drawHelpMenu(ui_instance);
 
+        if (!settings.show_memory_usage and !settings.show_version_info) {
+            return;
+        }
+
         var available_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&available_size);
         const empty_space_width = @max(available_size.x - self.menu_bar_right_side_width, 0);
         imgui.igSetCursorPosX(imgui.igGetCursorPosX() + empty_space_width);
 
         const right_side_start_x = imgui.igGetCursorPosX();
-        ui.drawMemoryUsage(memory_usage);
-        ui.drawVersionInfo(latest_version, .{});
+        if (settings.show_memory_usage) {
+            ui.drawMemoryUsage(memory_usage);
+        }
+        if (settings.show_version_info) {
+            ui.drawVersionInfo(latest_version, .{});
+        }
         const right_side_end_x = imgui.igGetCursorPosX() - imgui.igGetStyle().*.ItemSpacing.x;
         self.menu_bar_right_side_width = right_side_end_x - right_side_start_x;
     }

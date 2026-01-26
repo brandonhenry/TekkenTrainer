@@ -206,6 +206,9 @@ const MiscSettings = struct {
         default_settings: *const model.Settings,
     ) void {
         self.ui_font_size_input.draw(&settings.misc.ui_font_size, &default_settings.misc.ui_font_size);
+        drawColor("UI Background Color", &settings.misc.ui_background_color, &default_settings.misc.ui_background_color);
+        drawBool("Show RAM Usage", &settings.misc.show_memory_usage, &default_settings.misc.show_memory_usage);
+        drawBool("Show Version Info", &settings.misc.show_version_info, &default_settings.misc.show_version_info);
         imgui.igSeparator();
         self.reload_button.draw(base_dir, settings);
         self.defaults_button.draw(settings, default_settings);

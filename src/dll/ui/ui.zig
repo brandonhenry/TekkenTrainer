@@ -56,9 +56,15 @@ pub const Ui = struct {
         latest_version: ui.LatestVersion,
         memory_usage: usize,
     ) void {
-        const font_size = if (settings_maybe) |s| s.misc.ui_font_size else sdk.ui.default_font_size;
+        const defaults = (model.Settings{}).misc;
+
+        const font_size = if (settings_maybe) |s| s.misc.ui_font_size else defaults.ui_font_size;
         imgui.igPushFont(null, font_size);
         defer imgui.igPopFont();
+
+        const background_color = if (settings_maybe) |s| s.misc.ui_background_color else defaults.ui_background_color;
+        imgui.igPushStyleColor_Vec4(imgui.ImGuiCol_WindowBg, background_color.toImVec());
+        defer imgui.igPopStyleColor(1);
 
         sdk.ui.toasts.draw();
 

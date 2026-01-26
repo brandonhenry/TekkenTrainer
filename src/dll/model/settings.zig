@@ -329,6 +329,9 @@ pub const DetailsSettings = struct {
 
 pub const MiscSettings = struct {
     ui_font_size: f32 = sdk.ui.default_font_size,
+    ui_background_color: sdk.math.Vec4 = .fromArray(.{ 0.06, 0.06, 0.06, 0.94 }),
+    show_memory_usage: bool = true,
+    show_version_info: bool = true,
 };
 
 pub const PlayerSettingsMode = enum {
