@@ -13,7 +13,7 @@ pub const MainWindow = struct {
     controls: ui.Controls(.{}) = .{},
     file_menu: ui.FileMenu(.{}) = .{},
     controls_height: f32 = 0,
-    memory_usage_width: f32 = 0,
+    menu_bar_right_side_width: f32 = 0,
 
     const Self = @This();
     const QuadrantContext = struct {
@@ -44,6 +44,7 @@ pub const MainWindow = struct {
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
         settings: *model.Settings,
+        latest_version: ui.LatestVersion,
         memory_usage: usize,
     ) void {
         const display_size = imgui.igGetIO_Nil().*.DisplaySize;
@@ -69,7 +70,7 @@ pub const MainWindow = struct {
             return;
         }
 
-        self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller, memory_usage);
+        self.drawMenuBar(ui_instance, base_dir, file_dialog_context, controller, latest_version, memory_usage);
         if (imgui.igBeginChild_Str("views", .{ .y = -self.controls_height }, 0, imgui.ImGuiWindowFlags_NoScrollbar)) {
             const context = QuadrantContext{
                 .self = self,
@@ -98,6 +99,7 @@ pub const MainWindow = struct {
         base_dir: *const sdk.misc.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
         controller: *core.Controller,
+        latest_version: ui.LatestVersion,
         memory_usage: usize,
     ) void {
         if (!imgui.igBeginMenuBar()) {
@@ -112,14 +114,14 @@ pub const MainWindow = struct {
 
         var available_size: imgui.ImVec2 = undefined;
         imgui.igGetContentRegionAvail(&available_size);
-        const empty_space_width = @max(available_size.x - self.memory_usage_width, 0);
+        const empty_space_width = @max(available_size.x - self.menu_bar_right_side_width, 0);
         imgui.igSetCursorPosX(imgui.igGetCursorPosX() + empty_space_width);
 
+        const right_side_start_x = imgui.igGetCursorPosX();
         ui.drawMemoryUsage(memory_usage);
-
-        var memory_usage_size: imgui.ImVec2 = undefined;
-        imgui.igGetItemRectSize(&memory_usage_size);
-        self.memory_usage_width = memory_usage_size.x;
+        ui.drawVersionInfo(latest_version, .{});
+        const right_side_end_x = imgui.igGetCursorPosX() - imgui.igGetStyle().*.ItemSpacing.x;
+        self.menu_bar_right_side_width = right_side_end_x - right_side_start_x;
     }
 
     fn drawSettingsButton(ui_instance: *ui.Ui) void {

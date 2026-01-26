@@ -53,6 +53,7 @@ pub const Ui = struct {
         settings_maybe: ?*model.Settings,
         game_memory_maybe: ?*const game.Memory(build_info.game),
         controller: *core.Controller,
+        latest_version: ui.LatestVersion,
         memory_usage: usize,
     ) void {
         const font_size = if (settings_maybe) |s| s.misc.ui_font_size else sdk.ui.default_font_size;
@@ -89,7 +90,15 @@ pub const Ui = struct {
         imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowMinSize, .{ .x = 240, .y = 200 });
         defer imgui.igPopStyleVar(1);
 
-        self.main_window.draw(self, base_dir, file_dialog_context, controller, settings, memory_usage);
+        self.main_window.draw(
+            self,
+            base_dir,
+            file_dialog_context,
+            controller,
+            settings,
+            latest_version,
+            memory_usage,
+        );
         self.settings_window.draw(base_dir, settings);
         self.logs_window.draw(dll.buffer_logger);
         self.game_memory_window.draw(build_info.game, game_memory);

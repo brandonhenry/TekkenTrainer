@@ -19,11 +19,13 @@ pub const EventBuss = struct {
     managed_dx_context: ?dx.ManagedContext,
     ui_context: ?UiContext,
     settings_task: SettingsTask,
+    latest_version_task: LatestVersionTask,
     core: core.Core,
     ui: ui.Ui,
 
     const Self = @This();
     const SettingsTask = sdk.misc.Task(model.Settings);
+    const LatestVersionTask = sdk.misc.Task(?sdk.misc.Version);
     const UiContext = sdk.ui.Context(rendering_api);
 
     const buffer_count = 3;
@@ -90,6 +92,26 @@ pub const EventBuss = struct {
             break :block SettingsTask.createCompleted(.{});
         };
 
+        std.log.debug("Spawning latest version fetching task...", .{});
+        const latest_version_task = LatestVersionTask.spawn(allocator, struct {
+            fn call(alloc: std.mem.Allocator) ?sdk.misc.Version {
+                std.log.info("Latest version fetching task spawned.", .{});
+                std.log.debug("Fetching latest version...", .{});
+                if (sdk.misc.Version.fetchLatest(alloc)) |latest_version| {
+                    std.log.info("Latest version fetched: {f}", .{latest_version});
+                    return latest_version;
+                } else |err| {
+                    sdk.misc.error_context.append("Failed to fetch latest version tag.", .{});
+                    sdk.misc.error_context.logError(err);
+                    return null;
+                }
+            }
+        }.call, .{allocator}) catch |err| block: {
+            sdk.misc.error_context.append("Failed to spawn latest version fetching task.", .{});
+            sdk.misc.error_context.logError(err);
+            break :block LatestVersionTask.createCompleted(null);
+        };
+
         std.log.debug("Initializing core...", .{});
         const c = core.Core.init(allocator);
         std.log.info("Core initialized.", .{});
@@ -103,6 +125,7 @@ pub const EventBuss = struct {
             .managed_dx_context = managed_dx_context,
             .ui_context = ui_context,
             .settings_task = settings_task,
+            .latest_version_task = latest_version_task,
             .core = c,
             .ui = ui_instance,
         };
@@ -119,6 +142,10 @@ pub const EventBuss = struct {
         std.log.debug("Deinitializing UI...", .{});
         self.ui.deinit();
         std.log.info("UI deinitialized.", .{});
+
+        std.log.debug("Joining latest version fetching loading task...", .{});
+        _ = self.latest_version_task.join();
+        std.log.info("Latest version fetching task joined.", .{});
 
         std.log.debug("Joining settings loading task...", .{});
         _ = self.settings_task.join();
@@ -171,6 +198,12 @@ pub const EventBuss = struct {
         const dx_context = dx.Context.fromHostAndManaged(host_dx_context, managed_dx_context);
         const ui_context = if (self.ui_context) |*context| context else return;
 
+        const latest_version = block: {
+            const version_maybe = self.latest_version_task.peek() orelse break :block ui.LatestVersion.loading;
+            const version = version_maybe.* orelse break :block ui.LatestVersion.err;
+            break :block ui.LatestVersion{ .available = version };
+        };
+
         ui_context.newFrame();
         imgui.igGetIO_Nil().*.MouseDrawCursor = true;
         self.ui.draw(
@@ -179,6 +212,7 @@ pub const EventBuss = struct {
             self.settings_task.peek(),
             game_memory,
             &self.core.controller,
+            latest_version,
             memory_usage,
         );
         ui_context.endFrame();

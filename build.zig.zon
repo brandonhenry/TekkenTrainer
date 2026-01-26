@@ -43,6 +43,10 @@
     // Not a standard build.zig.zon field.
     .home_page = "https://github.com/tomislav-ivankovic/Irony",
 
+    // Link to download latest version.
+    // Not a standard build.zig.zon field.
+    .latest_version_download_page = "https://github.com/tomislav-ivankovic/Irony/releases/latest",
+
     // Donation links.
     // Not a standard build.zig.zon field.
     .donation_links = .{

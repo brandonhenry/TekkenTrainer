@@ -53,6 +53,7 @@ test {
     _ = @import("sdk/misc/task.zig");
     _ = @import("sdk/misc/timer.zig");
     _ = @import("sdk/misc/timestamp.zig");
+    _ = @import("sdk/misc/version.zig");
 
     _ = @import("sdk/os/error.zig");
     _ = @import("sdk/os/memory.zig");
@@ -126,6 +127,7 @@ test {
     _ = @import("dll/ui/shapes.zig");
     _ = @import("dll/ui/skeletons.zig");
     _ = @import("dll/ui/ui.zig");
+    _ = @import("dll/ui/version_info.zig");
     _ = @import("dll/ui/view.zig");
 
     _ = struct {

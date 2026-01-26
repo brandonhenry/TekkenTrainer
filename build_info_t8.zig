@@ -11,5 +11,6 @@ pub const game_version = build.t8_version;
 pub const recording_version = build.recording_version;
 pub const author = build.author;
 pub const home_page = build.home_page;
+pub const latest_version_download_page = build.latest_version_download_page;
 pub const donation_links = build.donation_links;
 pub const contributors = build.contributors;

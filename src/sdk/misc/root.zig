@@ -16,3 +16,4 @@ pub const Timer = @import("timer.zig").Timer;
 pub const TimerConfig = @import("timer.zig").TimerConfig;
 pub const Timestamp = @import("timestamp.zig").Timestamp;
 pub const TimeZone = @import("timestamp.zig").TimeZone;
+pub const Version = @import("version.zig").Version;
