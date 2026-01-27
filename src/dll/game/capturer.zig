@@ -213,10 +213,11 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
         fn capturePosture(player: *const PartialPlayer, animation: *const PartialAnimation) ?model.Posture {
             const animation_frame: u32 = player.animation_frame orelse return null;
             const state_flags: game.StateFlags = player.state_flags orelse return null;
+            const simple_state: game.SimpleState = player.simple_state orelse return null;
             const airborne_start: u32 = animation.airborne_start orelse return null;
             const airborne_end: u32 = animation.airborne_end orelse return null;
             const is_airborne = (animation_frame >= airborne_start and animation_frame <= airborne_end) or
-                state_flags.force_airborne_no_low_crushing;
+                (state_flags.force_airborne_no_low_crushing and simple_state != .invincible);
             if (state_flags.crouching) {
                 return .crouching;
             } else if (state_flags.downed) {
@@ -723,10 +724,12 @@ test "should capture posture correctly" {
         .player_1 = .{
             .animation_frame = 3,
             .state_flags = .{},
+            .simple_state = .airborne,
         },
         .player_2 = .{
             .animation_frame = 5,
             .state_flags = .{},
+            .simple_state = .airborne,
         },
         .player_1_animation = .{
             .airborne_start = 4,
@@ -741,10 +744,12 @@ test "should capture posture correctly" {
         .player_1 = .{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = false },
+            .simple_state = .ground_face_down,
         },
         .player_2 = .{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = true },
+            .simple_state = .ground_face_up,
         },
         .player_1_animation = .{
             .airborne_start = 0,
@@ -759,6 +764,7 @@ test "should capture posture correctly" {
         .player_1 = .{
             .animation_frame = 1,
             .state_flags = .{ .crouching = true },
+            .simple_state = .crouch,
         },
         .player_1_animation = .{
             .airborne_start = 0,
