@@ -123,7 +123,7 @@ pub const Camera = struct {
             const current_angle = std.math.atan2(current_offset.y(), current_offset.x());
             const delta_angle = current_angle - previous_angle;
 
-            self.transform.rotation = std.math.wrap(self.transform.rotation - delta_angle, std.math.pi);
+            self.transform.rotation = std.math.wrap(self.transform.rotation + delta_angle, std.math.pi);
             const factor = comptime (1.0 / std.math.tan(std.math.pi / 8.0));
             if (@abs(current_offset.x()) > factor * @abs(current_offset.y())) {
                 imgui.igSetMouseCursor(imgui.ImGuiMouseCursor_ResizeNS);
@@ -171,7 +171,7 @@ pub const Camera = struct {
         };
         const rotation_matrix = switch (direction) {
             .front, .side => sdk.math.Mat4.fromYRotation(self.transform.rotation),
-            .top => sdk.math.Mat4.fromZRotation(-self.transform.rotation),
+            .top => sdk.math.Mat4.fromZRotation(self.transform.rotation),
         };
         const scale_matrix = sdk.math.Mat4.fromScale(sdk.math.Vec3.fill(self.transform.scale));
         const orthographic_matrix = self.calculateOrthographicMatrix(
@@ -1103,13 +1103,13 @@ test "should rotate the view when the view is right mouse button dragged with a 
             try testing.expectApproxEqAbs(0, camera.transform.rotation, 0.0001);
             ctx.mouseMoveToPos(.{ .x = 380, .y = 420 });
             try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeNWSE, cursor);
-            try testing.expectApproxEqAbs(0.25 * std.math.pi, camera.transform.rotation, 0.0001);
+            try testing.expectApproxEqAbs(-0.25 * std.math.pi, camera.transform.rotation, 0.0001);
             ctx.mouseMoveToPos(.{ .x = 220, .y = 420 });
             try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeNESW, cursor);
-            try testing.expectApproxEqAbs(0.75 * std.math.pi, camera.transform.rotation, 0.0001);
+            try testing.expectApproxEqAbs(-0.75 * std.math.pi, camera.transform.rotation, 0.0001);
             ctx.mouseMoveToPos(.{ .x = 300, .y = 420 });
             try testing.expectEqual(imgui.ImGuiMouseCursor_ResizeEW, cursor);
-            try testing.expectApproxEqAbs(0.5 * std.math.pi, camera.transform.rotation, 0.0001);
+            try testing.expectApproxEqAbs(-0.5 * std.math.pi, camera.transform.rotation, 0.0001);
             ctx.mouseUp(imgui.ImGuiMouseButton_Right);
 
             try testing.expectApproxEqAbs(300, testPoint(1, 0, 0).pointTransform(matrices.get(.top)).x(), 0.0001);
