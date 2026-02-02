@@ -14,15 +14,18 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         functions: Functions,
 
         const Self = @This();
-        pub const Functions = switch (game_id) {
-            .t7 => struct {
-                tick: ?*const game.TickFunction(.t7) = null,
-                updateCamera: ?*const game.UpdateCameraFunction = null,
-            },
-            .t8 => struct {
-                tick: ?*const game.TickFunction(.t8) = null,
-                updateCamera: ?*const game.UpdateCameraFunction = null,
-                decryptHealth: ?*const game.DecryptT8HealthFunction = null,
+        pub const Functions = struct {
+            tick: ?*const game.TickFunction(game_id) = null,
+            updateCamera: ?*const game.UpdateCameraFunction = null,
+            unrealFree: ?*const game.UnrealFreeFunction = null,
+            findUClass: ?*const game.FindUClassFunction = null,
+            getObjectsOfClass: ?*const game.GetObjectsOfClassFunction = null,
+            decryptHealth: (switch (game_id) {
+                .t7 => void,
+                .t8 => ?*const game.DecryptT8HealthFunction,
+            }) = switch (game_id) {
+                .t7 => {},
+                .t8 => null,
             },
         };
         pub const PartialCopy = struct {
@@ -130,6 +133,22 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                         game.UpdateCameraFunction,
                         pattern(cache, "4C 8B DC 55 49 8D AB 68 FC"),
                     ),
+                    .unrealFree = functionPointer(
+                        "unrealFree",
+                        game.UnrealFreeFunction,
+                        pattern(cache, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D"),
+                    ),
+                    .findUClass = functionPointer(
+                        "findUClass",
+                        game.FindUClassFunction,
+                        relativeOffset(i32, add(0x8, pattern(cache, "45 33 C0 48 83 C9 FF E8"))),
+                    ),
+                    .getObjectsOfClass = functionPointer(
+                        "getObjectsOfClass",
+                        game.GetObjectsOfClassFunction,
+                        pattern(cache, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D 6C 24 D1 48 81 EC A0 00 00 00"),
+                    ),
+                    .decryptHealth = {},
                 },
             };
         }
@@ -214,6 +233,21 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                         "updateCamera",
                         game.UpdateCameraFunction,
                         pattern(cache, "48 8B C4 48 89 58 18 55 56 57 48 81 EC 50"),
+                    ),
+                    .unrealFree = functionPointer(
+                        "unrealFree",
+                        game.UnrealFreeFunction,
+                        pattern(cache, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D"),
+                    ),
+                    .findUClass = functionPointer(
+                        "findUClass",
+                        game.FindUClassFunction,
+                        relativeOffset(i32, add(0x7, pattern(cache, "45 33 C0 49 8B CF E8 ?? ?? ?? ?? 48 8B 4C 24 60"))),
+                    ),
+                    .getObjectsOfClass = functionPointer(
+                        "getObjectsOfClass",
+                        game.GetObjectsOfClassFunction,
+                        relativeOffset(i32, add(0x1, pattern(cache, "E8 ?? ?? ?? ?? 90 48 89 6C 24 30"))),
                     ),
                     .decryptHealth = functionPointer(
                         "decryptHealth",

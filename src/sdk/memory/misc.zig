@@ -12,7 +12,9 @@ pub fn dereferenceMisaligned(comptime Type: type, address: usize) !Type {
 }
 
 pub fn resolveRelativeOffset(comptime Offset: type, address: usize) !usize {
-    if (Offset != u8 and Offset != u16 and Offset != u32 and Offset != u64) {
+    if (Offset != u8 and Offset != u16 and Offset != u32 and Offset != u64 and
+        Offset != i8 and Offset != i16 and Offset != i32 and Offset != i64)
+    {
         @compileError("Unsupported offset type: " ++ @typeName(Offset));
     }
     if (!os.isMemoryReadable(address, @sizeOf(Offset))) {
@@ -26,7 +28,13 @@ pub fn resolveRelativeOffset(comptime Offset: type, address: usize) !usize {
         misc.error_context.new("Relative offset overflew the address space.", .{});
         return error.Overflow;
     }
-    const addition_2 = @addWithOverflow(addition_1[0], offset);
+    const addition_2 = if (offset >= 0) block: {
+        const abs_offset: usize = @intCast(offset);
+        break :block @addWithOverflow(addition_1[0], abs_offset);
+    } else block: {
+        const abs_offset: usize = @intCast(-offset);
+        break :block @subWithOverflow(addition_1[0], abs_offset);
+    };
     if (addition_2[1] == 1) {
         misc.error_context.new("Relative offset overflew the address space.", .{});
         return error.Overflow;

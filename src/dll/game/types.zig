@@ -604,11 +604,30 @@ pub fn Camera(comptime game_id: build_info.Game) type {
 
 pub fn TickFunction(comptime game_id: build_info.Game) type {
     return switch (game_id) {
+        // UE: AGameMode::Tick
         .t7 => fn (game_mode_address: usize, delta_time: f32) callconv(.c) void,
+        // T8
         .t8 => fn (delta_time: f64) callconv(.c) void,
     };
 }
 
+// UE: APlayerCameraManager::DoUpdateCamera
 pub const UpdateCameraFunction = fn (camera_manager_address: usize, delta_time: f32) callconv(.c) void;
 
+// UE: FMemory::Free
+pub const UnrealFreeFunction = fn (original: *anyopaque) callconv(.c) void;
+
+// UE: FindObject<UClass>
+pub const FindUClassFunction = fn (outer: usize, name: [*:0]u16, exact_class: bool) callconv(.c) usize;
+
+// UE: GetObjectsOfClass
+pub const GetObjectsOfClassFunction = fn (
+    class_to_look_for: usize,
+    results: usize,
+    b_include_derived_classes: bool,
+    exclude_flags: u32,
+    exclusion_internal_flags: u32,
+) callconv(.c) void;
+
+// T8
 pub const DecryptT8HealthFunction = fn (encrypted_health: *const Health(.t8)) callconv(.c) i64;

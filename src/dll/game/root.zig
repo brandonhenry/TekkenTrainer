@@ -49,4 +49,7 @@ pub const ConvertedCamera = @import("types.zig").ConvertedCamera;
 pub const Camera = @import("types.zig").Camera;
 pub const TickFunction = @import("types.zig").TickFunction;
 pub const UpdateCameraFunction = @import("types.zig").UpdateCameraFunction;
+pub const UnrealFreeFunction = @import("types.zig").UnrealFreeFunction;
+pub const FindUClassFunction = @import("types.zig").FindUClassFunction;
+pub const GetObjectsOfClassFunction = @import("types.zig").GetObjectsOfClassFunction;
 pub const DecryptT8HealthFunction = @import("types.zig").DecryptT8HealthFunction;
