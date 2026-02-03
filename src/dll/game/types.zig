@@ -420,6 +420,92 @@ pub fn Camera(comptime game_id: build_info.Game) type {
     );
 }
 
+// UE: TArray
+pub fn UnrealArrayList(comptime Element: type) type {
+    return extern struct {
+        data: ?[*]Element, // UE: AllocatorInstance
+        len: usize, // UE: ArrayNum
+        capacity: usize, // UE: ArrayMax
+
+        const Self = @This();
+        pub const empty = Self{
+            .data = null,
+            .len = 0,
+            .capacity = 0,
+        };
+
+        pub fn free(self: *Self, unrealFree: *const UnrealFreeFunction) void {
+            if (self.data) |data| {
+                unrealFree(data);
+                self.data = null;
+            }
+            self.len = 0;
+            self.capacity = 0;
+        }
+
+        pub fn asSlice(self: anytype) sdk.misc.SelfBasedSlice(@TypeOf(self), Self, Element) {
+            return self.data[0..self.len];
+        }
+    };
+}
+
+// UE: EObjectFlags
+pub const UnrealObjectFlags = sdk.memory.Bitfield(u32, &.{
+    .{ .name = "public", .backing_value = 0x1 },
+    .{ .name = "standalone", .backing_value = 0x2 },
+    .{ .name = "mark_as_native", .backing_value = 0x4 },
+    .{ .name = "transactional", .backing_value = 0x8 },
+    .{ .name = "class_default_object", .backing_value = 0x10 },
+    .{ .name = "archetype_object", .backing_value = 0x20 },
+    .{ .name = "transient", .backing_value = 0x40 },
+    .{ .name = "mark_as_root_set", .backing_value = 0x80 },
+    .{ .name = "tag_garbage_temp", .backing_value = 0x100 },
+    .{ .name = "need_initialization", .backing_value = 0x200 },
+    .{ .name = "need_load", .backing_value = 0x400 },
+    .{ .name = "keep_for_cooker", .backing_value = 0x800 },
+    .{ .name = "need_post_load", .backing_value = 0x1000 },
+    .{ .name = "need_post_load_subobjects", .backing_value = 0x2000 },
+    .{ .name = "newer_version_exists", .backing_value = 0x4000 },
+    .{ .name = "begin_destroyed", .backing_value = 0x8000 },
+    .{ .name = "finish_destroyed", .backing_value = 0x10000 },
+    .{ .name = "being_regenerated", .backing_value = 0x20000 },
+    .{ .name = "default_sub_object", .backing_value = 0x40000 },
+    .{ .name = "was_loaded", .backing_value = 0x80000 },
+    .{ .name = "text_export_transient", .backing_value = 0x100000 },
+    .{ .name = "load_completed", .backing_value = 0x200000 },
+    .{ .name = "inheritable_component_template", .backing_value = 0x400000 },
+    .{ .name = "duplicate_transient", .backing_value = 0x800000 },
+    .{ .name = "strong_ref_on_frame", .backing_value = 0x1000000 },
+    .{ .name = "non_pie_duplicate_transient", .backing_value = 0x2000000 },
+    .{ .name = "dynamic", .backing_value = 0x4000000 },
+    .{ .name = "will_be_loaded", .backing_value = 0x8000000 },
+    .{ .name = "has_external_package", .backing_value = 0x10000000 },
+    .{ .name = "pending_kill", .backing_value = 0x20000000 },
+    .{ .name = "garbage", .backing_value = 0x40000000 },
+    .{ .name = "allocated_in_shared_page", .backing_value = 0x80000000 },
+});
+
+// UE: EInternalObjectFlags
+pub const UnrealInternalObjectFlags = sdk.memory.Bitfield(u32, &.{
+    .{ .name = "loader_import", .backing_value = 0x100000 },
+    .{ .name = "garbage", .backing_value = 0x200000 },
+    .{ .name = "reachable_in_cluster", .backing_value = 0x800000 },
+    .{ .name = "cluster_root", .backing_value = 0x1000000 },
+    .{ .name = "native", .backing_value = 0x2000000 },
+    .{ .name = "async", .backing_value = 0x4000000 },
+    .{ .name = "async_loading", .backing_value = 0x8000000 },
+    .{ .name = "unreachable", .backing_value = 0x10000000 },
+    .{ .name = "pending_kill", .backing_value = 0x20000000 },
+    .{ .name = "root_set", .backing_value = 0x40000000 },
+    .{ .name = "pending_construction", .backing_value = 0x80000000 },
+});
+
+// UE: UClass
+pub const UnrealClass = opaque {};
+
+// UE: UObject
+pub const UnrealObject = opaque {};
+
 pub fn TickFunction(comptime game_id: build_info.Game) type {
     return switch (game_id) {
         // UE: AGameMode::Tick
@@ -436,15 +522,19 @@ pub const UpdateCameraFunction = fn (camera_manager_address: usize, delta_time: 
 pub const UnrealFreeFunction = fn (original: *anyopaque) callconv(.c) void;
 
 // UE: FindObject<UClass>
-pub const FindUClassFunction = fn (outer: usize, name: [*:0]u16, exact_class: bool) callconv(.c) usize;
+pub const FindUClassFunction = fn (
+    outer: ?*const UnrealObject,
+    name: [*:0]u16,
+    exact_class: bool,
+) callconv(.c) ?*const UnrealClass;
 
 // UE: GetObjectsOfClass
 pub const GetObjectsOfClassFunction = fn (
-    class_to_look_for: usize,
-    results: usize,
+    class_to_look_for: *const UnrealClass,
+    results: *UnrealArrayList(*UnrealObject),
     b_include_derived_classes: bool,
-    exclude_flags: u32,
-    exclusion_internal_flags: u32,
+    exclude_flags: UnrealObjectFlags,
+    exclusion_internal_flags: UnrealInternalObjectFlags,
 ) callconv(.c) void;
 
 // T8
