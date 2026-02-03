@@ -9,119 +9,31 @@ pub const PlayerSide = enum(u8) {
     _,
 };
 
-pub const StateFlags = packed struct(u32) {
-    crouching: bool = false,
-    standing_or_airborne: bool = false,
-    being_juggled_or_downed: bool = false,
-    blocking_lows: bool = false,
-    blocking_mids: bool = false,
-    wants_to_crouch: bool = false,
-    standing_or_airborne_and_not_juggled: bool = false,
-    downed: bool = false,
-    neutral_blocking: bool = false,
-    face_down: bool = false,
-    being_juggled: bool = false,
-    not_blocking_or_neutral_blocking: bool = false,
-    blocking: bool = false,
-    force_airborne_no_low_crushing: bool = false,
-    airborne_move_or_downed: bool = false,
-    low_crushing_move: bool = false,
-    forward_move_modifier: bool = false,
-    backward_move_modifier: bool = false,
-    _18: bool = false,
-    crouched_but_not_fully: bool = false,
-    _20: bool = false,
-    _21: bool = false,
-    _22: bool = false,
-    _23: bool = false,
-    _24: bool = false,
-    _25: bool = false,
-    _26: bool = false,
-    _27: bool = false,
-    _28: bool = false,
-    _29: bool = false,
-    _30: bool = false,
-    _31: bool = false,
+pub const StateFlags = sdk.memory.Bitfield(u32, &.{
+    .{ .name = "crouching", .backing_value = 1 },
+    .{ .name = "standing_or_airborne", .backing_value = 2 },
+    .{ .name = "being_juggled_or_downed", .backing_value = 4 },
+    .{ .name = "blocking_lows", .backing_value = 8 },
+    .{ .name = "blocking_mids", .backing_value = 16 },
+    .{ .name = "wants_to_crouch", .backing_value = 32 },
+    .{ .name = "standing_or_airborne_and_not_juggled", .backing_value = 64 },
+    .{ .name = "downed", .backing_value = 128 },
+    .{ .name = "neutral_blocking", .backing_value = 256 },
+    .{ .name = "face_down", .backing_value = 512 },
+    .{ .name = "being_juggled", .backing_value = 1024 },
+    .{ .name = "not_blocking_or_neutral_blocking", .backing_value = 2048 },
+    .{ .name = "blocking", .backing_value = 4096 },
+    .{ .name = "force_airborne_no_low_crushing", .backing_value = 8192 },
+    .{ .name = "airborne_move_or_downed", .backing_value = 16384 },
+    .{ .name = "low_crushing_move", .backing_value = 32768 },
+    .{ .name = "forward_move_modifier", .backing_value = 65536 },
+    .{ .name = "crouched_but_not_fully", .backing_value = 262144 },
+});
 
-    const Self = @This();
-
-    pub fn fromInt(int: u32) Self {
-        return @bitCast(int);
-    }
-
-    pub fn toInt(self: Self) u32 {
-        return @bitCast(self);
-    }
-
-    comptime {
-        std.debug.assert((Self{ .crouching = true }).toInt() == 1);
-        std.debug.assert((Self{ .standing_or_airborne = true }).toInt() == 2);
-        std.debug.assert((Self{ .being_juggled_or_downed = true }).toInt() == 4);
-        std.debug.assert((Self{ .blocking_lows = true }).toInt() == 8);
-        std.debug.assert((Self{ .blocking_mids = true }).toInt() == 16);
-        std.debug.assert((Self{ .wants_to_crouch = true }).toInt() == 32);
-        std.debug.assert((Self{ .standing_or_airborne_and_not_juggled = true }).toInt() == 64);
-        std.debug.assert((Self{ .downed = true }).toInt() == 128);
-        std.debug.assert((Self{ .neutral_blocking = true }).toInt() == 256);
-        std.debug.assert((Self{ .face_down = true }).toInt() == 512);
-        std.debug.assert((Self{ .being_juggled = true }).toInt() == 1024);
-        std.debug.assert((Self{ .not_blocking_or_neutral_blocking = true }).toInt() == 2048);
-        std.debug.assert((Self{ .blocking = true }).toInt() == 4096);
-        std.debug.assert((Self{ .force_airborne_no_low_crushing = true }).toInt() == 8192);
-        std.debug.assert((Self{ .airborne_move_or_downed = true }).toInt() == 16384);
-        std.debug.assert((Self{ .low_crushing_move = true }).toInt() == 32768);
-    }
-};
-
-pub const PhaseFlags = packed struct(u32) {
-    _0: bool = false,
-    _1: bool = false,
-    _2: bool = false,
-    _3: bool = false,
-    _4: bool = false,
-    _5: bool = false,
-    _6: bool = false,
-    _7: bool = false,
-    is_active: bool = false,
-    _9: bool = false,
-    is_recovery: bool = false,
-    _11: bool = false,
-    _12: bool = false,
-    _13: bool = false,
-    _14: bool = false,
-    _15: bool = false,
-    _16: bool = false,
-    _17: bool = false,
-    _18: bool = false,
-    _19: bool = false,
-    _20: bool = false,
-    _21: bool = false,
-    _22: bool = false,
-    _23: bool = false,
-    _24: bool = false,
-    _25: bool = false,
-    _26: bool = false,
-    _27: bool = false,
-    _28: bool = false,
-    _29: bool = false,
-    _30: bool = false,
-    _31: bool = false,
-
-    const Self = @This();
-
-    pub fn fromInt(int: u32) Self {
-        return @bitCast(int);
-    }
-
-    pub fn toInt(self: Self) u32 {
-        return @bitCast(self);
-    }
-
-    comptime {
-        std.debug.assert((Self{ .is_active = true }).toInt() == 256);
-        std.debug.assert((Self{ .is_recovery = true }).toInt() == 1024);
-    }
-};
+pub const PhaseFlags = sdk.memory.Bitfield(u32, &.{
+    .{ .name = "is_active", .backing_value = 256 },
+    .{ .name = "is_recovery", .backing_value = 1024 },
+});
 
 pub const AttackType = enum(u32) {
     not_attack = 0xC000001D,
@@ -186,123 +98,29 @@ pub const SimpleState = enum(u32) {
 };
 
 pub fn Input(comptime game_id: build_info.Game) type {
-    return switch (game_id) {
-        .t7 => packed struct(u32) {
-            up: bool = false,
-            down: bool = false,
-            left: bool = false,
-            right: bool = false,
-            _4: bool = false,
-            _5: bool = false,
-            _6: bool = false,
-            _7: bool = false,
-            special_style: bool = false,
-            rage: bool = false,
-            _10: bool = false,
-            _11: bool = false,
-            button_3: bool = false,
-            button_4: bool = false,
-            button_1: bool = false,
-            button_2: bool = false,
-            _16: bool = false,
-            _17: bool = false,
-            _18: bool = false,
-            _19: bool = false,
-            _20: bool = false,
-            _21: bool = false,
-            _22: bool = false,
-            _23: bool = false,
-            _24: bool = false,
-            _25: bool = false,
-            _26: bool = false,
-            _27: bool = false,
-            _28: bool = false,
-            _29: bool = false,
-            _30: bool = false,
-            _31: bool = false,
-
-            const Self = @This();
-
-            pub fn fromInt(int: u32) Self {
-                return @bitCast(int);
-            }
-
-            pub fn toInt(self: Self) u32 {
-                return @bitCast(self);
-            }
-
-            comptime {
-                std.debug.assert((Self{ .up = true }).toInt() == 1);
-                std.debug.assert((Self{ .down = true }).toInt() == 2);
-                std.debug.assert((Self{ .left = true }).toInt() == 4);
-                std.debug.assert((Self{ .right = true }).toInt() == 8);
-                std.debug.assert((Self{ .special_style = true }).toInt() == 256);
-                std.debug.assert((Self{ .rage = true }).toInt() == 512);
-                std.debug.assert((Self{ .button_3 = true }).toInt() == 4096);
-                std.debug.assert((Self{ .button_4 = true }).toInt() == 8192);
-                std.debug.assert((Self{ .button_1 = true }).toInt() == 16384);
-                std.debug.assert((Self{ .button_2 = true }).toInt() == 32768);
-            }
-        },
-        .t8 => packed struct(u32) {
-            up: bool = false,
-            down: bool = false,
-            left: bool = false,
-            right: bool = false,
-            _4: bool = false,
-            _5: bool = false,
-            _6: bool = false,
-            _7: bool = false,
-            special_style: bool = false,
-            heat: bool = false,
-            _10: bool = false,
-            rage: bool = false,
-            button_3: bool = false,
-            button_4: bool = false,
-            button_1: bool = false,
-            button_2: bool = false,
-            _16: bool = false,
-            _17: bool = false,
-            _18: bool = false,
-            _19: bool = false,
-            _20: bool = false,
-            _21: bool = false,
-            _22: bool = false,
-            _23: bool = false,
-            _24: bool = false,
-            _25: bool = false,
-            _26: bool = false,
-            _27: bool = false,
-            _28: bool = false,
-            _29: bool = false,
-            _30: bool = false,
-            _31: bool = false,
-
-            const Self = @This();
-
-            pub fn fromInt(int: u32) Self {
-                return @bitCast(int);
-            }
-
-            pub fn toInt(self: Self) u32 {
-                return @bitCast(self);
-            }
-
-            comptime {
-                std.debug.assert((Self{ .up = true }).toInt() == 1);
-                std.debug.assert((Self{ .down = true }).toInt() == 2);
-                std.debug.assert((Self{ .left = true }).toInt() == 4);
-                std.debug.assert((Self{ .right = true }).toInt() == 8);
-                std.debug.assert((Self{ .special_style = true }).toInt() == 256);
-                std.debug.assert((Self{ .heat = true }).toInt() == 512);
-                std.debug.assert((Self{ .rage = true }).toInt() == 2048);
-                std.debug.assert((Self{ .button_3 = true }).toInt() == 4096);
-                std.debug.assert((Self{ .button_4 = true }).toInt() == 8192);
-                std.debug.assert((Self{ .button_1 = true }).toInt() == 16384);
-                std.debug.assert((Self{ .button_2 = true }).toInt() == 32768);
-            }
-        },
+    const extra_members = switch (game_id) {
+        .t7 => [_]sdk.memory.BitfieldMember(u32){},
+        .t8 => [_]sdk.memory.BitfieldMember(u32){.{ .name = "heat", .backing_value = 512 }},
     };
+    const members = [_]sdk.memory.BitfieldMember(u32){
+        .{ .name = "up", .backing_value = 1 },
+        .{ .name = "down", .backing_value = 2 },
+        .{ .name = "left", .backing_value = 4 },
+        .{ .name = "right", .backing_value = 8 },
+        .{ .name = "button_1", .backing_value = 16384 },
+        .{ .name = "button_2", .backing_value = 32768 },
+        .{ .name = "button_3", .backing_value = 4096 },
+        .{ .name = "button_4", .backing_value = 8192 },
+        .{ .name = "special_style", .backing_value = 256 },
+        .{
+            .name = "rage",
+            .backing_value = switch (game_id) {
+                .t7 => 512,
+                .t8 => 2048,
+            },
+        },
+    } ++ extra_members;
+    return sdk.memory.Bitfield(u32, &members);
 }
 
 pub const HitLinePoint = extern struct {
