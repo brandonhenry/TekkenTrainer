@@ -11,7 +11,6 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
 
         const Self = @This();
         const PartialPlayer = sdk.misc.Partial(game.Player(game_id));
-        const PartialAnimation = sdk.misc.Partial(game.Animation);
         const PartialGameMemory = game.Memory(game_id).PartialCopy;
         pub const PlayerState = struct {
             rage_state: RageState = .{},
@@ -31,13 +30,11 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             const player_1 = capturePlayer(
                 &self.player_1_state,
                 &game_memory.player_1,
-                &game_memory.player_1_animation,
                 .player_1,
             );
             const player_2 = capturePlayer(
                 &self.player_2_state,
                 &game_memory.player_2,
-                &game_memory.player_2_animation,
                 .player_2,
             );
             const camera = captureCamera(game_memory);
@@ -116,7 +113,6 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
         fn capturePlayer(
             state: *PlayerState,
             player: *const PartialPlayer,
-            animation: *const PartialAnimation,
             player_id: model.PlayerId,
         ) model.Player {
             updateRageState(state, player);
@@ -128,9 +124,9 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 .attack_type = captureAttackType(player),
                 .attack_damage = player.attack_damage,
                 .hit_outcome = captureHitOutcome(player),
-                .posture = capturePosture(player, animation),
+                .posture = capturePosture(player),
                 .blocking = captureBlocking(player),
-                .crushing = captureCrushing(player, animation),
+                .crushing = captureCrushing(player),
                 .can_move = if (player.can_move) |can_move| can_move.toBool() else null,
                 .input = captureInput(player, player_id),
                 .health = switch (game_id) {
@@ -210,12 +206,12 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn capturePosture(player: *const PartialPlayer, animation: *const PartialAnimation) ?model.Posture {
+        fn capturePosture(player: *const PartialPlayer) ?model.Posture {
             const animation_frame: u32 = player.animation_frame orelse return null;
             const state_flags: game.StateFlags = player.state_flags orelse return null;
             const simple_state: game.SimpleState = player.simple_state orelse return null;
-            const airborne_start: u32 = animation.airborne_start orelse return null;
-            const airborne_end: u32 = animation.airborne_end orelse return null;
+            const airborne_start: u32 = player.airborne_start orelse return null;
+            const airborne_end: u32 = player.airborne_end orelse return null;
             const is_airborne = (animation_frame >= airborne_start and animation_frame <= airborne_end) or
                 (state_flags.force_airborne_no_low_crushing and simple_state != .invincible);
             if (state_flags.crouching) {
@@ -252,17 +248,14 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn captureCrushing(
-            player: *const PartialPlayer,
-            animation: *const PartialAnimation,
-        ) ?model.Crushing {
-            const posture = capturePosture(player, animation) orelse return null;
+        fn captureCrushing(player: *const PartialPlayer) ?model.Crushing {
+            const posture = capturePosture(player) orelse return null;
             const state_flags: game.StateFlags = player.state_flags orelse return null;
             const simple_state: game.SimpleState = player.simple_state orelse return null;
             const power_crushing: sdk.memory.Boolean(.{}) = player.power_crushing orelse return null;
             const animation_frame: u32 = player.animation_frame orelse return null;
-            const airborne_start: u32 = animation.airborne_start orelse return null;
-            const airborne_end: u32 = animation.airborne_end orelse return null;
+            const airborne_start: u32 = player.airborne_start orelse return null;
+            const airborne_end: u32 = player.airborne_end orelse return null;
             return .{
                 .high_crushing = posture == .crouching or posture == .downed_face_down or posture == .downed_face_up,
                 .low_crushing = posture == .airborne and
@@ -725,17 +718,13 @@ test "should capture posture correctly" {
             .animation_frame = 3,
             .state_flags = .{},
             .simple_state = .airborne,
+            .airborne_start = 4,
+            .airborne_end = 6,
         },
         .player_2 = .{
             .animation_frame = 5,
             .state_flags = .{},
             .simple_state = .airborne,
-        },
-        .player_1_animation = .{
-            .airborne_start = 4,
-            .airborne_end = 6,
-        },
-        .player_2_animation = .{
             .airborne_start = 4,
             .airborne_end = 6,
         },
@@ -745,17 +734,13 @@ test "should capture posture correctly" {
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = false },
             .simple_state = .ground_face_down,
+            .airborne_start = 0,
+            .airborne_end = 0,
         },
         .player_2 = .{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = true },
             .simple_state = .ground_face_up,
-        },
-        .player_1_animation = .{
-            .airborne_start = 0,
-            .airborne_end = 0,
-        },
-        .player_2_animation = .{
             .airborne_start = 0,
             .airborne_end = 0,
         },
@@ -765,8 +750,6 @@ test "should capture posture correctly" {
             .animation_frame = 1,
             .state_flags = .{ .crouching = true },
             .simple_state = .crouch,
-        },
-        .player_1_animation = .{
             .airborne_start = 0,
             .airborne_end = 0,
         },
@@ -809,18 +792,14 @@ test "should capture crushing correctly" {
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
+            .airborne_start = 5,
+            .airborne_end = 10,
         },
         .player_2 = .{
             .animation_frame = 5,
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
-        },
-        .player_1_animation = .{
-            .airborne_start = 5,
-            .airborne_end = 10,
-        },
-        .player_2_animation = .{
             .airborne_start = 5,
             .airborne_end = 10,
         },
@@ -831,18 +810,14 @@ test "should capture crushing correctly" {
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
+            .airborne_start = 5,
+            .airborne_end = 10,
         },
         .player_2 = .{
             .animation_frame = 8,
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
-        },
-        .player_1_animation = .{
-            .airborne_start = 5,
-            .airborne_end = 10,
-        },
-        .player_2_animation = .{
             .airborne_start = 5,
             .airborne_end = 10,
         },
@@ -853,18 +828,14 @@ test "should capture crushing correctly" {
             .state_flags = .{ .downed = true, .face_down = false },
             .simple_state = .ground_face_up,
             .power_crushing = .false,
+            .airborne_start = 0,
+            .airborne_end = 0,
         },
         .player_2 = .{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = true },
             .simple_state = .ground_face_down,
             .power_crushing = .false,
-        },
-        .player_1_animation = .{
-            .airborne_start = 0,
-            .airborne_end = 0,
-        },
-        .player_2_animation = .{
             .airborne_start = 0,
             .airborne_end = 0,
         },
@@ -875,8 +846,6 @@ test "should capture crushing correctly" {
             .state_flags = .{ .crouching = true },
             .simple_state = .crouch,
             .power_crushing = .false,
-        },
-        .player_1_animation = .{
             .airborne_start = 0,
             .airborne_end = 0,
         },
@@ -887,18 +856,14 @@ test "should capture crushing correctly" {
             .state_flags = .{},
             .simple_state = .standing,
             .power_crushing = .true,
+            .airborne_start = 0,
+            .airborne_end = 0,
         },
         .player_2 = .{
             .animation_frame = 1,
             .state_flags = .{},
             .simple_state = .invincible,
             .power_crushing = .false,
-        },
-        .player_1_animation = .{
-            .airborne_start = 0,
-            .airborne_end = 0,
-        },
-        .player_2_animation = .{
             .airborne_start = 0,
             .airborne_end = 0,
         },

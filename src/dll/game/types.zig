@@ -302,6 +302,8 @@ pub fn Player(comptime game_id: build_info.Game) type {
             ),
             animation_frame: u32,
             animation_pointer: u64,
+            airborne_start: u32,
+            airborne_end: u32,
             state_flags: StateFlags,
             attack_damage: i32,
             attack_type: AttackType,
@@ -349,6 +351,8 @@ pub fn Player(comptime game_id: build_info.Game) type {
             ),
             animation_frame: u32,
             animation_pointer: u64,
+            airborne_start: u32,
+            airborne_end: u32,
             state_flags: StateFlags,
             attack_damage: i32,
             attack_type: AttackType,
@@ -385,11 +389,6 @@ pub fn Player(comptime game_id: build_info.Game) type {
         },
     };
 }
-
-pub const Animation = struct {
-    airborne_start: u32,
-    airborne_end: u32,
-};
 
 pub fn RawCamera(comptime game_id: build_info.Game) type {
     const Float = switch (game_id) {

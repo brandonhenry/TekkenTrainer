@@ -8,8 +8,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
     return struct {
         player_1: sdk.memory.StructProxy(game.Player(game_id)),
         player_2: sdk.memory.StructProxy(game.Player(game_id)),
-        player_1_animation: sdk.memory.StructProxy(game.Animation),
-        player_2_animation: sdk.memory.StructProxy(game.Animation),
         camera: sdk.memory.Proxy(game.Camera(game_id)),
         functions: Functions,
 
@@ -31,8 +29,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         pub const PartialCopy = struct {
             player_1: sdk.misc.Partial(game.Player(game_id)) = .{},
             player_2: sdk.misc.Partial(game.Player(game_id)) = .{},
-            player_1_animation: sdk.misc.Partial(game.Animation) = .{},
-            player_2_animation: sdk.misc.Partial(game.Animation) = .{},
             camera: ?game.Camera(game_id) = null,
         };
 
@@ -61,8 +57,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             return .{
                 .player_1 = self.player_1.takePartialCopy(),
                 .player_2 = self.player_2.takePartialCopy(),
-                .player_1_animation = self.player_1_animation.takePartialCopy(),
-                .player_2_animation = self.player_2_animation.takePartialCopy(),
                 .camera = self.camera.takeCopy(),
             };
         }
@@ -76,6 +70,8 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .rotation = 0x1BE,
                 .animation_frame = 0x1D4,
                 .animation_pointer = 0x218,
+                .airborne_start = .{ 0x218, 0x6C },
+                .airborne_end = .{ 0x218, 0x70 },
                 .state_flags = 0x264,
                 .attack_damage = 0x324,
                 .attack_type = 0x328,
@@ -95,10 +91,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .collision_spheres = 0x10D0,
                 .health = 0x14E8,
             });
-            const animation_offsets = structOffsets(game.Animation, .{
-                .airborne_start = 0x6C,
-                .airborne_end = 0x70,
-            });
             return .{
                 .player_1 = structProxy("player_1", game.Player(.t7), .{
                     relativeOffset(u32, add(0x3, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
@@ -108,16 +100,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     relativeOffset(u32, add(0xD, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
                     0x0,
                 }, player_offsets),
-                .player_1_animation = structProxy("player_1_animation", game.Animation, .{
-                    relativeOffset(u32, add(0x3, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
-                    player_offsets.animation_pointer.getOffsets()[0].?,
-                    0x0,
-                }, animation_offsets),
-                .player_2_animation = structProxy("player_2_animation", game.Animation, .{
-                    relativeOffset(u32, add(0xD, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
-                    player_offsets.animation_pointer.getOffsets()[0].?,
-                    0x0,
-                }, animation_offsets),
                 .camera = proxy("camera", game.Camera(.t7), .{
                     @intFromPtr(last_camera_manager_address_pointer),
                     0x03F8,
@@ -165,6 +147,8 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     "8B 81 ?? ?? 00 00 39 81 ?? ?? 00 00 0F 84 ?? ?? 00 00 48 C7 81",
                 ))), // 0x390
                 .animation_pointer = 0x3D8,
+                .airborne_start = .{ 0x3D8, 0x124 },
+                .airborne_end = .{ 0x3D8, 0x128 },
                 .state_flags = 0x434,
                 .attack_damage = 0x504,
                 .attack_type = deref(u32, add(2, pattern(
@@ -192,10 +176,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .collision_spheres = 0x3090,
                 .health = 0x3810,
             });
-            const animation_offsets = structOffsets(game.Animation, .{
-                .airborne_start = 0x124,
-                .airborne_end = 0x128,
-            });
             const self = Self{
                 .player_1 = structProxy("player_1", game.Player(.t8), .{
                     relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
@@ -207,18 +187,6 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     0x38,
                     0x0,
                 }, player_offsets),
-                .player_1_animation = structProxy("player_1_animation", game.Animation, .{
-                    relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
-                    0x30,
-                    player_offsets.animation_pointer.getOffsets()[0].?,
-                    0x0,
-                }, animation_offsets),
-                .player_2_animation = structProxy("player_2_animation", game.Animation, .{
-                    relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
-                    0x38,
-                    player_offsets.animation_pointer.getOffsets()[0].?,
-                    0x0,
-                }, animation_offsets),
                 .camera = proxy("camera", game.Camera(.t8), .{
                     @intFromPtr(last_camera_manager_address_pointer),
                     0x22D0,
