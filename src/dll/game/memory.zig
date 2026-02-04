@@ -11,13 +11,14 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         camera: sdk.memory.Proxy(game.Camera(game_id)),
         functions: Functions,
 
+        var camera_manager_address: usize = 0;
+
         const Self = @This();
         pub const Functions = struct {
             tick: ?*const game.TickFunction(game_id) = null,
-            updateCamera: ?*const game.UpdateCameraFunction = null,
             unrealFree: ?*const game.UnrealFreeFunction = null,
-            findUClass: ?*const game.FindUClassFunction = null,
-            getObjectsOfClass: ?*const game.GetObjectsOfClassFunction = null,
+            findUnrealClass: ?*const game.FindUnrealClassFunction = null,
+            findUnrealObjectsOfClass: ?*const game.FindUnrealObjectsOfClassFunction = null,
             decryptHealth: (switch (game_id) {
                 .t7 => void,
                 .t8 => ?*const game.DecryptT8HealthFunction,
@@ -34,11 +35,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
 
         const pattern_cache_file_name = "pattern_cache_" ++ @tagName(game_id) ++ ".json";
 
-        pub fn init(
-            allocator: std.mem.Allocator,
-            base_dir: ?*const sdk.misc.BaseDir,
-            last_camera_manager_address_pointer: *const usize,
-        ) Self {
+        pub fn init(allocator: std.mem.Allocator, base_dir: ?*const sdk.misc.BaseDir) Self {
             var cache = initPatternCache(allocator, base_dir, pattern_cache_file_name) catch |err| block: {
                 sdk.misc.error_context.append("Failed to initialize pattern cache.", .{});
                 sdk.misc.error_context.logError(err);
@@ -48,9 +45,13 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 deinitPatternCache(pattern_cache, base_dir, pattern_cache_file_name);
             };
             return switch (game_id) {
-                .t7 => t7Init(&cache, last_camera_manager_address_pointer),
-                .t8 => t8Init(&cache, last_camera_manager_address_pointer),
+                .t7 => t7Init(&cache),
+                .t8 => t8Init(&cache),
             };
+        }
+
+        pub fn updateUnrealActorAddresses(self: *const Self) void {
+            self.updateCameraManagerAddress();
         }
 
         pub fn takePartialCopy(self: *const Self) PartialCopy {
@@ -61,7 +62,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn t7Init(cache: *?sdk.memory.PatternCache, last_camera_manager_address_pointer: *const usize) Self {
+        fn t7Init(cache: *?sdk.memory.PatternCache) Self {
             const player_offsets = structOffsets(game.Player(.t7), .{
                 .is_picked_by_main_player = 0x9,
                 .character_id = 0xD8,
@@ -101,7 +102,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     0x0,
                 }, player_offsets),
                 .camera = proxy("camera", game.Camera(.t7), .{
-                    @intFromPtr(last_camera_manager_address_pointer),
+                    @intFromPtr(&camera_manager_address),
                     0x03F8,
                 }),
                 .functions = .{
@@ -110,24 +111,19 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                         game.TickFunction(.t7),
                         pattern(cache, "4C 8B DC 55 41 57 49 8D 6B A1 48 81 EC E8"),
                     ),
-                    .updateCamera = functionPointer(
-                        "updateCamera",
-                        game.UpdateCameraFunction,
-                        pattern(cache, "4C 8B DC 55 49 8D AB 68 FC"),
-                    ),
                     .unrealFree = functionPointer(
                         "unrealFree",
                         game.UnrealFreeFunction,
                         pattern(cache, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D"),
                     ),
-                    .findUClass = functionPointer(
-                        "findUClass",
-                        game.FindUClassFunction,
+                    .findUnrealClass = functionPointer(
+                        "findUnrealClass",
+                        game.FindUnrealClassFunction,
                         relativeOffset(i32, add(0x8, pattern(cache, "45 33 C0 48 83 C9 FF E8"))),
                     ),
-                    .getObjectsOfClass = functionPointer(
-                        "getObjectsOfClass",
-                        game.GetObjectsOfClassFunction,
+                    .findUnrealObjectsOfClass = functionPointer(
+                        "findUnrealObjectsOfClass",
+                        game.FindUnrealObjectsOfClassFunction,
                         pattern(cache, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D 6C 24 D1 48 81 EC A0 00 00 00"),
                     ),
                     .decryptHealth = {},
@@ -135,7 +131,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn t8Init(cache: *?sdk.memory.PatternCache, last_camera_manager_address_pointer: *const usize) Self {
+        fn t8Init(cache: *?sdk.memory.PatternCache) Self {
             const player_offsets = structOffsets(game.Player(.t8), .{
                 .is_picked_by_main_player = 0x9,
                 .character_id = 0x168,
@@ -188,7 +184,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     0x0,
                 }, player_offsets),
                 .camera = proxy("camera", game.Camera(.t8), .{
-                    @intFromPtr(last_camera_manager_address_pointer),
+                    @intFromPtr(&camera_manager_address),
                     0x22D0,
                 }),
                 .functions = .{
@@ -197,24 +193,19 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                         game.TickFunction(.t8),
                         pattern(cache, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 48 8B 01 0F 28 C8"),
                     ),
-                    .updateCamera = functionPointer(
-                        "updateCamera",
-                        game.UpdateCameraFunction,
-                        pattern(cache, "48 8B C4 48 89 58 18 55 56 57 48 81 EC 50"),
-                    ),
                     .unrealFree = functionPointer(
                         "unrealFree",
                         game.UnrealFreeFunction,
                         pattern(cache, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D"),
                     ),
-                    .findUClass = functionPointer(
-                        "findUClass",
-                        game.FindUClassFunction,
+                    .findUnrealClass = functionPointer(
+                        "findUnrealClass",
+                        game.FindUnrealClassFunction,
                         relativeOffset(i32, add(0x7, pattern(cache, "45 33 C0 49 8B CF E8 ?? ?? ?? ?? 48 8B 4C 24 60"))),
                     ),
-                    .getObjectsOfClass = functionPointer(
-                        "getObjectsOfClass",
-                        game.GetObjectsOfClassFunction,
+                    .findUnrealObjectsOfClass = functionPointer(
+                        "findUnrealObjectsOfClass",
+                        game.FindUnrealObjectsOfClassFunction,
                         relativeOffset(i32, add(0x1, pattern(cache, "E8 ?? ?? ?? ?? 90 48 89 6C 24 30"))),
                     ),
                     .decryptHealth = functionPointer(
@@ -293,6 +284,25 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             };
 
             return cache.save(file_path, executable_timestamp);
+        }
+
+        fn updateCameraManagerAddress(self: *const Self) void {
+            const w = std.unicode.utf8ToUtf16LeStringLiteral;
+            const findUnrealClass = self.functions.findUnrealClass orelse return;
+            const findUnrealObjectsOfClass = self.functions.findUnrealObjectsOfClass orelse return;
+            const unrealFree = self.functions.unrealFree orelse return;
+
+            const class = findUnrealClass(null, w("/Script/Engine.PlayerCameraManager"), true) orelse return;
+            var list = game.UnrealArrayList(*game.UnrealObject).empty;
+            findUnrealObjectsOfClass(class, &list, true, .default_exclude, .{});
+            defer list.free(unrealFree);
+
+            const slice = list.asSlice();
+            if (slice.len > 0) {
+                camera_manager_address = @intFromPtr(slice[0]);
+            } else {
+                camera_manager_address = 0;
+            }
         }
     };
 }

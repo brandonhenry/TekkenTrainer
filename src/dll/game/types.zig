@@ -423,8 +423,8 @@ pub fn Camera(comptime game_id: build_info.Game) type {
 pub fn UnrealArrayList(comptime Element: type) type {
     return extern struct {
         data: ?[*]Element, // UE: AllocatorInstance
-        len: usize, // UE: ArrayNum
-        capacity: usize, // UE: ArrayMax
+        len: i32, // UE: ArrayNum
+        capacity: i32, // UE: ArrayMax
 
         const Self = @This();
         pub const empty = Self{
@@ -435,7 +435,7 @@ pub fn UnrealArrayList(comptime Element: type) type {
 
         pub fn free(self: *Self, unrealFree: *const UnrealFreeFunction) void {
             if (self.data) |data| {
-                unrealFree(data);
+                unrealFree(@ptrCast(data));
                 self.data = null;
             }
             self.len = 0;
@@ -443,46 +443,65 @@ pub fn UnrealArrayList(comptime Element: type) type {
         }
 
         pub fn asSlice(self: anytype) sdk.misc.SelfBasedSlice(@TypeOf(self), Self, Element) {
-            return self.data[0..self.len];
+            const data = self.data orelse return &.{};
+            if (self.len < 0) {
+                return &.{};
+            }
+            const len: usize = @intCast(self.len);
+            return data[0..len];
         }
     };
 }
 
 // UE: EObjectFlags
-pub const UnrealObjectFlags = sdk.memory.Bitfield(u32, &.{
-    .{ .name = "public", .backing_value = 0x1 },
-    .{ .name = "standalone", .backing_value = 0x2 },
-    .{ .name = "mark_as_native", .backing_value = 0x4 },
-    .{ .name = "transactional", .backing_value = 0x8 },
-    .{ .name = "class_default_object", .backing_value = 0x10 },
-    .{ .name = "archetype_object", .backing_value = 0x20 },
-    .{ .name = "transient", .backing_value = 0x40 },
-    .{ .name = "mark_as_root_set", .backing_value = 0x80 },
-    .{ .name = "tag_garbage_temp", .backing_value = 0x100 },
-    .{ .name = "need_initialization", .backing_value = 0x200 },
-    .{ .name = "need_load", .backing_value = 0x400 },
-    .{ .name = "keep_for_cooker", .backing_value = 0x800 },
-    .{ .name = "need_post_load", .backing_value = 0x1000 },
-    .{ .name = "need_post_load_subobjects", .backing_value = 0x2000 },
-    .{ .name = "newer_version_exists", .backing_value = 0x4000 },
-    .{ .name = "begin_destroyed", .backing_value = 0x8000 },
-    .{ .name = "finish_destroyed", .backing_value = 0x10000 },
-    .{ .name = "being_regenerated", .backing_value = 0x20000 },
-    .{ .name = "default_sub_object", .backing_value = 0x40000 },
-    .{ .name = "was_loaded", .backing_value = 0x80000 },
-    .{ .name = "text_export_transient", .backing_value = 0x100000 },
-    .{ .name = "load_completed", .backing_value = 0x200000 },
-    .{ .name = "inheritable_component_template", .backing_value = 0x400000 },
-    .{ .name = "duplicate_transient", .backing_value = 0x800000 },
-    .{ .name = "strong_ref_on_frame", .backing_value = 0x1000000 },
-    .{ .name = "non_pie_duplicate_transient", .backing_value = 0x2000000 },
-    .{ .name = "dynamic", .backing_value = 0x4000000 },
-    .{ .name = "will_be_loaded", .backing_value = 0x8000000 },
-    .{ .name = "has_external_package", .backing_value = 0x10000000 },
-    .{ .name = "pending_kill", .backing_value = 0x20000000 },
-    .{ .name = "garbage", .backing_value = 0x40000000 },
-    .{ .name = "allocated_in_shared_page", .backing_value = 0x80000000 },
-});
+pub const UnrealObjectFlags = packed struct(u32) {
+    public: bool = false,
+    standalone: bool = false,
+    mark_as_native: bool = false,
+    transactional: bool = false,
+    class_default_object: bool = false,
+    archetype_object: bool = false,
+    transient: bool = false,
+    mark_as_root_set: bool = false,
+    tag_garbage_temp: bool = false,
+    need_initialization: bool = false,
+    need_load: bool = false,
+    keep_for_cooker: bool = false,
+    need_post_load: bool = false,
+    need_post_load_subobjects: bool = false,
+    newer_version_exists: bool = false,
+    begin_destroyed: bool = false,
+    finish_destroyed: bool = false,
+    being_regenerated: bool = false,
+    default_sub_object: bool = false,
+    was_loaded: bool = false,
+    text_export_transient: bool = false,
+    load_completed: bool = false,
+    inheritable_component_template: bool = false,
+    duplicate_transient: bool = false,
+    strong_ref_on_frame: bool = false,
+    non_pie_duplicate_transient: bool = false,
+    dynamic: bool = false,
+    will_be_loaded: bool = false,
+    has_external_package: bool = false,
+    pending_kill: bool = false,
+    garbage: bool = false,
+    allocated_in_shared_page: bool = false,
+
+    const Self = @This();
+
+    pub const default_exclude = Self{
+        .class_default_object = true,
+        .archetype_object = true,
+        .need_initialization = true,
+        .need_load = true,
+        .newer_version_exists = true,
+        .begin_destroyed = true,
+        .finish_destroyed = true,
+        .pending_kill = true,
+        .garbage = true,
+    };
+};
 
 // UE: EInternalObjectFlags
 pub const UnrealInternalObjectFlags = sdk.memory.Bitfield(u32, &.{
@@ -514,21 +533,18 @@ pub fn TickFunction(comptime game_id: build_info.Game) type {
     };
 }
 
-// UE: APlayerCameraManager::DoUpdateCamera
-pub const UpdateCameraFunction = fn (camera_manager_address: usize, delta_time: f32) callconv(.c) void;
-
 // UE: FMemory::Free
 pub const UnrealFreeFunction = fn (original: *anyopaque) callconv(.c) void;
 
 // UE: FindObject<UClass>
-pub const FindUClassFunction = fn (
+pub const FindUnrealClassFunction = fn (
     outer: ?*const UnrealObject,
-    name: [*:0]u16,
+    name: [*:0]const u16,
     exact_class: bool,
 ) callconv(.c) ?*const UnrealClass;
 
 // UE: GetObjectsOfClass
-pub const GetObjectsOfClassFunction = fn (
+pub const FindUnrealObjectsOfClassFunction = fn (
     class_to_look_for: *const UnrealClass,
     results: *UnrealArrayList(*UnrealObject),
     b_include_derived_classes: bool,
