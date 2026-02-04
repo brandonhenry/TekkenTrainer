@@ -110,12 +110,12 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 }, player_offsets),
                 .player_1_animation = structProxy("player_1_animation", game.Animation, .{
                     relativeOffset(u32, add(0x3, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
-                    player_offsets.animation_pointer.?,
+                    player_offsets.animation_pointer.getOffsets()[0].?,
                     0x0,
                 }, animation_offsets),
                 .player_2_animation = structProxy("player_2_animation", game.Animation, .{
                     relativeOffset(u32, add(0xD, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
-                    player_offsets.animation_pointer.?,
+                    player_offsets.animation_pointer.getOffsets()[0].?,
                     0x0,
                 }, animation_offsets),
                 .camera = proxy("camera", game.Camera(.t7), .{
@@ -210,13 +210,13 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .player_1_animation = structProxy("player_1_animation", game.Animation, .{
                     relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
                     0x30,
-                    player_offsets.animation_pointer.?,
+                    player_offsets.animation_pointer.getOffsets()[0].?,
                     0x0,
                 }, animation_offsets),
                 .player_2_animation = structProxy("player_2_animation", game.Animation, .{
                     relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
                     0x38,
-                    player_offsets.animation_pointer.?,
+                    player_offsets.animation_pointer.getOffsets()[0].?,
                     0x0,
                 }, animation_offsets),
                 .camera = proxy("camera", game.Camera(.t8), .{
@@ -329,29 +329,120 @@ pub fn Memory(comptime game_id: build_info.Game) type {
     };
 }
 
-fn structOffsets(
-    comptime Struct: type,
-    offsets: sdk.misc.FieldMap(Struct, anyerror!usize, null),
-) sdk.misc.FieldMap(Struct, ?usize, null) {
-    var last_error: ?struct { err: anyerror, field_name: []const u8 } = null;
-    var mapped_offsets: sdk.misc.FieldMap(Struct, ?usize, null) = undefined;
-    inline for (@typeInfo(Struct).@"struct".fields) |*field| {
-        const offset = @field(offsets, field.name);
-        if (offset) |o| {
-            @field(mapped_offsets, field.name) = o;
-        } else |err| {
-            last_error = .{ .err = err, .field_name = field.name };
-            @field(mapped_offsets, field.name) = null;
+fn structOffsets(comptime Struct: type, offsets: anytype) sdk.misc.FieldMap(Struct, sdk.memory.PointerTrail, null) {
+    @setEvalBranchQuota(2000);
+    const struct_fields = switch (@typeInfo(Struct)) {
+        .@"struct" => |*info| info.fields,
+        else => @compileError("Expecting Struct to be a struct type but got: " ++ @typeName(Struct)),
+    };
+    const offsets_fields = switch (@typeInfo(@TypeOf(offsets))) {
+        .@"struct" => |*info| info.fields,
+        else => @compileError("Expecting offsets to be of a struct type but got: " ++ @typeName(@TypeOf(offsets))),
+    };
+    comptime {
+        var struct_field_paired = [1]bool{false} ** struct_fields.len;
+        var offsets_field_paired = [1]bool{false} ** offsets_fields.len;
+        for (struct_fields, &struct_field_paired) |*struct_field, *struct_paired| {
+            for (offsets_fields, &offsets_field_paired) |*offsets_field, *offset_paired| {
+                if (std.mem.eql(u8, offsets_field.name, struct_field.name)) {
+                    struct_paired.* = true;
+                    offset_paired.* = true;
+                    break;
+                }
+            }
         }
+        for (struct_fields, struct_field_paired) |*field, paired| {
+            if (!paired) {
+                @compileError(
+                    "No offset provided for struct field \"" ++ field.name ++ "\" in struct: " ++ @typeName(Struct),
+                );
+            }
+        }
+        for (offsets_fields, offsets_field_paired) |*field, paired| {
+            if (!paired) {
+                @compileError(
+                    "Offset provided for field \"" ++ field.name ++
+                        "\", but that field does not exist in struct: " ++ @typeName(Struct),
+                );
+            }
+        }
+    }
+    var last_error: ?struct { err: anyerror, field_name: []const u8, index: ?usize } = null;
+    var trails: sdk.misc.FieldMap(Struct, sdk.memory.PointerTrail, null) = undefined;
+    inline for (struct_fields) |*field| {
+        const offset = @field(offsets, field.name);
+        @field(trails, field.name) = switch (@typeInfo(@TypeOf(offset))) {
+            .int, .comptime_int => sdk.memory.PointerTrail.fromArray(.{offset}),
+            .error_set => block: {
+                last_error = .{ .err = offset, .field_name = field.name, .index = null };
+                break :block sdk.memory.PointerTrail.fromArray(.{null});
+            },
+            .error_union => |*info| switch (@typeInfo(info.payload)) {
+                .int, .comptime_int => block: {
+                    if (offset) |value| {
+                        break :block sdk.memory.PointerTrail.fromArray(.{value});
+                    } else |err| {
+                        last_error = .{ .err = err, .field_name = field.name, .index = null };
+                        break :block sdk.memory.PointerTrail.fromArray(.{null});
+                    }
+                },
+                else => @compileError(
+                    "Offset \"" ++ field.name ++ "\" is of unexpected type: " ++ @typeName(field.type),
+                ),
+            },
+            .@"struct" => |*info| block: {
+                if (!info.is_tuple) {
+                    @compileError(
+                        "Offset \"" ++ field.name ++ "\" is of unexpected type: " ++ @typeName(field.type),
+                    );
+                }
+                var trail_elements: [info.fields.len]?usize = undefined;
+                inline for (info.fields, 0..) |*sub_field, index| {
+                    const sub_offset = @field(offset, sub_field.name);
+                    trail_elements[index] = switch (@typeInfo(sub_field.type)) {
+                        .int, .comptime_int => sub_offset,
+                        .error_set => sub_block: {
+                            last_error = .{ .err = sub_offset, .field_name = field.name, .index = index };
+                            break :sub_block null;
+                        },
+                        .error_union => |*sub_info| switch (@typeInfo(sub_info.payload)) {
+                            .int, .comptime_int => sub_block: {
+                                if (sub_offset) |value| {
+                                    break :sub_block value;
+                                } else |err| {
+                                    last_error = .{ .err = err, .field_name = field.name, .index = index };
+                                    break :sub_block null;
+                                }
+                            },
+                            else => @compileError(
+                                "Offset \"" ++ field.name ++ "." ++ sub_field.name ++
+                                    " is of unexpected type: " ++ @typeName(field.type),
+                            ),
+                        },
+                        else => @compileError(
+                            "Offset \"" ++ field.name ++ "." ++ sub_field.name ++
+                                " is of unexpected type: " ++ @typeName(field.type),
+                        ),
+                    };
+                }
+                break :block sdk.memory.PointerTrail.fromArray(trail_elements);
+            },
+            else => @compileError(
+                "Offset \"" ++ field.name ++ "\" is of unexpected type: " ++ @typeName(field.type),
+            ),
+        };
     }
     if (last_error) |err| {
         if (!builtin.is_test) {
+            if (err.index) |i| {
+                sdk.misc.error_context.append("Failed to resolve element on index: {}", .{i});
+            }
             sdk.misc.error_context.append("Failed to resolve offset for field: {s}", .{err.field_name});
-            sdk.misc.error_context.append("Failed to resolve field offsets for struct: {s}", .{@typeName(Struct)});
+            sdk.misc.error_context.append("Failed to resolve field trails for struct: {s}", .{@typeName(Struct)});
             sdk.misc.error_context.logError(err.err);
         }
     }
-    return mapped_offsets;
+    return trails;
 }
 
 fn proxy(
@@ -386,11 +477,11 @@ fn structProxy(
     name: []const u8,
     comptime Struct: type,
     base_offsets: anytype,
-    field_offsets: sdk.misc.FieldMap(Struct, ?usize, null),
+    field_trails: sdk.misc.FieldMap(Struct, sdk.memory.PointerTrail, null),
 ) sdk.memory.StructProxy(Struct) {
     if (@typeInfo(@TypeOf(base_offsets)) != .array) {
         const coerced: [base_offsets.len]anyerror!usize = base_offsets;
-        return structProxy(name, Struct, coerced, field_offsets);
+        return structProxy(name, Struct, coerced, field_trails);
     }
     var last_error: ?anyerror = null;
     var mapped_offsets: [base_offsets.len]?usize = undefined;
@@ -410,7 +501,7 @@ fn structProxy(
     }
     return .{
         .base_trail = .fromArray(mapped_offsets),
-        .field_offsets = field_offsets,
+        .field_trails = field_trails,
     };
 }
 
@@ -496,13 +587,13 @@ test "structOffsets should map errors to null values" {
     const offsets = structOffsets(Struct, .{
         .field_1 = 1,
         .field_2 = error.Test,
-        .field_3 = 2,
-        .field_4 = error.Test,
+        .field_3 = .{ 2, error.Test },
+        .field_4 = .{ error.Test, 3 },
     });
-    try testing.expectEqual(1, offsets.field_1);
-    try testing.expectEqual(null, offsets.field_2);
-    try testing.expectEqual(2, offsets.field_3);
-    try testing.expectEqual(null, offsets.field_4);
+    try testing.expectEqualSlices(?usize, &.{1}, offsets.field_1.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{null}, offsets.field_2.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{ 2, null }, offsets.field_3.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{ null, 3 }, offsets.field_4.getOffsets());
 }
 
 test "proxy should construct a proxy from offsets" {
@@ -512,8 +603,8 @@ test "proxy should construct a proxy from offsets" {
 
 test "proxy should map errors to null values" {
     sdk.misc.error_context.new("Test error.", .{});
-    const byte_proxy = proxy("byte_proxy", u8, .{ 1, error.Test, 2, error.Test, 3, error.Test });
-    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null, 3, null }, byte_proxy.trail.getOffsets());
+    const byte_proxy = proxy("byte_proxy", u8, .{ 1, error.Test, 2, error.Test });
+    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null }, byte_proxy.trail.getOffsets());
 }
 
 test "structProxy should construct a proxy from offsets" {
@@ -522,11 +613,14 @@ test "structProxy should construct a proxy from offsets" {
         "pointer",
         Struct,
         .{ 1, 2, 3 },
-        .{ .field_1 = 4, .field_2 = 5 },
+        .{
+            .field_1 = .fromArray(.{ 4, 5, 6 }),
+            .field_2 = .fromArray(.{ null, 7, null }),
+        },
     );
     try testing.expectEqualSlices(?usize, &.{ 1, 2, 3 }, struct_proxy.base_trail.getOffsets());
-    try testing.expectEqual(4, struct_proxy.field_offsets.field_1);
-    try testing.expectEqual(5, struct_proxy.field_offsets.field_2);
+    try testing.expectEqualSlices(?usize, &.{ 4, 5, 6 }, struct_proxy.field_trails.field_1.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{ null, 7, null }, struct_proxy.field_trails.field_2.getOffsets());
 }
 
 test "structProxy should map errors to null values in base offsets" {
@@ -535,10 +629,10 @@ test "structProxy should map errors to null values in base offsets" {
     const struct_proxy = structProxy(
         "pointer",
         Struct,
-        .{ 1, error.Test, 2, error.Test, 3, error.Test },
-        .{ .field_1 = 4, .field_2 = 5 },
+        .{ 1, error.Test, 2, error.Test },
+        .{ .field_1 = .fromArray(.{}), .field_2 = .fromArray(.{}) },
     );
-    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null, 3, null }, struct_proxy.base_trail.getOffsets());
+    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null }, struct_proxy.base_trail.getOffsets());
 }
 
 test "functionPointer should return a function pointer when address is valid" {

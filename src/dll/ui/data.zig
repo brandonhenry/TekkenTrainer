@@ -28,9 +28,7 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
         );
     }
     const Type = @typeInfo(@TypeOf(pointer)).pointer.child;
-    if (Type == sdk.memory.PointerTrail) {
-        drawPointerTrail(ctx, pointer);
-    } else if (hasTag(Type, sdk.memory.converted_value_tag)) {
+    if (hasTag(Type, sdk.memory.converted_value_tag)) {
         drawConvertedValue(ctx, pointer);
     } else if (hasTag(Type, sdk.memory.pointer_tag)) {
         drawCustomPointer(ctx, pointer);
@@ -410,7 +408,7 @@ fn drawPointer(ctx: *const Context, pointer: anytype) void {
 
 // Rendering of custom types.
 
-fn drawPointerTrail(ctx: *const Context, pointer: anytype) void {
+fn drawPointerTrail(ctx: *const Context, pointer: *const sdk.memory.PointerTrail, base_address: ?usize) void {
     const node_open = beginNode(ctx.label);
     defer if (node_open) endNode();
     useDefaultMenu(ctx);
@@ -427,7 +425,8 @@ fn drawPointerTrail(ctx: *const Context, pointer: anytype) void {
     };
     drawAny(&offsets_ctx, offsets_pointer);
 
-    const resolved_pointer = &pointer.resolve();
+    const resolved = if (base_address) |b| pointer.resolve(b) else null;
+    const resolved_pointer = &resolved;
     const resolved_ctx = Context{
         .label = "resolved",
         .type_name = @typeName(@TypeOf(resolved_pointer.*)),
@@ -523,7 +522,7 @@ fn drawProxy(ctx: *const Context, pointer: anytype) void {
         .bit_size = @bitSizeOf(@TypeOf(trail_pointer.*)),
         .parent = ctx,
     };
-    drawAny(&trail_ctx, trail_pointer);
+    drawPointerTrail(&trail_ctx, trail_pointer, 0);
 
     const value_pointer = maybe_value_pointer orelse {
         drawTreeText("value", "not readable");
@@ -558,18 +557,18 @@ fn drawStructProxy(ctx: *const Context, pointer: anytype) void {
         .bit_size = @bitSizeOf(@TypeOf(base_trail_pointer.*)),
         .parent = ctx,
     };
-    drawAny(&base_trail_ctx, base_trail_pointer);
+    drawPointerTrail(&base_trail_ctx, base_trail_pointer, 0);
 
-    const field_offsets_pointer = &pointer.field_offsets;
-    const field_offsets_ctx = Context{
+    const field_trails_pointer = &pointer.field_trails;
+    const field_trails_ctx = Context{
         .label = "field_offsets",
-        .type_name = @typeName(@TypeOf(field_offsets_pointer.*)),
-        .address = @intFromPtr(field_offsets_pointer),
+        .type_name = @typeName(@TypeOf(field_trails_pointer.*)),
+        .address = @intFromPtr(field_trails_pointer),
         .bit_offset = null,
-        .bit_size = @bitSizeOf(@TypeOf(field_offsets_pointer.*)),
+        .bit_size = @bitSizeOf(@TypeOf(field_trails_pointer.*)),
         .parent = ctx,
     };
-    drawAny(&field_offsets_ctx, field_offsets_pointer);
+    drawStructProxyFieldOffsets(&field_trails_ctx, pointer);
 
     const value_ctx = Context{
         .label = "value",
@@ -580,6 +579,34 @@ fn drawStructProxy(ctx: *const Context, pointer: anytype) void {
         .parent = ctx,
     };
     drawStructProxyFields(&value_ctx, pointer);
+}
+
+fn drawStructProxyFieldOffsets(ctx: *const Context, proxy_pointer: anytype) void {
+    const node_open = beginNode(ctx.label);
+    defer if (node_open) endNode();
+    useDefaultMenu(ctx);
+    if (!node_open) return;
+
+    const base_address = proxy_pointer.findBaseAddress();
+    const trails_pointer = &proxy_pointer.field_trails;
+
+    const info = @typeInfo(@TypeOf(trails_pointer.*)).@"struct";
+    inline for (info.fields) |*field| {
+        const field_pointer = &@field(trails_pointer, field.name);
+        const field_ctx = Context{
+            .label = field.name,
+            .type_name = @typeName(field.type),
+            .address = @intFromPtr(field_pointer),
+            .bit_offset = @bitOffsetOf(@TypeOf(trails_pointer.*), field.name),
+            .bit_size = @sizeOf(@TypeOf(field_pointer.*)) * std.mem.byte_size_in_bits,
+            .parent = ctx,
+        };
+        const offsets = field_pointer.getOffsets();
+        switch (offsets.len) {
+            1 => drawAny(&field_ctx, &offsets[0]),
+            else => drawPointerTrail(&field_ctx, field_pointer, base_address),
+        }
+    }
 }
 
 fn drawStructProxyFields(ctx: *const Context, pointer: anytype) void {
@@ -594,11 +621,16 @@ fn drawStructProxyFields(ctx: *const Context, pointer: anytype) void {
     const fields = @typeInfo(@TypeOf(pointer.*).Child).@"struct".fields;
     inline for (fields) |*field| {
         if (pointer.findConstFieldPointer(field.name)) |field_pointer| {
+            const offsets = @field(pointer.field_trails, field.name).getOffsets();
+            const bit_offset = switch (offsets.len) {
+                1 => if (offsets[0]) |o| (o * std.mem.byte_size_in_bits) else null,
+                else => null,
+            };
             const field_ctx = Context{
                 .label = field.name,
                 .type_name = @typeName(field.type),
                 .address = @intFromPtr(field_pointer),
-                .bit_offset = (@field(pointer.field_offsets, field.name) orelse 0) * std.mem.byte_size_in_bits,
+                .bit_offset = bit_offset,
                 .bit_size = @sizeOf(field.type) * std.mem.byte_size_in_bits,
                 .parent = ctx,
             };
@@ -1693,81 +1725,6 @@ test "should draw slice correctly" {
 
 // Custom types tests.
 
-test "should draw pointer trail correctly" {
-    const Test = struct {
-        var trail: sdk.memory.PointerTrail = .fromArray(.{});
-
-        fn guiFunction(_: sdk.ui.TestContext) !void {
-            _ = imgui.igBegin("Window", null, 0);
-            defer imgui.igEnd();
-            drawData("test", &trail);
-        }
-
-        fn testFunction(ctx: sdk.ui.TestContext) !void {
-            const address = @intFromPtr(&trail);
-            const size = @sizeOf(@TypeOf(trail));
-
-            trail = .fromArray(.{123});
-            ctx.yield(1);
-
-            ctx.setRef("Window");
-            try ctx.expectItemExists("test");
-            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
-
-            ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: test");
-            try ctx.expectItemExists("path: test");
-            try ctx.expectItemExists("type: " ++ @typeName(@TypeOf(trail)));
-            try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
-            try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ size, size });
-            ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
-
-            ctx.setRef("Window");
-            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("test/offsets");
-            try ctx.expectItemExists("test/resolved: 123 (0x7B)");
-            ctx.itemClick("test/offsets", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
-
-            ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: offsets");
-            try ctx.expectItemExists("path: test.offsets");
-            try ctx.expectItemExists("type: []const ?usize");
-            try ctx.expectItemExists("address");
-            try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ @sizeOf([]const ?usize), @sizeOf([]const ?usize) });
-            ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
-
-            ctx.setRef("Window");
-            ctx.itemClick("test/resolved", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
-
-            ctx.setRef("//$FOCUSED");
-            try ctx.expectItemExists("label: resolved");
-            try ctx.expectItemExists("path: test.resolved");
-            try ctx.expectItemExists("type: ?usize");
-            try ctx.expectItemExists("address");
-            try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ @sizeOf(?usize), @sizeOf(?usize) });
-            try ctx.expectItemExists("value: 123 (0x7B)");
-            ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
-
-            ctx.setRef("Window");
-            ctx.itemClick("test/offsets", imgui.ImGuiMouseButton_Left, 0);
-            try ctx.expectItemExists("test/offsets/address");
-            try ctx.expectItemExists("test/offsets/len: 1 (0x1)");
-            try ctx.expectItemExists("test/offsets/0: 123 (0x7B)");
-
-            trail = .fromArray(.{ 123, null });
-            ctx.yield(1);
-
-            ctx.setRef("Window");
-            try ctx.expectItemExists("test/offsets/len: 1 (0x1)");
-            try ctx.expectItemExists("test/offsets/0: 123 (0x7B)");
-            try ctx.expectItemExists("test/offsets/1: null");
-            try ctx.expectItemExists("test/resolved: null");
-        }
-    };
-    const context = try sdk.ui.getTestingContext();
-    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
-}
-
 test "should draw converted value correctly" {
     const Test = struct {
         var converted: sdk.memory.ConvertedValue(i32, i64, rawToValue, null) = .{ .raw = 123 };
@@ -1972,10 +1929,10 @@ test "should draw struct proxy correctly" {
     const Test = struct {
         var proxy: sdk.memory.StructProxy(Struct) = .{
             .base_trail = .fromArray(.{}),
-            .field_offsets = .{
-                .field_1 = @offsetOf(Struct, "field_1"),
-                .field_2 = @offsetOf(Struct, "field_2"),
-                .field_3 = @offsetOf(Struct, "field_3"),
+            .field_trails = .{
+                .field_1 = .fromArray(.{@offsetOf(Struct, "field_1")}),
+                .field_2 = .fromArray(.{@offsetOf(Struct, "field_2")}),
+                .field_3 = .fromArray(.{@offsetOf(Struct, "field_3")}),
             },
         };
         var value: Struct = .{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
@@ -2057,12 +2014,24 @@ test "should draw struct proxy correctly" {
             try ctx.expectItemExists("value: 2 (0x2)");
             ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
 
-            proxy.field_offsets.field_3 = null;
+            proxy.field_trails.field_3 = .fromArray(.{null});
             ctx.yield(1);
 
             ctx.setRef("Window");
             try ctx.expectItemExists("test/field_offsets/field_3: null");
             try ctx.expectItemExists("test/value/field_3: not readable");
+
+            proxy.field_trails.field_3 = .fromArray(.{ null, 5 });
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            ctx.itemClick("test/field_offsets/field_3", imgui.ImGuiMouseButton_Left, 0);
+            ctx.itemClick("test/field_offsets/field_3/offsets", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/field_offsets/field_3/offsets/address");
+            try ctx.expectItemExists("test/field_offsets/field_3/offsets/len: 2 (0x2)");
+            try ctx.expectItemExists("test/field_offsets/field_3/offsets/0: null");
+            try ctx.expectItemExists("test/field_offsets/field_3/offsets/1: 5 (0x5)");
+            try ctx.expectItemExists("test/field_offsets/field_3/resolved");
 
             proxy.base_trail = .fromArray(.{null});
             ctx.yield(1);

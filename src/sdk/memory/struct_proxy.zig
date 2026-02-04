@@ -12,20 +12,20 @@ pub fn StructProxy(comptime Struct: type) type {
     };
     return struct {
         base_trail: memory.PointerTrail,
-        field_offsets: FieldOffsets,
+        field_trails: FieldTrails,
 
         const Self = @This();
-        const FieldOffsets = misc.FieldMap(Struct, ?usize, null);
+        pub const FieldTrails = misc.FieldMap(Struct, memory.PointerTrail, null);
         pub const tag = struct_proxy_tag;
         pub const Child = Struct;
 
         pub fn findBaseAddress(self: *const Self) ?usize {
-            return self.base_trail.resolve();
+            return self.base_trail.resolve(0);
         }
 
         pub fn findFieldAddress(self: *const Self, comptime field_name: []const u8) ?usize {
             const base_address = self.findBaseAddress() orelse return null;
-            return findFieldAddressInternal(base_address, &self.field_offsets, field_name);
+            return findFieldAddressInternal(base_address, &self.field_trails, field_name);
         }
 
         pub fn findConstFieldPointer(
@@ -33,7 +33,7 @@ pub fn StructProxy(comptime Struct: type) type {
             comptime field_name: []const u8,
         ) ?*const @FieldType(Struct, field_name) {
             const base_address = self.findBaseAddress() orelse return null;
-            return findConstFieldPointerInternal(base_address, &self.field_offsets, field_name);
+            return findConstFieldPointerInternal(base_address, &self.field_trails, field_name);
         }
 
         pub fn findMutableFieldPointer(
@@ -41,14 +41,14 @@ pub fn StructProxy(comptime Struct: type) type {
             comptime field_name: []const u8,
         ) ?*@FieldType(Struct, field_name) {
             const base_address = self.findBaseAddress() orelse return null;
-            return findMutableFieldPointerInternal(base_address, &self.field_offsets, field_name);
+            return findMutableFieldPointerInternal(base_address, &self.field_trails, field_name);
         }
 
         pub fn takeFullCopy(self: *const Self) ?Struct {
             const base_address = self.findBaseAddress() orelse return null;
             var copy: Struct = undefined;
             inline for (struct_fields) |*field| {
-                if (findConstFieldPointerInternal(base_address, &self.field_offsets, field.name)) |field_pointer| {
+                if (findConstFieldPointerInternal(base_address, &self.field_trails, field.name)) |field_pointer| {
                     @field(copy, field.name) = field_pointer.*;
                 } else {
                     return null;
@@ -61,7 +61,7 @@ pub fn StructProxy(comptime Struct: type) type {
             const base_address = self.findBaseAddress() orelse return .{};
             var copy: misc.Partial(Struct) = undefined;
             inline for (struct_fields) |*field| {
-                if (findConstFieldPointerInternal(base_address, &self.field_offsets, field.name)) |field_pointer| {
+                if (findConstFieldPointerInternal(base_address, &self.field_trails, field.name)) |field_pointer| {
                     @field(copy, field.name) = field_pointer.*;
                 } else {
                     @field(copy, field.name) = null;
@@ -73,11 +73,22 @@ pub fn StructProxy(comptime Struct: type) type {
         pub fn findSizeFromMaxOffset(self: *const Self) usize {
             var max: usize = 0;
             inline for (struct_fields) |*field| {
-                if (@field(self.field_offsets, field.name)) |offset| {
-                    const result = @addWithOverflow(offset, @sizeOf(field.type));
-                    if (result[1] == 0 and result[0] > max) {
-                        max = result[0];
-                    }
+                const trail: *const memory.PointerTrail = &@field(self.field_trails, field.name);
+                const offsets = trail.getOffsets();
+                switch (offsets.len) {
+                    0 => {},
+                    1 => if (offsets[0]) |offset| {
+                        const result = @addWithOverflow(offset, @sizeOf(field.type));
+                        if (result[1] == 0 and result[0] > max) {
+                            max = result[0];
+                        }
+                    },
+                    else => if (offsets[0]) |offset| {
+                        const result = @addWithOverflow(offset, @sizeOf(usize));
+                        if (result[1] == 0 and result[0] > max) {
+                            max = result[0];
+                        }
+                    },
                 }
             }
             return max;
@@ -85,24 +96,20 @@ pub fn StructProxy(comptime Struct: type) type {
 
         fn findFieldAddressInternal(
             base_address: usize,
-            field_offsets: *const FieldOffsets,
+            field_trails: *const FieldTrails,
             comptime field_name: []const u8,
         ) ?usize {
-            const field_offset = @field(field_offsets, field_name) orelse return null;
-            const add_result = @addWithOverflow(base_address, field_offset);
-            if (add_result[1] == 1) {
-                return null;
-            }
-            return add_result[0];
+            const field_trail: memory.PointerTrail = @field(field_trails, field_name);
+            return field_trail.resolve(base_address);
         }
 
         fn findConstFieldPointerInternal(
             base_address: usize,
-            field_offsets: *const FieldOffsets,
+            field_trails: *const FieldTrails,
             comptime field_name: []const u8,
         ) ?*const @FieldType(Struct, field_name) {
             const Field = @FieldType(Struct, field_name);
-            const address = findFieldAddressInternal(base_address, field_offsets, field_name) orelse return null;
+            const address = findFieldAddressInternal(base_address, field_trails, field_name) orelse return null;
             if (address % @alignOf(Field) != 0) {
                 return null;
             }
@@ -114,11 +121,11 @@ pub fn StructProxy(comptime Struct: type) type {
 
         fn findMutableFieldPointerInternal(
             base_address: usize,
-            field_offsets: *const FieldOffsets,
+            field_trails: *const FieldTrails,
             comptime field_name: []const u8,
         ) ?*@FieldType(Struct, field_name) {
             const Field = @FieldType(Struct, field_name);
-            const address = findFieldAddressInternal(base_address, field_offsets, field_name) orelse return null;
+            const address = findFieldAddressInternal(base_address, field_trails, field_name) orelse return null;
             if (address % @alignOf(Field) != 0) {
                 return null;
             }
@@ -136,7 +143,7 @@ test "findBaseAddress should return a value when base trail is resolvable" {
     const Struct = struct {};
     const proxy = StructProxy(Struct){
         .base_trail = .fromArray(.{12345}),
-        .field_offsets = .{},
+        .field_trails = .{},
     };
     try testing.expectEqual(12345, proxy.findBaseAddress());
 }
@@ -145,55 +152,87 @@ test "findBaseAddress should return null when base trail is not resolvable" {
     const Struct = struct {};
     const proxy = StructProxy(Struct){
         .base_trail = .fromArray(.{ 0, 100 }),
-        .field_offsets = .{},
+        .field_trails = .{},
     };
     try testing.expectEqual(null, proxy.findBaseAddress());
 }
 
-test "findFieldAddress should return a value when findBaseAddress succeeds and field offset exists and does not overflow" {
+test "findFieldAddress should return a value when findBaseAddress succeeds and field trail is resolvable" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
-    const proxy = StructProxy(Struct){
+    const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
+    const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{100}),
-        .field_offsets = .{ .field_1 = 10, .field_2 = 20, .field_3 = 30 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{10}),
+            .field_2 = .fromArray(.{20}),
+            .field_3 = .fromArray(.{30}),
+        },
     };
-    try testing.expectEqual(110, proxy.findFieldAddress("field_1"));
-    try testing.expectEqual(120, proxy.findFieldAddress("field_2"));
-    try testing.expectEqual(130, proxy.findFieldAddress("field_3"));
+    const proxy_2 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&&value)}),
+        .field_trails = .{
+            .field_1 = .fromArray(.{ 0, 10 }),
+            .field_2 = .fromArray(.{ 0, 20 }),
+            .field_3 = .fromArray(.{ 0, 30 }),
+        },
+    };
+    try testing.expectEqual(110, proxy_1.findFieldAddress("field_1"));
+    try testing.expectEqual(120, proxy_1.findFieldAddress("field_2"));
+    try testing.expectEqual(130, proxy_1.findFieldAddress("field_3"));
+    try testing.expectEqual(@intFromPtr(&value) + 10, proxy_2.findFieldAddress("field_1"));
+    try testing.expectEqual(@intFromPtr(&value) + 20, proxy_2.findFieldAddress("field_2"));
+    try testing.expectEqual(@intFromPtr(&value) + 30, proxy_2.findFieldAddress("field_3"));
 }
 
-test "findFieldAddress should return null when findBaseAddress fails or field offset is null or overflows" {
+test "findFieldAddress should return null when findBaseAddress fails or field trail is not resolvable" {
     const Struct = struct { field: u8 };
     const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{ 0, 100 }),
-        .field_offsets = .{ .field = 10 },
+        .field_trails = .{ .field = .fromArray(.{10}) },
     };
     const proxy_2 = StructProxy(Struct){
         .base_trail = .fromArray(.{100}),
-        .field_offsets = .{ .field = null },
+        .field_trails = .{ .field = .fromArray(.{null}) },
     };
     const proxy_3 = StructProxy(Struct){
         .base_trail = .fromArray(.{100}),
-        .field_offsets = .{ .field = std.math.maxInt(usize) },
+        .field_trails = .{ .field = .fromArray(.{std.math.maxInt(usize)}) },
+    };
+    const proxy_4 = StructProxy(Struct){
+        .base_trail = .fromArray(.{0}),
+        .field_trails = .{ .field = .fromArray(.{ 0, 10 }) },
     };
     try testing.expectEqual(null, proxy_1.findFieldAddress("field"));
     try testing.expectEqual(null, proxy_2.findFieldAddress("field"));
     try testing.expectEqual(null, proxy_3.findFieldAddress("field"));
+    try testing.expectEqual(null, proxy_4.findFieldAddress("field"));
 }
 
 test "findConstFieldPointer should return a pointer when findFieldAddress succeeds, address is aligned and memory is readable" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
-    const proxy = StructProxy(Struct){
+    const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{
-            .field_1 = @offsetOf(Struct, "field_1"),
-            .field_2 = @offsetOf(Struct, "field_2"),
-            .field_3 = @offsetOf(Struct, "field_3"),
+        .field_trails = .{
+            .field_1 = .fromArray(.{@offsetOf(Struct, "field_1")}),
+            .field_2 = .fromArray(.{@offsetOf(Struct, "field_2")}),
+            .field_3 = .fromArray(.{@offsetOf(Struct, "field_3")}),
         },
     };
-    try testing.expectEqual(&value.field_1, proxy.findConstFieldPointer("field_1"));
-    try testing.expectEqual(&value.field_2, proxy.findConstFieldPointer("field_2"));
-    try testing.expectEqual(&value.field_3, proxy.findConstFieldPointer("field_3"));
+    const proxy_2 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&&value)}),
+        .field_trails = .{
+            .field_1 = .fromArray(.{ 0, @offsetOf(Struct, "field_1") }),
+            .field_2 = .fromArray(.{ 0, @offsetOf(Struct, "field_2") }),
+            .field_3 = .fromArray(.{ 0, @offsetOf(Struct, "field_3") }),
+        },
+    };
+    try testing.expectEqual(&value.field_1, proxy_1.findConstFieldPointer("field_1"));
+    try testing.expectEqual(&value.field_2, proxy_1.findConstFieldPointer("field_2"));
+    try testing.expectEqual(&value.field_3, proxy_1.findConstFieldPointer("field_3"));
+    try testing.expectEqual(&value.field_1, proxy_2.findConstFieldPointer("field_1"));
+    try testing.expectEqual(&value.field_2, proxy_2.findConstFieldPointer("field_2"));
+    try testing.expectEqual(&value.field_3, proxy_2.findConstFieldPointer("field_3"));
 }
 
 test "findConstFieldPointer should return null when findFieldAddress fails, address is misaligned or memory is not readable" {
@@ -203,19 +242,31 @@ test "findConstFieldPointer should return null when findFieldAddress fails, addr
     const value = Struct{ .field_1 = 1, .field_2 = 2 };
     const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{ 0, 100 }),
-        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_2 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{ .field_1 = std.math.maxInt(usize), .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{std.math.maxInt(usize)}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_3 = StructProxy(Struct){
         .base_trail = .fromArray(.{0}),
-        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_4 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{ .field_1 = offset_1 + 1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1 + 1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     try testing.expectEqual(null, proxy_1.findConstFieldPointer("field_1"));
     try testing.expectEqual(null, proxy_2.findConstFieldPointer("field_1"));
@@ -226,17 +277,28 @@ test "findConstFieldPointer should return null when findFieldAddress fails, addr
 test "findMutableFieldPointer should return a pointer when findFieldAddress succeeds, address is aligned and memory is writable" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     var value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
-    const proxy = StructProxy(Struct){
+    const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{
-            .field_1 = @offsetOf(Struct, "field_1"),
-            .field_2 = @offsetOf(Struct, "field_2"),
-            .field_3 = @offsetOf(Struct, "field_3"),
+        .field_trails = .{
+            .field_1 = .fromArray(.{@offsetOf(Struct, "field_1")}),
+            .field_2 = .fromArray(.{@offsetOf(Struct, "field_2")}),
+            .field_3 = .fromArray(.{@offsetOf(Struct, "field_3")}),
         },
     };
-    try testing.expectEqual(&value.field_1, proxy.findMutableFieldPointer("field_1"));
-    try testing.expectEqual(&value.field_2, proxy.findMutableFieldPointer("field_2"));
-    try testing.expectEqual(&value.field_3, proxy.findMutableFieldPointer("field_3"));
+    const proxy_2 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&&value)}),
+        .field_trails = .{
+            .field_1 = .fromArray(.{ 0, @offsetOf(Struct, "field_1") }),
+            .field_2 = .fromArray(.{ 0, @offsetOf(Struct, "field_2") }),
+            .field_3 = .fromArray(.{ 0, @offsetOf(Struct, "field_3") }),
+        },
+    };
+    try testing.expectEqual(&value.field_1, proxy_1.findMutableFieldPointer("field_1"));
+    try testing.expectEqual(&value.field_2, proxy_1.findMutableFieldPointer("field_2"));
+    try testing.expectEqual(&value.field_3, proxy_1.findMutableFieldPointer("field_3"));
+    try testing.expectEqual(&value.field_1, proxy_2.findMutableFieldPointer("field_1"));
+    try testing.expectEqual(&value.field_2, proxy_2.findMutableFieldPointer("field_2"));
+    try testing.expectEqual(&value.field_3, proxy_2.findMutableFieldPointer("field_3"));
 }
 
 test "findMutableFieldPointer should return null when findFieldAddress fails, address is misaligned or memory is not writeable" {
@@ -247,23 +309,38 @@ test "findMutableFieldPointer should return null when findFieldAddress fails, ad
     var var_value = Struct{ .field_1 = 1, .field_2 = 2 };
     const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{ 0, 100 }),
-        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_2 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&var_value)}),
-        .field_offsets = .{ .field_1 = std.math.maxInt(usize), .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{std.math.maxInt(usize)}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_3 = StructProxy(Struct){
         .base_trail = .fromArray(.{0}),
-        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_4 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&var_value)}),
-        .field_offsets = .{ .field_1 = offset_1 + 1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1 + 1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     const proxy_5 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&const_value)}),
-        .field_offsets = .{ .field_1 = offset_1, .field_2 = offset_2 },
+        .field_trails = .{
+            .field_1 = .fromArray(.{offset_1}),
+            .field_2 = .fromArray(.{offset_2}),
+        },
     };
     try testing.expectEqual(null, proxy_1.findMutableFieldPointer("field_1"));
     try testing.expectEqual(null, proxy_2.findMutableFieldPointer("field_1"));
@@ -275,17 +352,28 @@ test "findMutableFieldPointer should return null when findFieldAddress fails, ad
 test "takeFullCopy should return struct copy when findConstFieldPointer succeeds for every field of the struct" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
-    const proxy = StructProxy(Struct){
+    const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{
-            .field_1 = @offsetOf(Struct, "field_1"),
-            .field_2 = @offsetOf(Struct, "field_2"),
-            .field_3 = @offsetOf(Struct, "field_3"),
+        .field_trails = .{
+            .field_1 = .fromArray(.{@offsetOf(Struct, "field_1")}),
+            .field_2 = .fromArray(.{@offsetOf(Struct, "field_2")}),
+            .field_3 = .fromArray(.{@offsetOf(Struct, "field_3")}),
         },
     };
-    const copy = proxy.takeFullCopy();
-    try testing.expect(copy != null);
-    try testing.expectEqual(value, copy.?);
+    const proxy_2 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&&value)}),
+        .field_trails = .{
+            .field_1 = .fromArray(.{ 0, @offsetOf(Struct, "field_1") }),
+            .field_2 = .fromArray(.{ 0, @offsetOf(Struct, "field_2") }),
+            .field_3 = .fromArray(.{ 0, @offsetOf(Struct, "field_3") }),
+        },
+    };
+    const copy_1 = proxy_1.takeFullCopy();
+    const copy_2 = proxy_2.takeFullCopy();
+    try testing.expect(copy_1 != null);
+    try testing.expectEqual(value, copy_1.?);
+    try testing.expect(copy_2 != null);
+    try testing.expectEqual(value, copy_2.?);
 }
 
 test "takeFullCopy should return null when findConstFieldPointer fails for at least one field of the struct" {
@@ -293,10 +381,10 @@ test "takeFullCopy should return null when findConstFieldPointer fails for at le
     const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
     const proxy = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{
-            .field_1 = @offsetOf(Struct, "field_1"),
-            .field_2 = @offsetOf(Struct, "field_2"),
-            .field_3 = std.math.maxInt(usize),
+        .field_trails = .{
+            .field_1 = .fromArray(.{@offsetOf(Struct, "field_1")}),
+            .field_2 = .fromArray(.{@offsetOf(Struct, "field_2")}),
+            .field_3 = .fromArray(.{std.math.maxInt(usize)}),
         },
     };
     try testing.expectEqual(null, proxy.takeFullCopy());
@@ -306,23 +394,35 @@ test "takePartialCopy should return fields with ether copy or null depending on 
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
     const Partial = misc.Partial(Struct);
     const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
-    const proxy = StructProxy(Struct){
+    const proxy_1 = StructProxy(Struct){
         .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{
-            .field_1 = @offsetOf(Struct, "field_1"),
-            .field_2 = @offsetOf(Struct, "field_2"),
-            .field_3 = std.math.maxInt(usize),
+        .field_trails = .{
+            .field_1 = .fromArray(.{@offsetOf(Struct, "field_1")}),
+            .field_2 = .fromArray(.{std.math.maxInt(usize)}),
+            .field_3 = .fromArray(.{@offsetOf(Struct, "field_3")}),
         },
     };
-    try testing.expectEqual(Partial{ .field_1 = 1, .field_2 = 2, .field_3 = null }, proxy.takePartialCopy());
+    const proxy_2 = StructProxy(Struct){
+        .base_trail = .fromArray(.{@intFromPtr(&&value)}),
+        .field_trails = .{
+            .field_1 = .fromArray(.{ 0, @offsetOf(Struct, "field_1") }),
+            .field_2 = .fromArray(.{ 0, @offsetOf(Struct, "field_2") }),
+            .field_3 = .fromArray(.{ 0, std.math.maxInt(usize) }),
+        },
+    };
+    try testing.expectEqual(Partial{ .field_1 = 1, .field_2 = null, .field_3 = 3 }, proxy_1.takePartialCopy());
+    try testing.expectEqual(Partial{ .field_1 = 1, .field_2 = 2, .field_3 = null }, proxy_2.takePartialCopy());
 }
 
 test "findSizeFromMaxOffset should return correct value" {
     const Struct = struct { field_1: u8, field_2: u16, field_3: u32 };
-    const value = Struct{ .field_1 = 1, .field_2 = 2, .field_3 = 3 };
     const proxy = StructProxy(Struct){
-        .base_trail = .fromArray(.{@intFromPtr(&value)}),
-        .field_offsets = .{ .field_1 = 10, .field_2 = 30, .field_3 = 20 },
+        .base_trail = .fromArray(.{}),
+        .field_trails = .{
+            .field_1 = .fromArray(.{ 10, 0 }),
+            .field_2 = .fromArray(.{30}),
+            .field_3 = .fromArray(.{20}),
+        },
     };
     try testing.expectEqual(32, proxy.findSizeFromMaxOffset());
 }

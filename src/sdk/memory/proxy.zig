@@ -17,7 +17,7 @@ pub fn Proxy(comptime Type: type) type {
         }
 
         pub fn findAddress(self: *const Self) ?usize {
-            return self.trail.resolve();
+            return self.trail.resolve(0);
         }
 
         pub fn toConstPointer(self: *const Self) ?*const Type {
