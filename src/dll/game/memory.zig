@@ -9,9 +9,8 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         player_1: sdk.memory.StructProxy(game.Player(game_id)),
         player_2: sdk.memory.StructProxy(game.Player(game_id)),
         camera: sdk.memory.Proxy(game.Camera(game_id)),
+        walls: [max_walls]sdk.memory.StructProxy(game.Wall(game_id)),
         functions: Functions,
-
-        var camera_manager_address: usize = 0;
 
         const Self = @This();
         pub const Functions = struct {
@@ -34,6 +33,12 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         };
 
         const pattern_cache_file_name = "pattern_cache_" ++ @tagName(game_id) ++ ".json";
+        const max_walls = 136;
+
+        var camera_manager_class: ?*const game.UnrealClass = null;
+        var camera_manager_address: usize = 0;
+        var wall_class: ?*const game.UnrealClass = null;
+        var wall_addresses: [max_walls]usize = [1]usize{0} ** max_walls;
 
         pub fn init(allocator: std.mem.Allocator, base_dir: ?*const sdk.misc.BaseDir) Self {
             var cache = initPatternCache(allocator, base_dir, pattern_cache_file_name) catch |err| block: {
@@ -52,6 +57,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
 
         pub fn updateUnrealActorAddresses(self: *const Self) void {
             self.updateCameraManagerAddress();
+            self.updateWallAddresses();
         }
 
         pub fn takePartialCopy(self: *const Self) PartialCopy {
@@ -92,6 +98,12 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .collision_spheres = 0x10D0,
                 .health = 0x14E8,
             });
+            const wall_offsets = structOffsets(game.Wall(.t7), .{
+                .relative_position = .{ 0x160, 0x180 },
+                .relative_rotation = .{ 0x160, 0x18C },
+                .relative_scale = .{ 0x160, 0x1C0 },
+                .floor_number = 0x390,
+            });
             return .{
                 .player_1 = structProxy("player_1", game.Player(.t7), .{
                     relativeOffset(u32, add(0x3, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
@@ -105,6 +117,18 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     @intFromPtr(&camera_manager_address),
                     0x03F8,
                 }),
+                .walls = block: {
+                    var walls: [max_walls]sdk.memory.StructProxy(game.Wall(.t7)) = undefined;
+                    for (0..max_walls) |index| {
+                        var buffer: [32]u8 = undefined;
+                        const name = std.fmt.bufPrint(&buffer, "walls.{}", .{index}) catch "walls.error";
+                        walls[index] = structProxy(name, game.Wall(.t7), .{
+                            @intFromPtr(&wall_addresses[index]),
+                            0x0,
+                        }, wall_offsets);
+                    }
+                    break :block walls;
+                },
                 .functions = .{
                     .tick = functionPointer(
                         "tick",
@@ -172,6 +196,12 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .collision_spheres = 0x3090,
                 .health = 0x3810,
             });
+            const wall_offsets = structOffsets(game.Wall(.t8), .{
+                .relative_position = .{ 0x1A0, 0x128 },
+                .relative_rotation = .{ 0x1A0, 0x140 },
+                .relative_scale = .{ 0x1A0, 0x158 },
+                .floor_number = 0x2B8,
+            });
             const self = Self{
                 .player_1 = structProxy("player_1", game.Player(.t8), .{
                     relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
@@ -187,6 +217,18 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     @intFromPtr(&camera_manager_address),
                     0x22D0,
                 }),
+                .walls = block: {
+                    var walls: [max_walls]sdk.memory.StructProxy(game.Wall(.t8)) = undefined;
+                    for (0..max_walls) |index| {
+                        var buffer: [32]u8 = undefined;
+                        const name = std.fmt.bufPrint(&buffer, "walls.{}", .{index}) catch "walls.error";
+                        walls[index] = structProxy(name, game.Wall(.t8), .{
+                            @intFromPtr(&wall_addresses[index]),
+                            0x0,
+                        }, wall_offsets);
+                    }
+                    break :block walls;
+                },
                 .functions = .{
                     .tick = functionPointer(
                         "tick",
@@ -287,12 +329,16 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         }
 
         fn updateCameraManagerAddress(self: *const Self) void {
-            const w = std.unicode.utf8ToUtf16LeStringLiteral;
             const findUnrealClass = self.functions.findUnrealClass orelse return;
             const findUnrealObjectsOfClass = self.functions.findUnrealObjectsOfClass orelse return;
             const unrealFree = self.functions.unrealFree orelse return;
 
-            const class = findUnrealClass(null, w("/Script/Engine.PlayerCameraManager"), true) orelse return;
+            const class = camera_manager_class orelse block: {
+                const name = std.unicode.utf8ToUtf16LeStringLiteral("/Script/Engine.PlayerCameraManager");
+                const class = findUnrealClass(null, name, true) orelse return;
+                camera_manager_class = class;
+                break :block class;
+            };
             var list = game.UnrealArrayList(*game.UnrealObject).empty;
             findUnrealObjectsOfClass(class, &list, true, .default_exclude, .{});
             defer list.free(unrealFree);
@@ -302,6 +348,32 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 camera_manager_address = @intFromPtr(slice[0]);
             } else {
                 camera_manager_address = 0;
+            }
+        }
+
+        fn updateWallAddresses(self: *const Self) void {
+            const findUnrealClass = self.functions.findUnrealClass orelse return;
+            const findUnrealObjectsOfClass = self.functions.findUnrealObjectsOfClass orelse return;
+            const unrealFree = self.functions.unrealFree orelse return;
+
+            const class = wall_class orelse block: {
+                const name = switch (game_id) {
+                    .t7 => std.unicode.utf8ToUtf16LeStringLiteral("/Script/TekkenGame.TekkenWallActor"),
+                    .t8 => std.unicode.utf8ToUtf16LeStringLiteral("/Script/Polaris.PolarisStageWallActor"),
+                };
+                const class = findUnrealClass(null, name, true) orelse return;
+                wall_class = class;
+                break :block class;
+            };
+            var list = game.UnrealArrayList(*game.UnrealObject).empty;
+            findUnrealObjectsOfClass(class, &list, true, .default_exclude, .{});
+            defer list.free(unrealFree);
+
+            const slice = list.asSlice();
+            const capped_slice = if (slice.len <= max_walls) slice else slice[0..max_walls];
+            wall_addresses = [1]usize{0} ** max_walls;
+            for (capped_slice, 0..) |object, index| {
+                wall_addresses[index] = @intFromPtr(object);
             }
         }
     };

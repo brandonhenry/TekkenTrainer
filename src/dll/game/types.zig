@@ -419,6 +419,19 @@ pub fn Camera(comptime game_id: build_info.Game) type {
     );
 }
 
+pub fn Wall(comptime game_id: build_info.Game) type {
+    const Float = switch (game_id) {
+        .t7 => f32,
+        .t8 => f64,
+    };
+    return struct {
+        relative_position: sdk.math.Vector(3, Float),
+        relative_rotation: sdk.math.Vector(3, Float),
+        relative_scale: sdk.math.Vector(3, Float),
+        floor_number: u32,
+    };
+}
+
 // UE: TArray
 pub fn UnrealArrayList(comptime Element: type) type {
     return extern struct {

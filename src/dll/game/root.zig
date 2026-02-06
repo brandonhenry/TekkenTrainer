@@ -46,6 +46,7 @@ pub const Player = @import("types.zig").Player;
 pub const RawCamera = @import("types.zig").RawCamera;
 pub const ConvertedCamera = @import("types.zig").ConvertedCamera;
 pub const Camera = @import("types.zig").Camera;
+pub const Wall = @import("types.zig").Wall;
 pub const UnrealArrayList = @import("types.zig").UnrealArrayList;
 pub const UnrealObjectFlags = @import("types.zig").UnrealObjectFlags;
 pub const UnrealInternalObjectFlags = @import("types.zig").UnrealInternalObjectFlags;
