@@ -11,6 +11,33 @@ pub const conversion_globals = struct {
     pub var decryptT8Health: ?*const game.DecryptT8HealthFunction = null;
 };
 
+pub fn floatCast(comptime From: type, comptime To: type) *const fn (value: From) To {
+    return struct {
+        fn floatCast(value: From) To {
+            if (From == To) {
+                return value;
+            }
+            return @floatCast(value);
+        }
+    }.floatCast;
+}
+
+pub fn degreesToRadians(comptime Type: type) *const fn (value: Type) Type {
+    return struct {
+        fn floatCast(value: Type) Type {
+            return std.math.degreesToRadians(value);
+        }
+    }.floatCast;
+}
+
+pub fn radiansToDegrees(comptime Type: type) *const fn (value: Type) Type {
+    return struct {
+        fn floatCast(value: Type) Type {
+            return std.math.radiansToDegrees(value);
+        }
+    }.floatCast;
+}
+
 pub fn scaleToUnrealSpace(value: f32) f32 {
     return value * to_unreal_scale;
 }
@@ -305,45 +332,153 @@ pub fn decryptT8Health(value: game.Health(.t8)) ?i32 {
     return @intCast(shifted >> 16);
 }
 
-pub fn rawToConvertedCamera(
-    comptime game_id: build_info.Game,
-) *const fn (value: game.RawCamera(game_id)) game.ConvertedCamera {
+pub fn composeConversions(comptime steps: anytype) *const ComposedFunction(@TypeOf(steps)) {
+    const Steps = @TypeOf(steps);
+    const types = Composition(Steps);
+    const fields = switch (@typeInfo(Steps)) {
+        .@"struct" => |*info| info.fields,
+        else => @compileError("Expected steps to be a tuple struct but got: " ++ @typeName(Steps)),
+    };
     return struct {
-        fn rawToConvertedCamera(value: game.RawCamera(game_id)) game.ConvertedCamera {
-            return .{
-                .position = .fromArray(.{
-                    @floatCast(value.position.array[0]),
-                    @floatCast(value.position.array[1]),
-                    @floatCast(value.position.array[2]),
-                }),
-                .pitch = @floatCast(std.math.degreesToRadians(value.pitch)),
-                .yaw = @floatCast(std.math.degreesToRadians(value.yaw)),
-                .roll = @floatCast(std.math.degreesToRadians(value.roll)),
-            };
+        fn composeConversions(value: types[0]) types[fields.len] {
+            var current_value_pointer: *const anyopaque = &value;
+            inline for (0..fields.len) |index| {
+                const casted: *const types[index] = @ptrCast(@alignCast(current_value_pointer));
+                const intermediate_value = steps[index](casted.*);
+                current_value_pointer = &intermediate_value;
+            }
+            const casted: *const types[fields.len] = @ptrCast(@alignCast(current_value_pointer));
+            return casted.*;
         }
-    }.rawToConvertedCamera;
+    }.composeConversions;
 }
 
-pub fn convertedToRawCamera(
-    comptime game_id: build_info.Game,
-) *const fn (value: game.ConvertedCamera) game.RawCamera(game_id) {
-    return struct {
-        fn convertedToRawCamera(value: game.ConvertedCamera) game.RawCamera(game_id) {
-            return .{
-                .position = .fromArray(.{
-                    @floatCast(value.position.array[0]),
-                    @floatCast(value.position.array[1]),
-                    @floatCast(value.position.array[2]),
-                }),
-                .pitch = @floatCast(std.math.radiansToDegrees(value.pitch)),
-                .yaw = @floatCast(std.math.radiansToDegrees(value.yaw)),
-                .roll = @floatCast(std.math.radiansToDegrees(value.roll)),
-            };
+fn ComposedFunction(comptime Steps: type) type {
+    const types = Composition(Steps);
+    return fn (value: types[0]) types[types.len - 1];
+}
+
+fn Composition(comptime Steps: type) [@typeInfo(Steps).@"struct".fields.len + 1]type {
+    const tuple_info = switch (@typeInfo(Steps)) {
+        .@"struct" => |*info| info,
+        else => @compileError("Expected steps to be a tuple struct but got: " ++ @typeName(Steps)),
+    };
+    if (!tuple_info.is_tuple) {
+        @compileError("Expected steps to be a tuple struct but got: " ++ @typeName(Steps));
+    }
+    if (tuple_info.fields.len == 0) {
+        @compileError("Expected steps to contain at least one element but found empty tuple.");
+    }
+    var types: [tuple_info.fields.len + 1]type = undefined;
+    for (tuple_info.fields, 0..) |field, index| {
+        const function_info: *const std.builtin.Type.Fn = switch (@typeInfo(field.type)) {
+            .@"fn" => |*info| info,
+            .pointer => |*pointer_info| switch (@typeInfo(pointer_info.child)) {
+                .@"fn" => |*info| info,
+                else => @compileError(std.fmt.comptimePrint(
+                    "Expecting steps at index {} to be a pointer to a function with 1 parameter but got: {s}",
+                    .{ index, @typeName(field.type) },
+                )),
+            },
+            else => @compileError(std.fmt.comptimePrint(
+                "Expecting steps at index {} to be a pointer to a function with 1 parameter but got: {s}",
+                .{ index, @typeName(field.type) },
+            )),
+        };
+        if (function_info.params.len != 1) {
+            @compileError(std.fmt.comptimePrint(
+                "Expecting steps at index {} to be a pointer to a function with 1 parameter but got: {s}",
+                .{ index, @typeName(field.type) },
+            ));
         }
-    }.convertedToRawCamera;
+        const Parameter = function_info.params[0].type orelse void;
+        if (index == 0) {
+            types[0] = Parameter;
+        } else {
+            const LastReturn = types[index];
+            if (Parameter != LastReturn) {
+                @compileError(std.fmt.comptimePrint(
+                    "Step at index {} takes a parameter of type \"{s}\" while previous step returns a value of type: {s}",
+                    .{ index, @typeName(Parameter), @typeName(LastReturn) },
+                ));
+            }
+        }
+        types[index + 1] = function_info.return_type orelse void;
+    }
+    return types;
+}
+
+pub fn convertEachVectorElement(
+    comptime size: usize,
+    convertElement: anytype,
+) block: {
+    const Parameter = ParameterOf(@TypeOf(convertElement));
+    const Return = ReturnValueOf(@TypeOf(convertElement));
+    break :block fn (value: sdk.math.Vector(size, Parameter)) sdk.math.Vector(size, Return);
+} {
+    const Parameter = ParameterOf(@TypeOf(convertElement));
+    const Return = ReturnValueOf(@TypeOf(convertElement));
+    return struct {
+        fn convertVectorElements(value: sdk.math.Vector(size, Parameter)) sdk.math.Vector(size, Return) {
+            var array: [size]Return = undefined;
+            for (value.array, 0..) |element, index| {
+                array[index] = convertElement(element);
+            }
+            return .fromArray(array);
+        }
+    }.convertVectorElements;
+}
+
+fn ParameterOf(comptime Function: type) type {
+    const info: *const std.builtin.Type.Fn = switch (@typeInfo(Function)) {
+        .@"fn" => |*info| info,
+        .pointer => |*pointer_info| switch (@typeInfo(pointer_info.child)) {
+            .@"fn" => |*info| info,
+            else => @compileError(
+                "Expecting a function type or a function pointer type but got: " ++ @typeName(Function),
+            ),
+        },
+        else => @compileError(
+            "Expecting a function type or a function pointer type but got: " ++ @typeName(Function),
+        ),
+    };
+    if (info.params.len != 1) {
+        @compileError("Expecting a function with exactly one parameter but got: " ++ @typeName(Function));
+    }
+    return info.params[0].type orelse void;
+}
+
+fn ReturnValueOf(comptime Function: type) type {
+    const info: *const std.builtin.Type.Fn = switch (@typeInfo(Function)) {
+        .@"fn" => |*info| info,
+        .pointer => |*pointer_info| switch (@typeInfo(pointer_info.child)) {
+            .@"fn" => |*info| info,
+            else => @compileError(
+                "Expecting a function type or a function pointer type but got: " ++ @typeName(Function),
+            ),
+        },
+        else => @compileError(
+            "Expecting a function type or a function pointer type but got: " ++ @typeName(Function),
+        ),
+    };
+    if (info.params.len != 1) {
+        @compileError("Expecting a function with exactly one parameter but got: " ++ @typeName(Function));
+    }
+    return info.return_type orelse void;
 }
 
 const testing = std.testing;
+
+test "floatCast should return the same value as a different float type" {
+    try testing.expectEqual(@as(f64, 123), floatCast(f32, f64)(@as(f32, 123)));
+    try testing.expectEqual(@as(f32, 456), floatCast(f64, f32)(@as(f64, 456)));
+    try testing.expectEqual(@as(f32, 789), floatCast(f32, f32)(@as(f64, 789)));
+}
+
+test "degreesToRadians and radiansToDegrees should cancel out" {
+    try testing.expectApproxEqAbs(123, degreesToRadians(f32)(radiansToDegrees(f32)(123)), 0.000001);
+    try testing.expectApproxEqAbs(456, radiansToDegrees(f64)(degreesToRadians(f64)(456)), 0.000001);
+}
 
 test "scaleToUnrealSpace and scaleFromUnrealSpace should cancel out" {
     const value: f32 = 123;
@@ -456,4 +591,64 @@ test "encryptT7Health and decryptT7Health should return correct value" {
     };
     try testing.expectEqual(encrypted, encryptT7Health(clear_text));
     try testing.expectEqual(clear_text, decryptT7Health(encrypted));
+}
+
+test "composeConversions should create a conversion function that is the composition of provided conversion functions" {
+    const Step1 = struct {
+        var times_called: usize = 0;
+        var last_argument: i32 = 0;
+        fn call(value: i32) u64 {
+            times_called += 1;
+            last_argument = value;
+            return @intCast(value * 2);
+        }
+    };
+    const Step2 = struct {
+        var times_called: usize = 0;
+        var last_argument: u64 = 0;
+        fn call(value: u64) f32 {
+            times_called += 1;
+            last_argument = value;
+            return @floatFromInt(@divFloor(value, 4));
+        }
+    };
+    const Step3 = struct {
+        var times_called: usize = 0;
+        var last_argument: f32 = 0;
+        fn call(value: f32) f64 {
+            times_called += 1;
+            last_argument = value;
+            return @floatCast(value * 8);
+        }
+    };
+
+    const composition = composeConversions(.{ Step1.call, Step2.call, Step3.call });
+    const result = composition(10);
+
+    try testing.expectEqual(1, Step1.times_called);
+    try testing.expectEqual(1, Step2.times_called);
+    try testing.expectEqual(1, Step3.times_called);
+    try testing.expectEqual(10, Step1.last_argument);
+    try testing.expectEqual(20, Step2.last_argument);
+    try testing.expectEqual(5, Step3.last_argument);
+    try testing.expectEqual(40, result);
+}
+
+test "convertEachVectorElement create a conversion function that applies the provided conversion for each vector element" {
+    const ConvertElement = struct {
+        var times_called: usize = 0;
+        var last_argument: f32 = 0;
+        fn call(value: f32) f64 {
+            times_called += 1;
+            last_argument = value;
+            return @floatCast(value * 2);
+        }
+    };
+
+    const convertVector = convertEachVectorElement(3, ConvertElement.call);
+    const result = convertVector(.fromArray(.{ 2, 4, 6 }));
+
+    try testing.expectEqual(3, ConvertElement.times_called);
+    try testing.expectEqual(6, ConvertElement.last_argument);
+    try testing.expectEqual(sdk.math.Vector(3, f64).fromArray(.{ 4, 8, 12 }), result);
 }

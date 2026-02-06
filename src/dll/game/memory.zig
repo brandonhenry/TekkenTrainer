@@ -8,7 +8,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
     return struct {
         player_1: sdk.memory.StructProxy(game.Player(game_id)),
         player_2: sdk.memory.StructProxy(game.Player(game_id)),
-        camera: sdk.memory.Proxy(game.Camera(game_id)),
+        camera_manager: sdk.memory.StructProxy(game.CameraManager(game_id)),
         walls: [max_walls]sdk.memory.StructProxy(game.Wall(game_id)),
         functions: Functions,
 
@@ -29,7 +29,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         pub const PartialCopy = struct {
             player_1: sdk.misc.Partial(game.Player(game_id)) = .{},
             player_2: sdk.misc.Partial(game.Player(game_id)) = .{},
-            camera: ?game.Camera(game_id) = null,
+            camera_manager: ?game.CameraManager(game_id) = null,
         };
 
         const pattern_cache_file_name = "pattern_cache_" ++ @tagName(game_id) ++ ".json";
@@ -64,7 +64,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             return .{
                 .player_1 = self.player_1.takePartialCopy(),
                 .player_2 = self.player_2.takePartialCopy(),
-                .camera = self.camera.takeCopy(),
+                .camera_manager = self.camera_manager.takeFullCopy(),
             };
         }
 
@@ -98,6 +98,10 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .collision_spheres = 0x10D0,
                 .health = 0x14E8,
             });
+            const camera_manager_offsets = structOffsets(game.CameraManager(.t7), .{
+                .position = 0x03F8,
+                .rotation = 0x404,
+            });
             const wall_offsets = structOffsets(game.Wall(.t7), .{
                 .relative_position = .{ 0x160, 0x180 },
                 .relative_rotation = .{ 0x160, 0x18C },
@@ -113,10 +117,10 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     relativeOffset(u32, add(0xD, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
                     0x0,
                 }, player_offsets),
-                .camera = proxy("camera", game.Camera(.t7), .{
+                .camera_manager = structProxy("camera_manager", game.CameraManager(.t7), .{
                     @intFromPtr(&camera_manager_address),
-                    0x03F8,
-                }),
+                    0x0,
+                }, camera_manager_offsets),
                 .walls = block: {
                     var walls: [max_walls]sdk.memory.StructProxy(game.Wall(.t7)) = undefined;
                     for (0..max_walls) |index| {
@@ -196,6 +200,10 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .collision_spheres = 0x3090,
                 .health = 0x3810,
             });
+            const camera_manager_offsets = structOffsets(game.CameraManager(.t7), .{
+                .position = 0x22D0,
+                .rotation = 0x22E8,
+            });
             const wall_offsets = structOffsets(game.Wall(.t8), .{
                 .relative_position = .{ 0x1A0, 0x128 },
                 .relative_rotation = .{ 0x1A0, 0x140 },
@@ -213,10 +221,10 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                     0x38,
                     0x0,
                 }, player_offsets),
-                .camera = proxy("camera", game.Camera(.t8), .{
+                .camera_manager = structProxy("camera_manager", game.CameraManager(.t8), .{
                     @intFromPtr(&camera_manager_address),
-                    0x22D0,
-                }),
+                    0x0,
+                }, camera_manager_offsets),
                 .walls = block: {
                     var walls: [max_walls]sdk.memory.StructProxy(game.Wall(.t8)) = undefined;
                     for (0..max_walls) |index| {

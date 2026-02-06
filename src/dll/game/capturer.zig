@@ -78,12 +78,14 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
         }
 
         fn captureCamera(game_memory: *const PartialGameMemory) ?model.Camera {
-            const camera = if (game_memory.camera) |c| c.convert() else return null;
+            const camera = if (game_memory.camera_manager) |c| c else return null;
+            const position = camera.position.convert();
+            const rotation = camera.rotation.convert();
             return .{
-                .position = camera.position,
-                .pitch = camera.pitch,
-                .yaw = camera.yaw,
-                .roll = camera.roll,
+                .position = position,
+                .pitch = rotation.x(),
+                .yaw = rotation.y(),
+                .roll = rotation.z(),
             };
         }
 
@@ -536,25 +538,27 @@ test "should capture camera correctly" {
         capturer.captureFrame(&.{
             .player_1 = .{},
             .player_2 = .{},
-            .camera = null,
+            .camera_manager = null,
         }).camera,
     );
     try testing.expectEqual(
         model.Camera{
             .position = .fromArray(.{ 1, 2, 3 }),
             .pitch = 0.25 * std.math.pi,
-            .roll = 0.5 * std.math.pi,
-            .yaw = 0.75 * std.math.pi,
+            .yaw = 0.5 * std.math.pi,
+            .roll = 0.75 * std.math.pi,
         },
         capturer.captureFrame(&.{
             .player_1 = .{},
             .player_2 = .{},
-            .camera = .fromConverted(.{
-                .position = .fromArray(.{ 1, 2, 3 }),
-                .pitch = 0.25 * std.math.pi,
-                .roll = 0.5 * std.math.pi,
-                .yaw = 0.75 * std.math.pi,
-            }),
+            .camera_manager = .{
+                .position = .fromConverted(.fromArray(.{ 1, 2, 3 })),
+                .rotation = .fromConverted(.fromArray(.{
+                    0.25 * std.math.pi,
+                    0.5 * std.math.pi,
+                    0.75 * std.math.pi,
+                })),
+            },
         }).camera,
     );
 }

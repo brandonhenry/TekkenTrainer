@@ -390,33 +390,31 @@ pub fn Player(comptime game_id: build_info.Game) type {
     };
 }
 
-pub fn RawCamera(comptime game_id: build_info.Game) type {
+pub fn CameraManager(comptime game_id: build_info.Game) type {
     const Float = switch (game_id) {
         .t7 => f32,
         .t8 => f64,
     };
-    return extern struct {
-        position: sdk.math.Vector(3, Float),
-        pitch: Float,
-        yaw: Float,
-        roll: Float,
+    return struct {
+        position: sdk.memory.ConvertedValue(
+            sdk.math.Vector(3, Float),
+            sdk.math.Vec3,
+            game.convertEachVectorElement(3, game.floatCast(Float, f32)),
+            game.convertEachVectorElement(3, game.floatCast(f32, Float)),
+        ),
+        rotation: sdk.memory.ConvertedValue(
+            sdk.math.Vector(3, Float),
+            sdk.math.Vec3,
+            game.convertEachVectorElement(3, game.composeConversions(.{
+                game.degreesToRadians(Float),
+                game.floatCast(Float, f32),
+            })),
+            game.convertEachVectorElement(3, game.composeConversions(.{
+                game.floatCast(f32, Float),
+                game.radiansToDegrees(Float),
+            })),
+        ),
     };
-}
-
-pub const ConvertedCamera = extern struct {
-    position: sdk.math.Vec3,
-    pitch: f32,
-    yaw: f32,
-    roll: f32,
-};
-
-pub fn Camera(comptime game_id: build_info.Game) type {
-    return sdk.memory.ConvertedValue(
-        RawCamera(game_id),
-        ConvertedCamera,
-        game.rawToConvertedCamera(game_id),
-        game.convertedToRawCamera(game_id),
-    );
 }
 
 pub fn Wall(comptime game_id: build_info.Game) type {
@@ -425,9 +423,30 @@ pub fn Wall(comptime game_id: build_info.Game) type {
         .t8 => f64,
     };
     return struct {
-        relative_position: sdk.math.Vector(3, Float),
-        relative_rotation: sdk.math.Vector(3, Float),
-        relative_scale: sdk.math.Vector(3, Float),
+        relative_position: sdk.memory.ConvertedValue(
+            sdk.math.Vector(3, Float),
+            sdk.math.Vec3,
+            game.convertEachVectorElement(3, game.floatCast(Float, f32)),
+            game.convertEachVectorElement(3, game.floatCast(f32, Float)),
+        ),
+        relative_rotation: sdk.memory.ConvertedValue(
+            sdk.math.Vector(3, Float),
+            sdk.math.Vec3,
+            game.convertEachVectorElement(3, game.composeConversions(.{
+                game.degreesToRadians(Float),
+                game.floatCast(Float, f32),
+            })),
+            game.convertEachVectorElement(3, game.composeConversions(.{
+                game.floatCast(f32, Float),
+                game.radiansToDegrees(Float),
+            })),
+        ),
+        relative_scale: sdk.memory.ConvertedValue(
+            sdk.math.Vector(3, Float),
+            sdk.math.Vec3,
+            game.convertEachVectorElement(3, game.floatCast(Float, f32)),
+            game.convertEachVectorElement(3, game.floatCast(f32, Float)),
+        ),
         floor_number: u32,
     };
 }
