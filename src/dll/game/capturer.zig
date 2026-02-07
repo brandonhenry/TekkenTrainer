@@ -31,6 +31,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             const left_player_id = captureLeftPlayerId(player_1, player_2, main_player_id);
             return .{
                 .frames_since_round_start = captureFramesSinceRoundStart(player_1, player_2),
+                .floor_number = captureFloorNumber(player_1, player_2),
                 .floor_z = captureFloorZ(player_1, player_2),
                 .players = .{
                     capturePlayer(&self.player_1_state, player_1),
@@ -50,6 +51,16 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 return player.frames_since_round_start;
             }
             return null;
+        }
+
+        fn captureFloorNumber(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?u32 {
+            if (player_1) |p1| {
+                return p1.floor_number;
+            } else if (player_2) |p2| {
+                return p2.floor_number;
+            } else {
+                return null;
+            }
         }
 
         fn captureFloorZ(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?f32 {
@@ -518,6 +529,39 @@ test "should capture floor Z correctly" {
             .player_1 = null,
             .player_2 = null,
         })).floor_z,
+    );
+}
+
+test "should capture floor number correctly" {
+    const gm = game.Memory(.t8).testingInit;
+    var capturer = Capturer(.t8){};
+    try testing.expectEqual(
+        123,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .floor_number = 123 },
+            .player_2 = &.{ .floor_number = 123 },
+        })).floor_number,
+    );
+    try testing.expectEqual(
+        123,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .floor_number = 123 },
+            .player_2 = null,
+        })).floor_number,
+    );
+    try testing.expectEqual(
+        123,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = &.{ .floor_number = 123 },
+        })).floor_number,
+    );
+    try testing.expectEqual(
+        null,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = null,
+        })).floor_number,
     );
 }
 
