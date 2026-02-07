@@ -10,6 +10,14 @@ pub fn Pointer(comptime Type: type) type {
         const Self = @This();
         pub const tag = pointer_tag;
 
+        pub fn fromPointer(pointer: ?*const Type) Self {
+            if (pointer) |p| {
+                return .{ .address = @intFromPtr(p) };
+            } else {
+                return .{ .address = 0 };
+            }
+        }
+
         pub fn toConstPointer(self: *const Self) ?*const Type {
             if (self.address % @alignOf(Type) != 0) {
                 return null;
@@ -36,6 +44,17 @@ const testing = std.testing;
 
 test "should have same size as a normal pointer" {
     try testing.expectEqual(@sizeOf(*u8), @sizeOf(Pointer(u8)));
+}
+
+test "fromPointer should return a instance with the same address as the raw pointer when it's provided" {
+    var memory_value: i32 = 123;
+    const pointer = Pointer(i32).fromPointer(&memory_value);
+    try testing.expectEqual(@intFromPtr(&memory_value), pointer.address);
+}
+
+test "fromPointer should return a instance address zero when null is provided" {
+    const pointer = Pointer(i32).fromPointer(null);
+    try testing.expectEqual(0, pointer.address);
 }
 
 test "toConstPointer should return a pointer when memory is readable and writeable" {

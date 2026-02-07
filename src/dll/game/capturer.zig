@@ -10,8 +10,6 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
         player_2_state: PlayerState = .{},
 
         const Self = @This();
-        const PartialPlayer = sdk.misc.Partial(game.Player(game_id));
-        const PartialGameMemory = game.Memory(game_id).PartialCopy;
         pub const PlayerState = struct {
             rage_state: RageState = .{},
             previous_hit_lines: ?game.HitLines(game_id) = null,
@@ -23,62 +21,55 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             },
             .t8 => struct {},
         };
+        const GamePlayer = game.Player(game_id);
 
-        pub fn captureFrame(self: *Self, game_memory: *const game.Memory(game_id).PartialCopy) model.Frame {
-            const frames_since_round_start = captureFramesSinceRoundStart(game_memory);
-            const floor_z = captureFloorZ(game_memory);
-            const player_1 = capturePlayer(
-                &self.player_1_state,
-                &game_memory.player_1,
-                .player_1,
-            );
-            const player_2 = capturePlayer(
-                &self.player_2_state,
-                &game_memory.player_2,
-                .player_2,
-            );
-            const camera = captureCamera(game_memory);
-            const main_player_id = captureMainPlayerId(game_memory);
-            const left_player_id = captureLeftPlayerId(game_memory, main_player_id);
+        pub fn captureFrame(self: *Self, game_memory: *const game.Memory(game_id)) model.Frame {
+            const player_1 = game_memory.player_1.toConstPointer();
+            const player_2 = game_memory.player_2.toConstPointer();
+            const camera_manager = game_memory.camera_manager.toConstPointer();
+            const main_player_id = captureMainPlayerId(player_1, player_2);
+            const left_player_id = captureLeftPlayerId(player_1, player_2, main_player_id);
             return .{
-                .frames_since_round_start = frames_since_round_start,
-                .floor_z = floor_z,
-                .players = .{ player_1, player_2 },
-                .camera = camera,
+                .frames_since_round_start = captureFramesSinceRoundStart(player_1, player_2),
+                .floor_z = captureFloorZ(player_1, player_2),
+                .players = .{
+                    capturePlayer(&self.player_1_state, player_1),
+                    capturePlayer(&self.player_2_state, player_2),
+                },
+                .camera = captureCamera(camera_manager),
                 .left_player_id = left_player_id,
                 .main_player_id = main_player_id,
             };
         }
 
-        fn captureFramesSinceRoundStart(game_memory: *const PartialGameMemory) ?u32 {
-            if (game_memory.player_1.frames_since_round_start) |frames| {
-                return frames;
+        fn captureFramesSinceRoundStart(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?u32 {
+            if (player_1) |player| {
+                return player.frames_since_round_start;
             }
-            if (game_memory.player_2.frames_since_round_start) |frames| {
-                return frames;
+            if (player_2) |player| {
+                return player.frames_since_round_start;
             }
             return null;
         }
 
-        fn captureFloorZ(game_memory: *const PartialGameMemory) ?f32 {
-            if (game_memory.player_1.floor_z) |raw_z1| {
-                const z1 = raw_z1.convert();
-                if (game_memory.player_2.floor_z) |raw_z2| {
-                    const z2 = raw_z2.convert();
+        fn captureFloorZ(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?f32 {
+            if (player_1) |p1| {
+                const z1 = p1.floor_z.convert();
+                if (player_2) |p2| {
+                    const z2 = p2.floor_z.convert();
                     return 0.5 * (z1 + z2);
                 } else {
                     return z1;
                 }
-            } else if (game_memory.player_2.floor_z) |raw_z2| {
-                const z2 = raw_z2.convert();
-                return z2;
+            } else if (player_2) |p2| {
+                return p2.floor_z.convert();
             } else {
                 return null;
             }
         }
 
-        fn captureCamera(game_memory: *const PartialGameMemory) ?model.Camera {
-            const camera = if (game_memory.camera_manager) |c| c else return null;
+        fn captureCamera(camera_manager: ?*const game.CameraManager(game_id)) ?model.Camera {
+            const camera = if (camera_manager) |c| c else return null;
             const position = camera.position.convert();
             const rotation = camera.rotation.convert();
             return .{
@@ -89,34 +80,39 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn captureMainPlayerId(game_memory: *const PartialGameMemory) model.PlayerId {
-            if (game_memory.player_1.is_picked_by_main_player) |boolean| {
-                if (boolean.toBool()) |is_main| {
+        fn captureMainPlayerId(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) model.PlayerId {
+            if (player_1) |p1| {
+                if (p1.is_picked_by_main_player.toBool()) |is_main| {
                     return if (is_main) .player_1 else .player_2;
                 }
             }
-            if (game_memory.player_2.is_picked_by_main_player) |boolean| {
-                if (boolean.toBool()) |is_main| {
+            if (player_2) |p2| {
+                if (p2.is_picked_by_main_player.toBool()) |is_main| {
                     return if (is_main) .player_2 else .player_1;
                 }
             }
             return .player_1;
         }
 
-        fn captureLeftPlayerId(game_memory: *const PartialGameMemory, main_player_id: model.PlayerId) model.PlayerId {
-            const main_player = if (main_player_id == .player_1) &game_memory.player_1 else &game_memory.player_2;
-            if (main_player.input_side) |side| {
-                return if (side == .left) main_player_id else main_player_id.getOther();
+        fn captureLeftPlayerId(
+            player_1: ?*const GamePlayer,
+            player_2: ?*const GamePlayer,
+            main_player_id: model.PlayerId,
+        ) model.PlayerId {
+            const main_player = if (main_player_id == .player_1) player_1 else player_2;
+            if (main_player) |mp| {
+                return switch (mp.input_side) {
+                    .left => main_player_id,
+                    .right => main_player_id.getOther(),
+                    _ => main_player_id,
+                };
             } else {
                 return .player_1;
             }
         }
 
-        fn capturePlayer(
-            state: *PlayerState,
-            player: *const PartialPlayer,
-            player_id: model.PlayerId,
-        ) model.Player {
+        fn capturePlayer(state: *PlayerState, player_maybe: ?*const GamePlayer) model.Player {
+            const player = player_maybe orelse return .{};
             updateRageState(state, player);
             const captured_player = model.Player{
                 .character_id = player.character_id,
@@ -129,15 +125,15 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 .posture = capturePosture(player),
                 .blocking = captureBlocking(player),
                 .crushing = captureCrushing(player),
-                .can_move = if (player.can_move) |can_move| can_move.toBool() else null,
-                .input = captureInput(player, player_id),
+                .can_move = player.can_move.toBool(),
+                .input = captureInput(player),
                 .health = switch (game_id) {
-                    .t7 => if (player.health) |*health| @intCast(health.convert().value) else null,
-                    .t8 => if (player.health) |*health| health.convert() else null,
+                    .t7 => @intCast(player.health.convert().value),
+                    .t8 => player.health.convert(),
                 },
                 .rage = captureRage(state, player),
                 .heat = captureHeat(player),
-                .rotation = capturePlayerRotation(player),
+                .rotation = player.rotation.convert(),
                 .hurt_cylinders = captureHurtCylinders(player),
                 .collision_spheres = captureCollisionSpheres(player),
                 .hit_lines = captureHitLines(state, player),
@@ -146,29 +142,27 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             return captured_player;
         }
 
-        fn updateRageState(state: *PlayerState, player: *const PartialPlayer) void {
+        fn updateRageState(state: *PlayerState, player: *const GamePlayer) void {
             if (game_id != .t7) {
                 return;
             }
-            const frames_since_round_start: u32 = player.frames_since_round_start orelse return;
+            const frames_since_round_start: u32 = player.frames_since_round_start;
             const previous_frames_since_round_start: *u32 = &state.rage_state.previous_frames_since_round_start;
             defer previous_frames_since_round_start.* = frames_since_round_start;
             if (frames_since_round_start < previous_frames_since_round_start.*) {
                 state.rage_state.was_in_rage_this_round = false;
             }
-            const in_rage: bool = (if (player.in_rage) |b| b.toBool() else null) orelse return;
-            if (in_rage) {
+            if (player.in_rage.toBool() orelse false) {
                 state.rage_state.was_in_rage_this_round = true;
             }
         }
 
-        fn updatePreviousHitLines(state: *PlayerState, player: *const PartialPlayer) void {
+        fn updatePreviousHitLines(state: *PlayerState, player: *const GamePlayer) void {
             state.previous_hit_lines = player.hit_lines;
         }
 
-        fn captureAttackType(player: *const PartialPlayer) ?model.AttackType {
-            const attack_type: game.AttackType = player.attack_type orelse return null;
-            return switch (attack_type) {
+        fn captureAttackType(player: *const GamePlayer) ?model.AttackType {
+            return switch (player.attack_type) {
                 .not_attack => .not_attack,
                 .high => .high,
                 .mid => .mid,
@@ -184,9 +178,8 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn captureHitOutcome(player: *const PartialPlayer) ?model.HitOutcome {
-            const hit_outcome: game.HitOutcome = player.hit_outcome orelse return null;
-            return switch (hit_outcome) {
+        fn captureHitOutcome(player: *const GamePlayer) ?model.HitOutcome {
+            return switch (player.hit_outcome) {
                 .none => .none,
                 .blocked_standing => .blocked_standing,
                 .blocked_crouching => .blocked_crouching,
@@ -208,12 +201,13 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn capturePosture(player: *const PartialPlayer) ?model.Posture {
-            const animation_frame: u32 = player.animation_frame orelse return null;
-            const state_flags: game.StateFlags = player.state_flags orelse return null;
-            const simple_state: game.SimpleState = player.simple_state orelse return null;
-            const airborne_start: u32 = player.airborne_start orelse return null;
-            const airborne_end: u32 = player.airborne_end orelse return null;
+        fn capturePosture(player: *const GamePlayer) ?model.Posture {
+            const animation = player.animation.toConstPointer() orelse return null;
+            const animation_frame: u32 = player.animation_frame;
+            const state_flags: game.StateFlags = player.state_flags;
+            const simple_state: game.SimpleState = player.simple_state;
+            const airborne_start: u32 = animation.airborne_start;
+            const airborne_end: u32 = animation.airborne_end;
             const is_airborne = (animation_frame >= airborne_start and animation_frame <= airborne_end) or
                 (state_flags.force_airborne_no_low_crushing and simple_state != .invincible);
             if (state_flags.crouching) {
@@ -231,8 +225,8 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn captureBlocking(player: *const PartialPlayer) ?model.Blocking {
-            const state_flags: game.StateFlags = player.state_flags orelse return null;
+        fn captureBlocking(player: *const GamePlayer) model.Blocking {
+            const state_flags: game.StateFlags = player.state_flags;
             if (state_flags.blocking_mids) {
                 if (state_flags.neutral_blocking) {
                     return .neutral_blocking_mids;
@@ -250,14 +244,15 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn captureCrushing(player: *const PartialPlayer) ?model.Crushing {
+        fn captureCrushing(player: *const GamePlayer) ?model.Crushing {
             const posture = capturePosture(player) orelse return null;
-            const state_flags: game.StateFlags = player.state_flags orelse return null;
-            const simple_state: game.SimpleState = player.simple_state orelse return null;
-            const power_crushing: sdk.memory.Boolean(.{}) = player.power_crushing orelse return null;
-            const animation_frame: u32 = player.animation_frame orelse return null;
-            const airborne_start: u32 = player.airborne_start orelse return null;
-            const airborne_end: u32 = player.airborne_end orelse return null;
+            const animation = player.animation.toConstPointer() orelse return null;
+            const state_flags: game.StateFlags = player.state_flags;
+            const simple_state: game.SimpleState = player.simple_state;
+            const power_crushing: bool = player.power_crushing.toBool() orelse return null;
+            const animation_frame: u32 = player.animation_frame;
+            const airborne_start: u32 = animation.airborne_start;
+            const airborne_end: u32 = animation.airborne_end;
             return .{
                 .high_crushing = posture == .crouching or posture == .downed_face_down or posture == .downed_face_up,
                 .low_crushing = posture == .airborne and
@@ -266,17 +261,25 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                     animation_frame >= airborne_start and
                     animation_frame <= airborne_end -| 3,
                 .anti_air_only_crushing = posture != .airborne,
-                .power_crushing = power_crushing.toBool() orelse return null,
+                .power_crushing = power_crushing,
                 .invincibility = simple_state == .invincible,
             };
         }
 
-        fn captureInput(player: *const PartialPlayer, player_id: model.PlayerId) ?model.Input {
-            const input: game.Input(game_id) = player.input orelse return null;
-            const input_side: game.PlayerSide = player.input_side orelse (if (player_id == .player_1) .left else .right);
+        fn captureInput(player: *const GamePlayer) ?model.Input {
+            const input: game.Input(game_id) = player.input;
+            const input_side: game.PlayerSide = player.input_side;
             return .{
-                .forward = if (input_side == .left) input.right else input.left,
-                .back = if (input_side == .left) input.left else input.right,
+                .forward = switch (input_side) {
+                    .left => input.right,
+                    .right => input.left,
+                    _ => return null,
+                },
+                .back = switch (input_side) {
+                    .left => input.left,
+                    .right => input.right,
+                    _ => return null,
+                },
                 .up = input.up,
                 .down = input.down,
                 .left = input.left,
@@ -294,8 +297,8 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
         }
 
-        fn captureRage(state: *PlayerState, player: *const PartialPlayer) ?model.Rage {
-            const in_rage = (if (player.in_rage) |b| b.toBool() else null) orelse return null;
+        fn captureRage(state: *PlayerState, player: *const GamePlayer) ?model.Rage {
+            const in_rage = player.in_rage.toBool() orelse return null;
             switch (in_rage) {
                 true => return .activated,
                 false => switch (game_id) {
@@ -304,7 +307,7 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                         false => return .available,
                     },
                     .t8 => {
-                        const used_rage = (if (player.used_rage) |b| b.toBool() else null) orelse return null;
+                        const used_rage = player.used_rage.toBool() orelse return null;
                         return switch (used_rage) {
                             true => return .used_up,
                             false => return .available,
@@ -314,13 +317,13 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn captureHeat(player: *const PartialPlayer) ?model.Heat {
+        fn captureHeat(player: *const GamePlayer) ?model.Heat {
             if (game_id != .t8) {
                 return .used_up;
             }
-            const in_heat = (if (player.in_heat) |b| b.toBool() else null) orelse return null;
-            const used_heat = (if (player.used_heat) |b| b.toBool() else null) orelse return null;
-            const heat_gauge = player.heat_gauge orelse return null;
+            const in_heat = player.in_heat.toBool() orelse return null;
+            const used_heat = player.used_heat.toBool() orelse return null;
+            const heat_gauge = player.heat_gauge;
             if (in_heat) {
                 return .{ .activated = .{ .gauge = heat_gauge.convert() } };
             } else if (used_heat) {
@@ -330,23 +333,8 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             }
         }
 
-        fn capturePlayerRotation(player: *const PartialPlayer) ?f32 {
-            if (player.rotation) |rotation| {
-                return rotation.convert();
-            }
-            const raw_matrix = player.transform_matrix orelse return null;
-            const matrix: sdk.math.Mat4 = raw_matrix.convert();
-            const transformed = sdk.math.Vec3.plus_x.directionTransform(matrix);
-            var angle = std.math.atan2(transformed.y(), transformed.x());
-            angle += 0.5 * std.math.pi; // Since model's forward direction is +Y the look at direction differs for 90 deg.
-            if (angle >= std.math.pi) {
-                angle -= 2.0 * std.math.pi;
-            }
-            return angle;
-        }
-
-        fn captureHurtCylinders(player: *const PartialPlayer) ?model.HurtCylinders {
-            const cylinders: *const game.HurtCylinders(game_id) = if (player.hurt_cylinders) |*c| c else return null;
+        fn captureHurtCylinders(player: *const GamePlayer) model.HurtCylinders {
+            const cylinders: *const game.HurtCylinders(game_id) = &player.hurt_cylinders;
             const convert = struct {
                 fn call(input: *const game.HurtCylinders(game_id).Element) model.HurtCylinder {
                     const converted = input.convert();
@@ -376,8 +364,8 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             });
         }
 
-        fn captureCollisionSpheres(player: *const PartialPlayer) ?model.CollisionSpheres {
-            const spheres: *const game.CollisionSpheres = if (player.collision_spheres) |*s| s else return null;
+        fn captureCollisionSpheres(player: *const GamePlayer) model.CollisionSpheres {
+            const spheres: *const game.CollisionSpheres = &player.collision_spheres;
             const convert = struct {
                 fn call(input: *const game.CollisionSpheres.Element) model.CollisionSphere {
                     const converted = input.convert();
@@ -396,20 +384,20 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             });
         }
 
-        fn captureHitLines(state: *const PlayerState, player: *const PartialPlayer) model.HitLines {
+        fn captureHitLines(state: *const PlayerState, player: *const GamePlayer) model.HitLines {
             return switch (game_id) {
                 .t7 => captureT7HitLines(state, player),
                 .t8 => captureT8HitLines(state, player),
             };
         }
 
-        fn captureT7HitLines(state: *const PlayerState, player: *const PartialPlayer) model.HitLines {
-            const flags: game.PhaseFlags = player.phase_flags orelse return .{};
+        fn captureT7HitLines(state: *const PlayerState, player: *const GamePlayer) model.HitLines {
+            const flags: game.PhaseFlags = player.phase_flags;
             if (!flags.is_active) {
                 return .{};
             }
             const previous_lines: *const game.HitLines(.t7) = if (state.previous_hit_lines) |*l| l else return .{};
-            const current_lines: *const game.HitLines(.t7) = if (player.hit_lines) |*l| l else return .{};
+            const current_lines: *const game.HitLines(.t7) = &player.hit_lines;
             var changed_points_buffer: [current_lines.len]game.HitLinePoint = undefined;
             var changed_points_len: usize = 0;
             for (previous_lines, current_lines) |*raw_previous_point, *raw_current_point| {
@@ -435,9 +423,9 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             return result;
         }
 
-        fn captureT8HitLines(state: *const PlayerState, player: *const PartialPlayer) model.HitLines {
+        fn captureT8HitLines(state: *const PlayerState, player: *const GamePlayer) model.HitLines {
             const previous_lines: *const game.HitLines(.t8) = if (state.previous_hit_lines) |*l| l else return .{};
-            const current_lines: *const game.HitLines(.t8) = if (player.hit_lines) |*l| l else return .{};
+            const current_lines: *const game.HitLines(.t8) = &player.hit_lines;
             var result: model.HitLines = .{};
             for (previous_lines, current_lines) |*raw_previous_line, *raw_current_line| {
                 const previous_line = raw_previous_line.convert();
@@ -468,78 +456,79 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
 const testing = std.testing;
 
 test "should capture frames since round start correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
     try testing.expectEqual(
         123,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .frames_since_round_start = 123 },
-            .player_2 = .{ .frames_since_round_start = 123 },
-        }).frames_since_round_start,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .frames_since_round_start = 123 },
+            .player_2 = &.{ .frames_since_round_start = 123 },
+        })).frames_since_round_start,
     );
     try testing.expectEqual(
         123,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .frames_since_round_start = 123 },
-            .player_2 = .{ .frames_since_round_start = null },
-        }).frames_since_round_start,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .frames_since_round_start = 123 },
+            .player_2 = null,
+        })).frames_since_round_start,
     );
     try testing.expectEqual(
         123,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .frames_since_round_start = null },
-            .player_2 = .{ .frames_since_round_start = 123 },
-        }).frames_since_round_start,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = &.{ .frames_since_round_start = 123 },
+        })).frames_since_round_start,
     );
     try testing.expectEqual(
         null,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .frames_since_round_start = null },
-            .player_2 = .{ .frames_since_round_start = null },
-        }).frames_since_round_start,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = null,
+        })).frames_since_round_start,
     );
 }
 
 test "should capture floor Z correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
     try testing.expectEqual(
         150.0,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .floor_z = .fromConverted(100.0) },
-            .player_2 = .{ .floor_z = .fromConverted(200.0) },
-        }).floor_z,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .floor_z = .fromConverted(100.0) },
+            .player_2 = &.{ .floor_z = .fromConverted(200.0) },
+        })).floor_z,
     );
     try testing.expectEqual(
         123.0,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .floor_z = .fromConverted(123.0) },
-            .player_2 = .{ .floor_z = null },
-        }).floor_z,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .floor_z = .fromConverted(123.0) },
+            .player_2 = null,
+        })).floor_z,
     );
     try testing.expectEqual(
         123.0,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .floor_z = null },
-            .player_2 = .{ .floor_z = .fromConverted(123.0) },
-        }).floor_z,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = &.{ .floor_z = .fromConverted(123.0) },
+        })).floor_z,
     );
     try testing.expectEqual(
         null,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .floor_z = null },
-            .player_2 = .{ .floor_z = null },
-        }).floor_z,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = null,
+        })).floor_z,
     );
 }
 
 test "should capture camera correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
     try testing.expectEqual(
         null,
-        capturer.captureFrame(&.{
-            .player_1 = .{},
-            .player_2 = .{},
+        capturer.captureFrame(&gm(.{
             .camera_manager = null,
-        }).camera,
+        })).camera,
     );
     try testing.expectEqual(
         model.Camera{
@@ -548,10 +537,8 @@ test "should capture camera correctly" {
             .yaw = 0.5 * std.math.pi,
             .roll = 0.75 * std.math.pi,
         },
-        capturer.captureFrame(&.{
-            .player_1 = .{},
-            .player_2 = .{},
-            .camera_manager = .{
+        capturer.captureFrame(&gm(.{
+            .camera_manager = &.{
                 .position = .fromConverted(.fromArray(.{ 1, 2, 3 })),
                 .rotation = .fromConverted(.fromArray(.{
                     0.25 * std.math.pi,
@@ -559,205 +546,225 @@ test "should capture camera correctly" {
                     0.75 * std.math.pi,
                 })),
             },
-        }).camera,
+        })).camera,
     );
 }
 
 test "should capture left player id correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .true, .input_side = null },
-            .player_2 = .{ .is_picked_by_main_player = .false, .input_side = null },
-        }).left_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .true, .input_side = @enumFromInt(2) },
+            .player_2 = &.{ .is_picked_by_main_player = .false, .input_side = @enumFromInt(2) },
+        })).left_player_id,
     );
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .true, .input_side = .left },
-            .player_2 = .{ .is_picked_by_main_player = .false, .input_side = null },
-        }).left_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .true, .input_side = .left },
+            .player_2 = &.{ .is_picked_by_main_player = .false, .input_side = @enumFromInt(2) },
+        })).left_player_id,
     );
     try testing.expectEqual(
         .player_2,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .true, .input_side = .right },
-            .player_2 = .{ .is_picked_by_main_player = .false, .input_side = null },
-        }).left_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .true, .input_side = .right },
+            .player_2 = &.{ .is_picked_by_main_player = .false, .input_side = @enumFromInt(2) },
+        })).left_player_id,
     );
     try testing.expectEqual(
         .player_2,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .false, .input_side = null },
-            .player_2 = .{ .is_picked_by_main_player = .true, .input_side = .left },
-        }).left_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .false, .input_side = @enumFromInt(2) },
+            .player_2 = &.{ .is_picked_by_main_player = .true, .input_side = .left },
+        })).left_player_id,
     );
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .false, .input_side = null },
-            .player_2 = .{ .is_picked_by_main_player = .true, .input_side = .right },
-        }).left_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .false, .input_side = @enumFromInt(2) },
+            .player_2 = &.{ .is_picked_by_main_player = .true, .input_side = .right },
+        })).left_player_id,
     );
 }
 
 test "should capture main player id correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .true },
-            .player_2 = .{ .is_picked_by_main_player = .false },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .true },
+            .player_2 = &.{ .is_picked_by_main_player = .false },
+        })).main_player_id,
     );
     try testing.expectEqual(
         .player_2,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .false },
-            .player_2 = .{ .is_picked_by_main_player = .true },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .false },
+            .player_2 = &.{ .is_picked_by_main_player = .true },
+        })).main_player_id,
     );
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = null },
-            .player_2 = .{ .is_picked_by_main_player = null },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = null,
+        })).main_player_id,
     );
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .true },
-            .player_2 = .{ .is_picked_by_main_player = null },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .true },
+            .player_2 = null,
+        })).main_player_id,
     );
     try testing.expectEqual(
         .player_2,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = .false },
-            .player_2 = .{ .is_picked_by_main_player = null },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = &.{ .is_picked_by_main_player = .false },
+            .player_2 = null,
+        })).main_player_id,
     );
     try testing.expectEqual(
         .player_2,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = null },
-            .player_2 = .{ .is_picked_by_main_player = .true },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = &.{ .is_picked_by_main_player = .true },
+        })).main_player_id,
     );
     try testing.expectEqual(
         .player_1,
-        capturer.captureFrame(&.{
-            .player_1 = .{ .is_picked_by_main_player = null },
-            .player_2 = .{ .is_picked_by_main_player = .false },
-        }).main_player_id,
+        capturer.captureFrame(&gm(.{
+            .player_1 = null,
+            .player_2 = &.{ .is_picked_by_main_player = .false },
+        })).main_player_id,
     );
 }
 
 test "should capture character id correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .character_id = 123 },
-        .player_2 = .{ .character_id = null },
-    });
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .character_id = 123 },
+        .player_2 = null,
+    }));
     try testing.expectEqual(123, frame.getPlayerById(.player_1).character_id);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).character_id);
 }
 
 test "should capture current animation id correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .animation_id = 123 },
-        .player_2 = .{ .animation_id = null },
-    });
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .animation_id = 123 },
+        .player_2 = null,
+    }));
     try testing.expectEqual(123, frame.getPlayerById(.player_1).animation_id);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).animation_id);
 }
 
 test "should capture current animation frame correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .animation_frame = 123 },
-        .player_2 = .{ .animation_frame = null },
-    });
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .animation_frame = 123 },
+        .player_2 = null,
+    }));
     try testing.expectEqual(123, frame.getPlayerById(.player_1).animation_frame);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).animation_frame);
 }
 
 test "should capture current animation total frames correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .animation_total_frames = 123 },
-        .player_2 = .{ .animation_total_frames = null },
-    });
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .animation_total_frames = 123 },
+        .player_2 = null,
+    }));
     try testing.expectEqual(123, frame.getPlayerById(.player_1).animation_total_frames);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).animation_total_frames);
 }
 
 test "should capture attack type correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .attack_type = .special_low },
-        .player_2 = .{ .attack_type = null },
-    });
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .attack_type = .special_low },
+        .player_2 = null,
+    }));
     try testing.expectEqual(.special_low, frame.getPlayerById(.player_1).attack_type);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).attack_type);
 }
 
 test "should capture hit outcome correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_outcome = .normal_hit_standing },
-        .player_2 = .{ .hit_outcome = null },
-    });
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .hit_outcome = .normal_hit_standing },
+        .player_2 = null,
+    }));
     try testing.expectEqual(.normal_hit_standing, frame.getPlayerById(.player_1).hit_outcome);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).hit_outcome);
 }
 
 test "should capture posture correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 3,
             .state_flags = .{},
             .simple_state = .airborne,
-            .airborne_start = 4,
-            .airborne_end = 6,
+            .animation = .fromPointer(&.{
+                .airborne_start = 4,
+                .airborne_end = 6,
+            }),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .animation_frame = 5,
             .state_flags = .{},
             .simple_state = .airborne,
-            .airborne_start = 4,
-            .airborne_end = 6,
+            .animation = .fromPointer(&.{
+                .airborne_start = 4,
+                .airborne_end = 6,
+            }),
         },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = false },
             .simple_state = .ground_face_down,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = true },
             .simple_state = .ground_face_up,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-    });
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 1,
             .state_flags = .{ .crouching = true },
             .simple_state = .crouch,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-    });
+        .player_2 = null,
+    }));
     try testing.expectEqual(.standing, frame_1.getPlayerById(.player_1).posture);
     try testing.expectEqual(.airborne, frame_1.getPlayerById(.player_2).posture);
     try testing.expectEqual(.downed_face_up, frame_2.getPlayerById(.player_1).posture);
@@ -767,19 +774,20 @@ test "should capture posture correctly" {
 }
 
 test "should capture blocking correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .state_flags = null },
-        .player_2 = .{ .state_flags = .{} },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .state_flags = .{ .blocking_mids = true, .blocking_lows = false, .neutral_blocking = true } },
-        .player_2 = .{ .state_flags = .{ .blocking_mids = true, .blocking_lows = false, .neutral_blocking = false } },
-    });
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{ .state_flags = .{ .blocking_mids = false, .blocking_lows = true, .neutral_blocking = true } },
-        .player_2 = .{ .state_flags = .{ .blocking_mids = false, .blocking_lows = true, .neutral_blocking = false } },
-    });
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = null,
+        .player_2 = &.{ .state_flags = .{} },
+    }));
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .state_flags = .{ .blocking_mids = true, .blocking_lows = false, .neutral_blocking = true } },
+        .player_2 = &.{ .state_flags = .{ .blocking_mids = true, .blocking_lows = false, .neutral_blocking = false } },
+    }));
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .state_flags = .{ .blocking_mids = false, .blocking_lows = true, .neutral_blocking = true } },
+        .player_2 = &.{ .state_flags = .{ .blocking_mids = false, .blocking_lows = true, .neutral_blocking = false } },
+    }));
     try testing.expectEqual(null, frame_1.getPlayerById(.player_1).blocking);
     try testing.expectEqual(.not_blocking, frame_1.getPlayerById(.player_2).blocking);
     try testing.expectEqual(.neutral_blocking_mids, frame_2.getPlayerById(.player_1).blocking);
@@ -789,89 +797,108 @@ test "should capture blocking correctly" {
 }
 
 test "should capture crushing correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 4,
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
-            .airborne_start = 5,
-            .airborne_end = 10,
+            .animation = .fromPointer(&.{
+                .airborne_start = 5,
+                .airborne_end = 10,
+            }),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .animation_frame = 5,
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
-            .airborne_start = 5,
-            .airborne_end = 10,
+            .animation = .fromPointer(&.{
+                .airborne_start = 5,
+                .airborne_end = 10,
+            }),
         },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 7,
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
-            .airborne_start = 5,
-            .airborne_end = 10,
+            .animation = .fromPointer(&.{
+                .airborne_start = 5,
+                .airborne_end = 10,
+            }),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .animation_frame = 8,
             .state_flags = .{ .low_crushing_move = true },
             .simple_state = .airborne,
             .power_crushing = .false,
-            .airborne_start = 5,
-            .airborne_end = 10,
+            .animation = .fromPointer(&.{
+                .airborne_start = 5,
+                .airborne_end = 10,
+            }),
         },
-    });
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = false },
             .simple_state = .ground_face_up,
             .power_crushing = .false,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .animation_frame = 1,
             .state_flags = .{ .downed = true, .face_down = true },
             .simple_state = .ground_face_down,
             .power_crushing = .false,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-    });
-    const frame_4 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_4 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 1,
             .state_flags = .{ .crouching = true },
             .simple_state = .crouch,
             .power_crushing = .false,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-    });
-    const frame_5 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_5 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .animation_frame = 1,
             .state_flags = .{},
             .simple_state = .standing,
             .power_crushing = .true,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .animation_frame = 1,
             .state_flags = .{},
             .simple_state = .invincible,
             .power_crushing = .false,
-            .airborne_start = 0,
-            .airborne_end = 0,
+            .animation = .fromPointer(&.{
+                .airborne_start = 0,
+                .airborne_end = 0,
+            }),
         },
-    });
+    }));
     try testing.expectEqual(model.Crushing{ .anti_air_only_crushing = true }, frame_1.getPlayerById(.player_1).crushing);
     try testing.expectEqual(model.Crushing{ .low_crushing = true }, frame_1.getPlayerById(.player_2).crushing);
     try testing.expectEqual(model.Crushing{ .low_crushing = true }, frame_2.getPlayerById(.player_1).crushing);
@@ -900,15 +927,16 @@ test "should capture crushing correctly" {
 }
 
 test "should capture can move correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .can_move = .false },
-        .player_2 = .{ .can_move = .true },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .can_move = null },
-        .player_2 = .{ .can_move = @enumFromInt(2) },
-    });
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .can_move = .false },
+        .player_2 = &.{ .can_move = .true },
+    }));
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = null,
+        .player_2 = &.{ .can_move = @enumFromInt(2) },
+    }));
     try testing.expectEqual(false, frame_1.getPlayerById(.player_1).can_move);
     try testing.expectEqual(true, frame_1.getPlayerById(.player_2).can_move);
     try testing.expectEqual(null, frame_2.getPlayerById(.player_1).can_move);
@@ -916,9 +944,10 @@ test "should capture can move correctly" {
 }
 
 test "should capture input correctly in T7" {
+    const gm = game.Memory(.t7).testingInit;
     var capturer = Capturer(.t7){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .input = .{
                 .up = false,
                 .down = true,
@@ -931,13 +960,10 @@ test "should capture input correctly in T7" {
                 .special_style = false,
                 .rage = true,
             },
-            .input_side = null,
+            .input_side = .left,
         },
-        .player_2 = .{
-            .input = null,
-            .input_side = null,
-        },
-    });
+        .player_2 = null,
+    }));
     try testing.expectEqual(model.Input{
         .forward = true,
         .back = false,
@@ -957,9 +983,10 @@ test "should capture input correctly in T7" {
 }
 
 test "should capture input correctly in T8" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .input = .{
                 .up = false,
                 .down = true,
@@ -973,16 +1000,13 @@ test "should capture input correctly in T8" {
                 .rage = true,
                 .heat = false,
             },
-            .input_side = null,
+            .input_side = .right,
         },
-        .player_2 = .{
-            .input = null,
-            .input_side = null,
-        },
-    });
+        .player_2 = null,
+    }));
     try testing.expectEqual(model.Input{
-        .forward = true,
-        .back = false,
+        .forward = false,
+        .back = true,
         .up = false,
         .down = true,
         .left = false,
@@ -999,12 +1023,13 @@ test "should capture input correctly in T8" {
 }
 
 test "should capture forward/back correctly depending on the input side" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
 
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .input = .{ .right = true }, .input_side = .left },
-        .player_2 = .{ .input = .{ .right = true }, .input_side = .right },
-    });
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .input = .{ .right = true }, .input_side = .left },
+        .player_2 = &.{ .input = .{ .right = true }, .input_side = .right },
+    }));
     try testing.expect(frame_1.getPlayerById(.player_1).input != null);
     try testing.expect(frame_1.getPlayerById(.player_2).input != null);
     try testing.expectEqual(true, frame_1.getPlayerById(.player_1).input.?.forward);
@@ -1012,10 +1037,10 @@ test "should capture forward/back correctly depending on the input side" {
     try testing.expectEqual(false, frame_1.getPlayerById(.player_2).input.?.forward);
     try testing.expectEqual(true, frame_1.getPlayerById(.player_2).input.?.back);
 
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .input = .{ .left = true }, .input_side = .left },
-        .player_2 = .{ .input = .{ .left = true }, .input_side = .right },
-    });
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .input = .{ .left = true }, .input_side = .left },
+        .player_2 = &.{ .input = .{ .left = true }, .input_side = .right },
+    }));
     try testing.expect(frame_2.getPlayerById(.player_1).input != null);
     try testing.expect(frame_2.getPlayerById(.player_2).input != null);
     try testing.expectEqual(false, frame_2.getPlayerById(.player_1).input.?.forward);
@@ -1023,10 +1048,10 @@ test "should capture forward/back correctly depending on the input side" {
     try testing.expectEqual(true, frame_2.getPlayerById(.player_2).input.?.forward);
     try testing.expectEqual(false, frame_2.getPlayerById(.player_2).input.?.back);
 
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{ .input = .{ .right = true }, .input_side = .right },
-        .player_2 = .{ .input = .{ .right = true }, .input_side = .left },
-    });
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .input = .{ .right = true }, .input_side = .right },
+        .player_2 = &.{ .input = .{ .right = true }, .input_side = .left },
+    }));
     try testing.expect(frame_3.getPlayerById(.player_1).input != null);
     try testing.expect(frame_3.getPlayerById(.player_2).input != null);
     try testing.expectEqual(false, frame_3.getPlayerById(.player_1).input.?.forward);
@@ -1034,10 +1059,10 @@ test "should capture forward/back correctly depending on the input side" {
     try testing.expectEqual(true, frame_3.getPlayerById(.player_2).input.?.forward);
     try testing.expectEqual(false, frame_3.getPlayerById(.player_2).input.?.back);
 
-    const frame_4 = capturer.captureFrame(&.{
-        .player_1 = .{ .input = .{ .left = true }, .input_side = .right },
-        .player_2 = .{ .input = .{ .left = true }, .input_side = .left },
-    });
+    const frame_4 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .input = .{ .left = true }, .input_side = .right },
+        .player_2 = &.{ .input = .{ .left = true }, .input_side = .left },
+    }));
     try testing.expect(frame_4.getPlayerById(.player_1).input != null);
     try testing.expect(frame_4.getPlayerById(.player_2).input != null);
     try testing.expectEqual(true, frame_4.getPlayerById(.player_1).input.?.forward);
@@ -1047,14 +1072,17 @@ test "should capture forward/back correctly depending on the input side" {
 }
 
 test "should capture health correctly in T7" {
+    const gm = game.Memory(.t7).testingInit;
     var capturer = Capturer(.t7){};
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .health = .fromConverted(.{
-            .value = 123,
-            .encryption_key = 0xBD20A1539B61342F,
-        }) },
-        .player_2 = .{ .health = null },
-    });
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
+            .health = .fromConverted(.{
+                .value = 123,
+                .encryption_key = 0xBD20A1539B61342F,
+            }),
+        },
+        .player_2 = null,
+    }));
     try testing.expectEqual(123, frame_2.getPlayerById(.player_1).health);
     try testing.expectEqual(null, frame_2.getPlayerById(.player_2).health);
 }
@@ -1070,70 +1098,73 @@ test "should capture health correctly in T8" {
     const oldDecryptT8Health = game.conversion_globals.decryptT8Health;
     defer game.conversion_globals.decryptT8Health = oldDecryptT8Health;
 
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
     const encrypted = game.Health(.t8){ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
     game.conversion_globals.decryptT8Health = null;
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .health = .{ .raw = encrypted } },
-        .player_2 = .{ .health = null },
-    });
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .health = .{ .raw = encrypted } },
+        .player_2 = null,
+    }));
     try testing.expectEqual(null, frame_1.getPlayerById(.player_1).health);
     try testing.expectEqual(null, frame_1.getPlayerById(.player_2).health);
     try testing.expectEqual(null, DecryptHealth.argument);
 
     game.conversion_globals.decryptT8Health = DecryptHealth.call;
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .health = .{ .raw = encrypted } },
-        .player_2 = .{ .health = null },
-    });
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .health = .{ .raw = encrypted } },
+        .player_2 = null,
+    }));
     try testing.expectEqual(123, frame_2.getPlayerById(.player_1).health);
     try testing.expectEqual(null, frame_2.getPlayerById(.player_2).health);
     try testing.expectEqual(encrypted, DecryptHealth.argument);
 }
 
 test "should capture rage correctly in T7" {
+    const gm = game.Memory(.t7).testingInit;
     var capturer = Capturer(.t7){};
 
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .false, .frames_since_round_start = 100 },
-        .player_2 = .{ .in_rage = .true, .frames_since_round_start = 100 },
-    });
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .in_rage = .false, .frames_since_round_start = 100 },
+        .player_2 = &.{ .in_rage = .true, .frames_since_round_start = 100 },
+    }));
     try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).rage);
     try testing.expectEqual(.activated, frame_1.getPlayerById(.player_2).rage);
 
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .false, .frames_since_round_start = 101 },
-        .player_2 = .{ .in_rage = .false, .frames_since_round_start = 101 },
-    });
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .in_rage = .false, .frames_since_round_start = 101 },
+        .player_2 = &.{ .in_rage = .false, .frames_since_round_start = 101 },
+    }));
     try testing.expectEqual(.available, frame_2.getPlayerById(.player_1).rage);
     try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_2).rage);
 
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .true, .frames_since_round_start = 100 },
-        .player_2 = .{ .in_rage = .false, .frames_since_round_start = 100 },
-    });
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .in_rage = .true, .frames_since_round_start = 100 },
+        .player_2 = &.{ .in_rage = .false, .frames_since_round_start = 100 },
+    }));
     try testing.expectEqual(.activated, frame_3.getPlayerById(.player_1).rage);
     try testing.expectEqual(.available, frame_3.getPlayerById(.player_2).rage);
 
-    const frame_4 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = null, .frames_since_round_start = 101 },
-        .player_2 = .{ .in_rage = .false, .frames_since_round_start = null },
-    });
+    const frame_4 = capturer.captureFrame(&gm(.{
+        .player_1 = null,
+        .player_2 = null,
+    }));
     try testing.expectEqual(null, frame_4.getPlayerById(.player_1).rage);
-    try testing.expectEqual(.available, frame_4.getPlayerById(.player_2).rage);
+    try testing.expectEqual(null, frame_4.getPlayerById(.player_2).rage);
 }
 
 test "should capture rage correctly in T8" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .false, .used_rage = .false },
-        .player_2 = .{ .in_rage = .true, .used_rage = .false },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .in_rage = .false, .used_rage = .true },
-        .player_2 = .{ .in_rage = null, .used_rage = null },
-    });
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .in_rage = .false, .used_rage = .false },
+        .player_2 = &.{ .in_rage = .true, .used_rage = .false },
+    }));
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .in_rage = .false, .used_rage = .true },
+        .player_2 = null,
+    }));
     try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).rage);
     try testing.expectEqual(.activated, frame_1.getPlayerById(.player_2).rage);
     try testing.expectEqual(.used_up, frame_2.getPlayerById(.player_1).rage);
@@ -1141,37 +1172,39 @@ test "should capture rage correctly in T8" {
 }
 
 test "should capture heat correctly in T7" {
+    const gm = game.Memory(.t7).testingInit;
     var capturer = Capturer(.t7){};
-    const frame = capturer.captureFrame(&.{ .player_1 = .{}, .player_2 = .{} });
-    try testing.expectEqual(.used_up, frame.getPlayerById(.player_2).heat);
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{},
+        .player_2 = null,
+    }));
+    try testing.expectEqual(.used_up, frame.getPlayerById(.player_1).heat);
+    try testing.expectEqual(null, frame.getPlayerById(.player_2).heat);
 }
 
 test "should capture heat correctly in T8" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .in_heat = .false,
             .used_heat = .false,
             .heat_gauge = .fromConverted(0.5),
         },
-        .player_2 = .{
+        .player_2 = &.{
             .in_heat = .true,
             .used_heat = .false,
             .heat_gauge = .fromConverted(0.5),
         },
-    });
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{
+    }));
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .in_heat = .false,
             .used_heat = .true,
             .heat_gauge = .fromConverted(0.5),
         },
-        .player_2 = .{
-            .in_heat = null,
-            .used_heat = null,
-            .heat_gauge = null,
-        },
-    });
+        .player_2 = null,
+    }));
     try testing.expectEqual(.available, frame_1.getPlayerById(.player_1).heat);
     try testing.expectEqual(
         model.Heat{ .activated = .{ .gauge = 0.5 } },
@@ -1182,21 +1215,17 @@ test "should capture heat correctly in T8" {
 }
 
 test "should capture player rotation correctly" {
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .rotation = .fromConverted(0.75 * std.math.pi),
-            .transform_matrix = .fromConverted(sdk.math.Mat4.fromZRotation(std.math.pi)),
         },
-        .player_2 = .{
-            .rotation = null,
-            .transform_matrix = .fromConverted(sdk.math.Mat4.fromZRotation(std.math.pi)),
-        },
-    });
+        .player_2 = null,
+    }));
     try testing.expect(frame.getPlayerById(.player_1).rotation != null);
-    try testing.expect(frame.getPlayerById(.player_2).rotation != null);
     try testing.expectApproxEqAbs(0.75 * std.math.pi, frame.getPlayerById(.player_1).rotation.?, 0.0001);
-    try testing.expectApproxEqAbs(-0.5 * std.math.pi, frame.getPlayerById(.player_2).rotation.?, 0.0001);
+    try testing.expectEqual(null, frame.getPlayerById(.player_2).rotation);
 }
 
 test "should capture hurt cylinders correctly" {
@@ -1221,9 +1250,10 @@ test "should capture hurt cylinders correctly" {
             };
         }
     }.call;
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .hurt_cylinders = .{
                 .left_ankle = hurtCylinder(1, 2, 3, 4, 5),
                 .right_ankle = hurtCylinder(6, 7, 8, 9, 10),
@@ -1241,8 +1271,8 @@ test "should capture hurt cylinders correctly" {
                 .right_pelvis = hurtCylinder(66, 67, 68, 69, 70),
             },
         },
-        .player_2 = .{ .hurt_cylinders = null },
-    });
+        .player_2 = null,
+    }));
 
     try testing.expect(frame.getPlayerById(.player_1).hurt_cylinders != null);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).hurt_cylinders);
@@ -1283,9 +1313,10 @@ test "should capture collision spheres correctly" {
             };
         }
     }.call;
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
-    const frame = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .collision_spheres = .{
                 .neck = collisionSphere(1, 2, 3, 4),
                 .left_elbow = collisionSphere(5, 6, 7, 8),
@@ -1297,8 +1328,8 @@ test "should capture collision spheres correctly" {
                 .right_ankle = collisionSphere(29, 30, 31, 32),
             },
         },
-        .player_2 = .{ .collision_spheres = null },
-    });
+        .player_2 = null,
+    }));
 
     try testing.expect(frame.getPlayerById(.player_1).collision_spheres != null);
     try testing.expectEqual(null, frame.getPlayerById(.player_2).collision_spheres);
@@ -1334,10 +1365,11 @@ test "should capture hit lines correctly in T7" {
         }
     }.call;
 
+    const gm = game.Memory(.t7).testingInit;
     var capturer = Capturer(.t7){};
 
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .hit_lines = .{
                 point(.{ 0, 0, 0 }),
                 point(.{ 0, 0, 0 }),
@@ -1348,7 +1380,7 @@ test "should capture hit lines correctly in T7" {
             },
             .phase_flags = .{ .is_active = false },
         },
-        .player_2 = .{
+        .player_2 = &.{
             .hit_lines = .{
                 point(.{ 0, 0, 0 }),
                 point(.{ 0, 0, 0 }),
@@ -1359,12 +1391,12 @@ test "should capture hit lines correctly in T7" {
             },
             .phase_flags = .{ .is_active = false },
         },
-    });
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asSlice());
 
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .hit_lines = .{
                 point(.{ 1, 2, 3 }),
                 point(.{ 4, 5, 6 }),
@@ -1375,7 +1407,7 @@ test "should capture hit lines correctly in T7" {
             },
             .phase_flags = .{ .is_active = true },
         },
-        .player_2 = .{
+        .player_2 = &.{
             .hit_lines = .{
                 point(.{ 10, 11, 12 }),
                 point(.{ 13, 14, 15 }),
@@ -1386,7 +1418,7 @@ test "should capture hit lines correctly in T7" {
             },
             .phase_flags = .{ .is_active = true },
         },
-    });
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 4, 5, 6 }, .{ 7, 8, 9 }),
     }, frame_2.getPlayerById(.player_1).hit_lines.asSlice());
@@ -1395,8 +1427,8 @@ test "should capture hit lines correctly in T7" {
         line(.{ 10, 11, 12 }, .{ 13, 14, 15 }),
     }, frame_2.getPlayerById(.player_2).hit_lines.asSlice());
 
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{
             .hit_lines = .{
                 point(.{ 36, 35, 34 }),
                 point(.{ 33, 32, 31 }),
@@ -1407,7 +1439,7 @@ test "should capture hit lines correctly in T7" {
             },
             .phase_flags = .{ .is_active = false },
         },
-        .player_2 = .{
+        .player_2 = &.{
             .hit_lines = .{
                 point(.{ 18, 17, 16 }),
                 point(.{ 15, 14, 13 }),
@@ -1418,7 +1450,7 @@ test "should capture hit lines correctly in T7" {
             },
             .phase_flags = .{ .is_active = true },
         },
-    });
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 6, 5, 4 }, .{ 3, 2, 1 }),
@@ -1426,23 +1458,10 @@ test "should capture hit lines correctly in T7" {
         line(.{ 18, 17, 16 }, .{ 15, 14, 13 }),
     }, frame_3.getPlayerById(.player_2).hit_lines.asSlice());
 
-    const frame_4 = capturer.captureFrame(&.{
-        .player_1 = .{
-            .hit_lines = .{
-                point(.{ 1, 2, 3 }),
-                point(.{ 4, 5, 6 }),
-                point(.{ 7, 8, 9 }),
-                point(.{ 10, 11, 12 }),
-                point(.{ 13, 14, 15 }),
-                point(.{ 16, 17, 18 }),
-            },
-            .phase_flags = null,
-        },
-        .player_2 = .{
-            .hit_lines = null,
-            .phase_flags = .{ .is_active = true },
-        },
-    });
+    const frame_4 = capturer.captureFrame(&gm(.{
+        .player_1 = null,
+        .player_2 = null,
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asSlice());
 }
@@ -1473,39 +1492,40 @@ test "should capture hit lines correctly in T8" {
         }
     }.call;
 
+    const gm = game.Memory(.t8).testingInit;
     var capturer = Capturer(.t8){};
 
-    const frame_1 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = .{
+    const frame_1 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .hit_lines = .{
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
         } },
-        .player_2 = .{ .hit_lines = .{
+        .player_2 = &.{ .hit_lines = .{
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
             hitLine(.{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } }, true),
         } },
-    });
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_1.getPlayerById(.player_2).hit_lines.asSlice());
 
-    const frame_2 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = .{
+    const frame_2 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .hit_lines = .{
             hitLine(.{ .{ 1, 2, 3 }, .{ 4, 5, 6 }, .{ 7, 8, 9 } }, true),
             hitLine(.{ .{ 10, 11, 12 }, .{ 13, 14, 15 }, .{ 16, 17, 18 } }, false),
             hitLine(.{ .{ 19, 20, 21 }, .{ 22, 23, 24 }, .{ 25, 26, 27 } }, true),
             hitLine(.{ .{ 28, 29, 30 }, .{ 31, 32, 33 }, .{ 34, 35, 36 } }, false),
         } },
-        .player_2 = .{ .hit_lines = .{
+        .player_2 = &.{ .hit_lines = .{
             hitLine(.{ .{ 37, 38, 39 }, .{ 40, 41, 42 }, .{ 43, 44, 45 } }, false),
             hitLine(.{ .{ 46, 47, 48 }, .{ 49, 50, 51 }, .{ 52, 53, 54 } }, true),
             hitLine(.{ .{ 55, 56, 57 }, .{ 58, 59, 60 }, .{ 61, 62, 63 } }, false),
             hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 72 } }, true),
         } },
-    });
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 10, 11, 12 }, .{ 13, 14, 15 }),
         line(.{ 13, 14, 15 }, .{ 16, 17, 18 }),
@@ -1519,20 +1539,20 @@ test "should capture hit lines correctly in T8" {
         line(.{ 58, 59, 60 }, .{ 61, 62, 63 }),
     }, frame_2.getPlayerById(.player_2).hit_lines.asSlice());
 
-    const frame_3 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = .{
+    const frame_3 = capturer.captureFrame(&gm(.{
+        .player_1 = &.{ .hit_lines = .{
             hitLine(.{ .{ 1, 2, 3 }, .{ 4, 5, 6 }, .{ 7, 8, 9 } }, false),
             hitLine(.{ .{ 1000, 11, 12 }, .{ 13, 14, 15 }, .{ 16, 17, 18 } }, true),
             hitLine(.{ .{ 19, 20, 21 }, .{ 22, 1000, 24 }, .{ 25, 26, 27 } }, true),
             hitLine(.{ .{ 28, 29, 30 }, .{ 31, 32, 33 }, .{ 34, 35, 1000 } }, true),
         } },
-        .player_2 = .{ .hit_lines = .{
+        .player_2 = &.{ .hit_lines = .{
             hitLine(.{ .{ 1000, 38, 39 }, .{ 40, 41, 42 }, .{ 43, 44, 45 } }, false),
             hitLine(.{ .{ 46, 1000, 48 }, .{ 49, 50, 51 }, .{ 52, 53, 54 } }, false),
             hitLine(.{ .{ 55, 56, 57 }, .{ 1000, 59, 60 }, .{ 61, 62, 63 } }, false),
             hitLine(.{ .{ 64, 65, 66 }, .{ 67, 68, 69 }, .{ 70, 71, 1000 } }, false),
         } },
-    });
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_3.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{
         line(.{ 1000, 38, 39 }, .{ 40, 41, 42 }),
@@ -1545,10 +1565,10 @@ test "should capture hit lines correctly in T8" {
         line(.{ 67, 68, 69 }, .{ 70, 71, 1000 }),
     }, frame_3.getPlayerById(.player_2).hit_lines.asSlice());
 
-    const frame_4 = capturer.captureFrame(&.{
-        .player_1 = .{ .hit_lines = null },
-        .player_2 = .{ .hit_lines = null },
-    });
+    const frame_4 = capturer.captureFrame(&gm(.{
+        .player_1 = null,
+        .player_2 = null,
+    }));
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_1).hit_lines.asSlice());
     try testing.expectEqualSlices(model.HitLine, &.{}, frame_4.getPlayerById(.player_2).hit_lines.asSlice());
 }

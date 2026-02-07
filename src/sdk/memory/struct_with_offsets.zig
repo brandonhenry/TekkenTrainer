@@ -46,12 +46,18 @@ pub fn StructWithOffsets(size: ?usize, comptime members: []const StructWithOffse
             padding_index += 1;
             fields_size += 1;
         }
+        if (member_offset % @alignOf(member.type) != 0) {
+            @compileError(std.fmt.comptimePrint(
+                "Unable to create struct with offsets. Struct member \"{s}\" is misaligned on offset 0x{X} while type alignment is: {}",
+                .{ member.name, member_offset, @alignOf(member.type) },
+            ));
+        }
         fields_buffer[fields_size] = .{
             .name = member.name,
             .type = member.type,
             .default_value_ptr = member.default_value_ptr,
             .is_comptime = false,
-            .alignment = if (member_offset % @alignOf(member.type) == 0) @alignOf(member.type) else 1,
+            .alignment = @alignOf(member.type),
         };
         fields_size += 1;
         current_offset = member_offset + @sizeOf(member.type);

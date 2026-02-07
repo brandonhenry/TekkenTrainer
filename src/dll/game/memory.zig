@@ -6,13 +6,18 @@ const game = @import("root.zig");
 
 pub fn Memory(comptime game_id: build_info.Game) type {
     return struct {
-        player_1: sdk.memory.StructProxy(game.Player(game_id)),
-        player_2: sdk.memory.StructProxy(game.Player(game_id)),
-        camera_manager: sdk.memory.StructProxy(game.CameraManager(game_id)),
-        walls: [max_walls]sdk.memory.StructProxy(game.Wall(game_id)),
+        player_1: PlayerProxy,
+        player_2: PlayerProxy,
+        camera_manager: CameraManagerPointer = .fromPointer(null),
+        walls: [max_walls]WallPointer = [1]WallPointer{.fromPointer(null)} ** max_walls,
         functions: Functions,
+        camera_manager_class: ?*const game.UnrealClass = null,
+        wall_class: ?*const game.UnrealClass = null,
 
         const Self = @This();
+        const PlayerProxy = sdk.memory.Proxy(game.Player(game_id));
+        const CameraManagerPointer = sdk.memory.Pointer(game.CameraManager(game_id));
+        const WallPointer = sdk.memory.Pointer(game.Wall(game_id));
         pub const Functions = struct {
             tick: ?*const game.TickFunction(game_id) = null,
             unrealFree: ?*const game.UnrealFreeFunction = null,
@@ -26,19 +31,9 @@ pub fn Memory(comptime game_id: build_info.Game) type {
                 .t8 => null,
             },
         };
-        pub const PartialCopy = struct {
-            player_1: sdk.misc.Partial(game.Player(game_id)) = .{},
-            player_2: sdk.misc.Partial(game.Player(game_id)) = .{},
-            camera_manager: ?game.CameraManager(game_id) = null,
-        };
 
         const pattern_cache_file_name = "pattern_cache_" ++ @tagName(game_id) ++ ".json";
         const max_walls = 136;
-
-        var camera_manager_class: ?*const game.UnrealClass = null;
-        var camera_manager_address: usize = 0;
-        var wall_class: ?*const game.UnrealClass = null;
-        var wall_addresses: [max_walls]usize = [1]usize{0} ** max_walls;
 
         pub fn init(allocator: std.mem.Allocator, base_dir: ?*const sdk.misc.BaseDir) Self {
             var cache = initPatternCache(allocator, base_dir, pattern_cache_file_name) catch |err| block: {
@@ -55,84 +50,49 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             };
         }
 
-        pub fn updateUnrealActorAddresses(self: *const Self) void {
+        pub fn updateUnrealActorAddresses(self: *Self) void {
             self.updateCameraManagerAddress();
             self.updateWallAddresses();
         }
 
-        pub fn takePartialCopy(self: *const Self) PartialCopy {
+        pub fn testingInit(params: struct {
+            player_1: ?*const game.Player(game_id) = null,
+            player_2: ?*const game.Player(game_id) = null,
+            camera_manager: ?*const game.CameraManager(game_id) = null,
+            walls: []const game.Wall(game_id) = &.{},
+            functions: Functions = .{},
+        }) Self {
+            if (!builtin.is_test) {
+                @compileError("This function is only supposed to be called from inside tests.");
+            }
+            const player_1_address = if (params.player_1) |p| @intFromPtr(p) else 0;
+            const player_2_address = if (params.player_2) |p| @intFromPtr(p) else 0;
+            var walls = [1]WallPointer{.{ .address = 0 }} ** max_walls;
+            for (params.walls, 0..) |*wall, index| {
+                if (index >= max_walls) {
+                    break;
+                }
+                walls[index] = .fromPointer(wall);
+            }
             return .{
-                .player_1 = self.player_1.takePartialCopy(),
-                .player_2 = self.player_2.takePartialCopy(),
-                .camera_manager = self.camera_manager.takeFullCopy(),
+                .player_1 = .fromArray(.{player_1_address}),
+                .player_2 = .fromArray(.{player_2_address}),
+                .camera_manager = .fromPointer(params.camera_manager),
+                .walls = walls,
+                .functions = params.functions,
             };
         }
 
         fn t7Init(cache: *?sdk.memory.PatternCache) Self {
-            const player_offsets = structOffsets(game.Player(.t7), .{
-                .is_picked_by_main_player = 0x9,
-                .character_id = 0xD8,
-                .transform_matrix = 0x130,
-                .floor_z = 0x1B0,
-                .rotation = 0x1BE,
-                .animation_frame = 0x1D4,
-                .animation_pointer = 0x218,
-                .airborne_start = .{ 0x218, 0x6C },
-                .airborne_end = .{ 0x218, 0x70 },
-                .state_flags = 0x264,
-                .attack_damage = 0x324,
-                .attack_type = 0x328,
-                .animation_id = 0x350,
-                .can_move = 0x390,
-                .animation_total_frames = 0x39C,
-                .hit_outcome = 0x3D8,
-                .simple_state = 0x428,
-                .power_crushing = 0x6C0,
-                .frames_since_round_start = 0x95C,
-                .in_rage = 0xC00,
-                .phase_flags = 0xC40,
-                .input_side = 0xDE4,
-                .input = 0xE0C,
-                .hit_lines = 0xE50,
-                .hurt_cylinders = 0xF10,
-                .collision_spheres = 0x10D0,
-                .health = 0x14E8,
-            });
-            const camera_manager_offsets = structOffsets(game.CameraManager(.t7), .{
-                .position = 0x03F8,
-                .rotation = 0x404,
-            });
-            const wall_offsets = structOffsets(game.Wall(.t7), .{
-                .relative_position = .{ 0x160, 0x180 },
-                .relative_rotation = .{ 0x160, 0x18C },
-                .relative_scale = .{ 0x160, 0x1C0 },
-                .floor_number = 0x390,
-            });
             return .{
-                .player_1 = structProxy("player_1", game.Player(.t7), .{
+                .player_1 = proxy("player_1", game.Player(.t7), .{
                     relativeOffset(u32, add(0x3, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
                     0x0,
-                }, player_offsets),
-                .player_2 = structProxy("player_2", game.Player(.t7), .{
+                }),
+                .player_2 = proxy("player_2", game.Player(.t7), .{
                     relativeOffset(u32, add(0xD, pattern(cache, "48 8B 15 ?? ?? ?? ?? 44 8B C3"))),
                     0x0,
-                }, player_offsets),
-                .camera_manager = structProxy("camera_manager", game.CameraManager(.t7), .{
-                    @intFromPtr(&camera_manager_address),
-                    0x0,
-                }, camera_manager_offsets),
-                .walls = block: {
-                    var walls: [max_walls]sdk.memory.StructProxy(game.Wall(.t7)) = undefined;
-                    for (0..max_walls) |index| {
-                        var buffer: [32]u8 = undefined;
-                        const name = std.fmt.bufPrint(&buffer, "walls.{}", .{index}) catch "walls.error";
-                        walls[index] = structProxy(name, game.Wall(.t7), .{
-                            @intFromPtr(&wall_addresses[index]),
-                            0x0,
-                        }, wall_offsets);
-                    }
-                    break :block walls;
-                },
+                }),
                 .functions = .{
                     .tick = functionPointer(
                         "tick",
@@ -160,83 +120,17 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         }
 
         fn t8Init(cache: *?sdk.memory.PatternCache) Self {
-            const player_offsets = structOffsets(game.Player(.t8), .{
-                .is_picked_by_main_player = 0x9,
-                .character_id = 0x168,
-                .transform_matrix = 0x200,
-                .floor_z = 0x354,
-                .rotation = 0x376,
-                .animation_frame = deref(u32, add(8, pattern(
-                    cache,
-                    "8B 81 ?? ?? 00 00 39 81 ?? ?? 00 00 0F 84 ?? ?? 00 00 48 C7 81",
-                ))), // 0x390
-                .animation_pointer = 0x3D8,
-                .airborne_start = .{ 0x3D8, 0x124 },
-                .airborne_end = .{ 0x3D8, 0x128 },
-                .state_flags = 0x434,
-                .attack_damage = 0x504,
-                .attack_type = deref(u32, add(2, pattern(
-                    cache,
-                    "89 8E ?? ?? 00 00 48 8D 8E ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8D 8E ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 86",
-                ))), // 0x510
-                .animation_id = 0x548,
-                .can_move = 0x5C8,
-                .animation_total_frames = 0x5D4,
-                .hit_outcome = 0x610,
-                .simple_state = 0x660,
-                .is_a_parry_move = 0xA2C,
-                .power_crushing = 0xBEC,
-                .in_rage = 0xF51,
-                .used_rage = 0xF88,
-                .frames_since_round_start = 0x1590,
-                .phase_flags = 0x1BC4,
-                .heat_gauge = 0x2440,
-                .used_heat = 0x2450,
-                .in_heat = 0x2471,
-                .input_side = 0x27BC,
-                .input = 0x27E4,
-                .hit_lines = 0x2850,
-                .hurt_cylinders = 0x2C50,
-                .collision_spheres = 0x3090,
-                .health = 0x3810,
-            });
-            const camera_manager_offsets = structOffsets(game.CameraManager(.t7), .{
-                .position = 0x22D0,
-                .rotation = 0x22E8,
-            });
-            const wall_offsets = structOffsets(game.Wall(.t8), .{
-                .relative_position = .{ 0x1A0, 0x128 },
-                .relative_rotation = .{ 0x1A0, 0x140 },
-                .relative_scale = .{ 0x1A0, 0x158 },
-                .floor_number = 0x2B8,
-            });
             const self = Self{
-                .player_1 = structProxy("player_1", game.Player(.t8), .{
+                .player_1 = proxy("player_1", game.Player(.t8), .{
                     relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
                     0x30,
                     0x0,
-                }, player_offsets),
-                .player_2 = structProxy("player_2", game.Player(.t8), .{
+                }),
+                .player_2 = proxy("player_2", game.Player(.t8), .{
                     relativeOffset(u32, add(3, pattern(cache, "4C 89 35 ?? ?? ?? ?? 41 88 5E 28"))),
                     0x38,
                     0x0,
-                }, player_offsets),
-                .camera_manager = structProxy("camera_manager", game.CameraManager(.t8), .{
-                    @intFromPtr(&camera_manager_address),
-                    0x0,
-                }, camera_manager_offsets),
-                .walls = block: {
-                    var walls: [max_walls]sdk.memory.StructProxy(game.Wall(.t8)) = undefined;
-                    for (0..max_walls) |index| {
-                        var buffer: [32]u8 = undefined;
-                        const name = std.fmt.bufPrint(&buffer, "walls.{}", .{index}) catch "walls.error";
-                        walls[index] = structProxy(name, game.Wall(.t8), .{
-                            @intFromPtr(&wall_addresses[index]),
-                            0x0,
-                        }, wall_offsets);
-                    }
-                    break :block walls;
-                },
+                }),
                 .functions = .{
                     .tick = functionPointer(
                         "tick",
@@ -336,15 +230,15 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             return cache.save(file_path, executable_timestamp);
         }
 
-        fn updateCameraManagerAddress(self: *const Self) void {
+        fn updateCameraManagerAddress(self: *Self) void {
             const findUnrealClass = self.functions.findUnrealClass orelse return;
             const findUnrealObjectsOfClass = self.functions.findUnrealObjectsOfClass orelse return;
             const unrealFree = self.functions.unrealFree orelse return;
 
-            const class = camera_manager_class orelse block: {
+            const class = self.camera_manager_class orelse block: {
                 const name = std.unicode.utf8ToUtf16LeStringLiteral("/Script/Engine.PlayerCameraManager");
                 const class = findUnrealClass(null, name, true) orelse return;
-                camera_manager_class = class;
+                self.camera_manager_class = class;
                 break :block class;
             };
             var list = game.UnrealArrayList(*game.UnrealObject).empty;
@@ -353,24 +247,24 @@ pub fn Memory(comptime game_id: build_info.Game) type {
 
             const slice = list.asSlice();
             if (slice.len > 0) {
-                camera_manager_address = @intFromPtr(slice[0]);
+                self.camera_manager.address = @intFromPtr(slice[0]);
             } else {
-                camera_manager_address = 0;
+                self.camera_manager.address = 0;
             }
         }
 
-        fn updateWallAddresses(self: *const Self) void {
+        fn updateWallAddresses(self: *Self) void {
             const findUnrealClass = self.functions.findUnrealClass orelse return;
             const findUnrealObjectsOfClass = self.functions.findUnrealObjectsOfClass orelse return;
             const unrealFree = self.functions.unrealFree orelse return;
 
-            const class = wall_class orelse block: {
+            const class = self.wall_class orelse block: {
                 const name = switch (game_id) {
                     .t7 => std.unicode.utf8ToUtf16LeStringLiteral("/Script/TekkenGame.TekkenWallActor"),
                     .t8 => std.unicode.utf8ToUtf16LeStringLiteral("/Script/Polaris.PolarisStageWallActor"),
                 };
                 const class = findUnrealClass(null, name, true) orelse return;
-                wall_class = class;
+                self.wall_class = class;
                 break :block class;
             };
             var list = game.UnrealArrayList(*game.UnrealObject).empty;
@@ -378,136 +272,18 @@ pub fn Memory(comptime game_id: build_info.Game) type {
             defer list.free(unrealFree);
 
             const slice = list.asSlice();
-            const capped_slice = if (slice.len <= max_walls) slice else slice[0..max_walls];
-            wall_addresses = [1]usize{0} ** max_walls;
-            for (capped_slice, 0..) |object, index| {
-                wall_addresses[index] = @intFromPtr(object);
+            for (0..self.walls.len) |index| {
+                if (index < slice.len) {
+                    self.walls[index].address = @intFromPtr(slice[index]);
+                } else {
+                    self.walls[index].address = 0;
+                }
             }
         }
     };
 }
 
-fn structOffsets(comptime Struct: type, offsets: anytype) sdk.misc.FieldMap(Struct, sdk.memory.PointerTrail, null) {
-    @setEvalBranchQuota(2000);
-    const struct_fields = switch (@typeInfo(Struct)) {
-        .@"struct" => |*info| info.fields,
-        else => @compileError("Expecting Struct to be a struct type but got: " ++ @typeName(Struct)),
-    };
-    const offsets_fields = switch (@typeInfo(@TypeOf(offsets))) {
-        .@"struct" => |*info| info.fields,
-        else => @compileError("Expecting offsets to be of a struct type but got: " ++ @typeName(@TypeOf(offsets))),
-    };
-    comptime {
-        var struct_field_paired = [1]bool{false} ** struct_fields.len;
-        var offsets_field_paired = [1]bool{false} ** offsets_fields.len;
-        for (struct_fields, &struct_field_paired) |*struct_field, *struct_paired| {
-            for (offsets_fields, &offsets_field_paired) |*offsets_field, *offset_paired| {
-                if (std.mem.eql(u8, offsets_field.name, struct_field.name)) {
-                    struct_paired.* = true;
-                    offset_paired.* = true;
-                    break;
-                }
-            }
-        }
-        for (struct_fields, struct_field_paired) |*field, paired| {
-            if (!paired) {
-                @compileError(
-                    "No offset provided for struct field \"" ++ field.name ++ "\" in struct: " ++ @typeName(Struct),
-                );
-            }
-        }
-        for (offsets_fields, offsets_field_paired) |*field, paired| {
-            if (!paired) {
-                @compileError(
-                    "Offset provided for field \"" ++ field.name ++
-                        "\", but that field does not exist in struct: " ++ @typeName(Struct),
-                );
-            }
-        }
-    }
-    var last_error: ?struct { err: anyerror, field_name: []const u8, index: ?usize } = null;
-    var trails: sdk.misc.FieldMap(Struct, sdk.memory.PointerTrail, null) = undefined;
-    inline for (struct_fields) |*field| {
-        const offset = @field(offsets, field.name);
-        @field(trails, field.name) = switch (@typeInfo(@TypeOf(offset))) {
-            .int, .comptime_int => sdk.memory.PointerTrail.fromArray(.{offset}),
-            .error_set => block: {
-                last_error = .{ .err = offset, .field_name = field.name, .index = null };
-                break :block sdk.memory.PointerTrail.fromArray(.{null});
-            },
-            .error_union => |*info| switch (@typeInfo(info.payload)) {
-                .int, .comptime_int => block: {
-                    if (offset) |value| {
-                        break :block sdk.memory.PointerTrail.fromArray(.{value});
-                    } else |err| {
-                        last_error = .{ .err = err, .field_name = field.name, .index = null };
-                        break :block sdk.memory.PointerTrail.fromArray(.{null});
-                    }
-                },
-                else => @compileError(
-                    "Offset \"" ++ field.name ++ "\" is of unexpected type: " ++ @typeName(field.type),
-                ),
-            },
-            .@"struct" => |*info| block: {
-                if (!info.is_tuple) {
-                    @compileError(
-                        "Offset \"" ++ field.name ++ "\" is of unexpected type: " ++ @typeName(field.type),
-                    );
-                }
-                var trail_elements: [info.fields.len]?usize = undefined;
-                inline for (info.fields, 0..) |*sub_field, index| {
-                    const sub_offset = @field(offset, sub_field.name);
-                    trail_elements[index] = switch (@typeInfo(sub_field.type)) {
-                        .int, .comptime_int => sub_offset,
-                        .error_set => sub_block: {
-                            last_error = .{ .err = sub_offset, .field_name = field.name, .index = index };
-                            break :sub_block null;
-                        },
-                        .error_union => |*sub_info| switch (@typeInfo(sub_info.payload)) {
-                            .int, .comptime_int => sub_block: {
-                                if (sub_offset) |value| {
-                                    break :sub_block value;
-                                } else |err| {
-                                    last_error = .{ .err = err, .field_name = field.name, .index = index };
-                                    break :sub_block null;
-                                }
-                            },
-                            else => @compileError(
-                                "Offset \"" ++ field.name ++ "." ++ sub_field.name ++
-                                    " is of unexpected type: " ++ @typeName(field.type),
-                            ),
-                        },
-                        else => @compileError(
-                            "Offset \"" ++ field.name ++ "." ++ sub_field.name ++
-                                " is of unexpected type: " ++ @typeName(field.type),
-                        ),
-                    };
-                }
-                break :block sdk.memory.PointerTrail.fromArray(trail_elements);
-            },
-            else => @compileError(
-                "Offset \"" ++ field.name ++ "\" is of unexpected type: " ++ @typeName(field.type),
-            ),
-        };
-    }
-    if (last_error) |err| {
-        if (!builtin.is_test) {
-            if (err.index) |i| {
-                sdk.misc.error_context.append("Failed to resolve element on index: {}", .{i});
-            }
-            sdk.misc.error_context.append("Failed to resolve offset for field: {s}", .{err.field_name});
-            sdk.misc.error_context.append("Failed to resolve field trails for struct: {s}", .{@typeName(Struct)});
-            sdk.misc.error_context.logError(err.err);
-        }
-    }
-    return trails;
-}
-
-fn proxy(
-    name: []const u8,
-    comptime Type: type,
-    offsets: anytype,
-) sdk.memory.Proxy(Type) {
+fn proxy(name: []const u8, comptime Type: type, offsets: anytype) sdk.memory.Proxy(Type) {
     if (@typeInfo(@TypeOf(offsets)) != .array) {
         const coerced: [offsets.len]anyerror!usize = offsets;
         return proxy(name, Type, coerced);
@@ -531,43 +307,7 @@ fn proxy(
     return .fromArray(mapped_offsets);
 }
 
-fn structProxy(
-    name: []const u8,
-    comptime Struct: type,
-    base_offsets: anytype,
-    field_trails: sdk.misc.FieldMap(Struct, sdk.memory.PointerTrail, null),
-) sdk.memory.StructProxy(Struct) {
-    if (@typeInfo(@TypeOf(base_offsets)) != .array) {
-        const coerced: [base_offsets.len]anyerror!usize = base_offsets;
-        return structProxy(name, Struct, coerced, field_trails);
-    }
-    var last_error: ?anyerror = null;
-    var mapped_offsets: [base_offsets.len]?usize = undefined;
-    for (base_offsets, 0..) |offset, i| {
-        if (offset) |o| {
-            mapped_offsets[i] = o;
-        } else |err| {
-            last_error = err;
-            mapped_offsets[i] = null;
-        }
-    }
-    if (last_error) |err| {
-        if (!builtin.is_test) {
-            sdk.misc.error_context.append("Failed to resolve struct proxy: {s}", .{name});
-            sdk.misc.error_context.logError(err);
-        }
-    }
-    return .{
-        .base_trail = .fromArray(mapped_offsets),
-        .field_trails = field_trails,
-    };
-}
-
-fn functionPointer(
-    name: []const u8,
-    comptime Function: type,
-    address: anyerror!usize,
-) ?*const Function {
+fn functionPointer(name: []const u8, comptime Function: type, address: anyerror!usize) ?*const Function {
     const addr = address catch |err| {
         if (!builtin.is_test) {
             sdk.misc.error_context.append("Failed to resolve function pointer: {s}", .{name});
@@ -635,25 +375,6 @@ fn add(comptime addition: comptime_int, address: anyerror!usize) !usize {
 
 const testing = std.testing;
 
-test "structOffsets should map errors to null values" {
-    const Struct = struct {
-        field_1: u8,
-        field_2: u16,
-        field_3: u32,
-        field_4: u64,
-    };
-    const offsets = structOffsets(Struct, .{
-        .field_1 = 1,
-        .field_2 = error.Test,
-        .field_3 = .{ 2, error.Test },
-        .field_4 = .{ error.Test, 3 },
-    });
-    try testing.expectEqualSlices(?usize, &.{1}, offsets.field_1.getOffsets());
-    try testing.expectEqualSlices(?usize, &.{null}, offsets.field_2.getOffsets());
-    try testing.expectEqualSlices(?usize, &.{ 2, null }, offsets.field_3.getOffsets());
-    try testing.expectEqualSlices(?usize, &.{ null, 3 }, offsets.field_4.getOffsets());
-}
-
 test "proxy should construct a proxy from offsets" {
     const byte_proxy = proxy("byte_proxy", u8, .{ 1, 2, 3 });
     try testing.expectEqualSlices(?usize, &.{ 1, 2, 3 }, byte_proxy.trail.getOffsets());
@@ -663,34 +384,6 @@ test "proxy should map errors to null values" {
     sdk.misc.error_context.new("Test error.", .{});
     const byte_proxy = proxy("byte_proxy", u8, .{ 1, error.Test, 2, error.Test });
     try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null }, byte_proxy.trail.getOffsets());
-}
-
-test "structProxy should construct a proxy from offsets" {
-    const Struct = struct { field_1: u8, field_2: u16 };
-    const struct_proxy = structProxy(
-        "pointer",
-        Struct,
-        .{ 1, 2, 3 },
-        .{
-            .field_1 = .fromArray(.{ 4, 5, 6 }),
-            .field_2 = .fromArray(.{ null, 7, null }),
-        },
-    );
-    try testing.expectEqualSlices(?usize, &.{ 1, 2, 3 }, struct_proxy.base_trail.getOffsets());
-    try testing.expectEqualSlices(?usize, &.{ 4, 5, 6 }, struct_proxy.field_trails.field_1.getOffsets());
-    try testing.expectEqualSlices(?usize, &.{ null, 7, null }, struct_proxy.field_trails.field_2.getOffsets());
-}
-
-test "structProxy should map errors to null values in base offsets" {
-    const Struct = struct { field_1: u8, field_2: u16 };
-    sdk.misc.error_context.new("Test error.", .{});
-    const struct_proxy = structProxy(
-        "pointer",
-        Struct,
-        .{ 1, error.Test, 2, error.Test },
-        .{ .field_1 = .fromArray(.{}), .field_2 = .fromArray(.{}) },
-    );
-    try testing.expectEqualSlices(?usize, &.{ 1, null, 2, null }, struct_proxy.base_trail.getOffsets());
 }
 
 test "functionPointer should return a function pointer when address is valid" {

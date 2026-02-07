@@ -14,6 +14,10 @@ pub fn ConvertedValue(
         const Self = @This();
         pub const tag = converted_value_tag;
 
+        pub fn fromRaw(raw: Raw) Self {
+            return .{ .raw = raw };
+        }
+
         pub fn fromConverted(converted: Converted) Self {
             if (convertedToRaw) |ctr| {
                 return .{ .raw = ctr(converted) };
@@ -44,6 +48,11 @@ const testing = std.testing;
 
 test "should have same size as raw value" {
     try testing.expectEqual(@sizeOf(i64), @sizeOf(ConvertedValue(i64, u32, null, null)));
+}
+
+test "fromRaw should return a instance with the provided raw value" {
+    const value = ConvertedValue(i32, i32, null, null).fromRaw(123);
+    try testing.expectEqual(123, value.raw);
 }
 
 test "fromConverted should return correct value" {

@@ -676,7 +676,9 @@ fn drawVector(ctx: *const Context, pointer: anytype) void {
     if (pointer.array.len > 4) {
         drawAny(ctx, &pointer.array);
     } else {
-        drawAny(ctx, pointer.asCoords());
+        const Vector = @typeInfo(@TypeOf(pointer)).pointer.child;
+        const aligned: *const Vector = @alignCast(pointer);
+        drawAny(ctx, aligned.asCoords());
     }
 }
 

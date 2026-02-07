@@ -16,6 +16,14 @@ pub fn Proxy(comptime Type: type) type {
             return .{ .trail = .fromArray(array) };
         }
 
+        pub fn fromPointer(pointer: ?*const Type) Self {
+            if (pointer) |p| {
+                return .{ .trail = .fromArray(.{@intFromPtr(p)}) };
+            } else {
+                return .{ .trail = .fromArray(.{0}) };
+            }
+        }
+
         pub fn findAddress(self: *const Self) ?usize {
             return self.trail.resolve(0);
         }
@@ -53,6 +61,19 @@ pub fn Proxy(comptime Type: type) type {
 }
 
 const testing = std.testing;
+
+test "fromPointer should return a proxy with trail that points to pointers address when pointer is provided" {
+    const Struct = struct {};
+    const str = Struct{};
+    const proxy = Proxy(Struct).fromPointer(&str);
+    try testing.expectEqualSlices(?usize, &.{@intFromPtr(&str)}, proxy.trail.getOffsets());
+}
+
+test "fromPointer should return a proxy with trail that points to 0 address when null is provided" {
+    const Struct = struct {};
+    const proxy = Proxy(Struct).fromPointer(null);
+    try testing.expectEqualSlices(?usize, &.{0}, proxy.trail.getOffsets());
+}
 
 test "findAddress should return a value when trail is resolvable" {
     const Struct = struct {};

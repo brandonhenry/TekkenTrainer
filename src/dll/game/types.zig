@@ -124,8 +124,8 @@ pub fn Input(comptime game_id: build_info.Game) type {
 }
 
 pub const HitLinePoint = extern struct {
-    position: sdk.math.Vec3,
-    _padding: f32,
+    position: sdk.math.Vec3 = .zero,
+    _padding: f32 = 0,
 
     comptime {
         std.debug.assert(@sizeOf(@This()) == 16);
@@ -133,10 +133,10 @@ pub const HitLinePoint = extern struct {
 };
 
 pub const HitLine = extern struct {
-    points: [3]HitLinePoint,
-    _padding_1: [8]u8,
-    ignore: sdk.memory.Boolean(.{}),
-    _padding_2: [7]u8,
+    points: [3]HitLinePoint = [1]HitLinePoint{.{}} ** 3,
+    _padding_1: [8]u8 = [1]u8{0} ** 8,
+    ignore: sdk.memory.Boolean(.{}) = .false,
+    _padding_2: [7]u8 = [1]u8{0} ** 7,
 
     comptime {
         std.debug.assert(@sizeOf(@This()) == 64);
@@ -159,6 +159,12 @@ pub fn HitLines(comptime game_id: build_info.Game) type {
         ),
     };
 }
+fn getDefaultHitLines(comptime game_id: build_info.Game) HitLines(game_id) {
+    return switch (game_id) {
+        .t7 => .{ .fromRaw(.{}), .fromRaw(.{}), .fromRaw(.{}), .fromRaw(.{}), .fromRaw(.{}), .fromRaw(.{}) },
+        .t8 => .{ .fromRaw(.{}), .fromRaw(.{}), .fromRaw(.{}), .fromRaw(.{}) },
+    };
+}
 comptime {
     std.debug.assert(@sizeOf(HitLines(.t7)) == 96);
     std.debug.assert(@sizeOf(HitLines(.t8)) == 256);
@@ -166,17 +172,20 @@ comptime {
 
 pub fn HurtCylinder(comptime game_id: build_info.Game) type {
     return extern struct {
-        center: sdk.math.Vec3,
-        multiplier: f32,
-        half_height: f32,
-        squared_radius: f32,
-        radius: f32,
+        center: sdk.math.Vec3 = .zero,
+        multiplier: f32 = 0,
+        half_height: f32 = 0,
+        squared_radius: f32 = 0,
+        radius: f32 = 0,
         _padding: [
             switch (game_id) {
                 .t7 => 1,
                 .t8 => 9,
             }
-        ]f32,
+        ]f32 = switch (game_id) {
+            .t7 => [1]f32{0} ** 1,
+            .t8 => [1]f32{0} ** 9,
+        },
 
         comptime {
             switch (game_id) {
@@ -189,20 +198,20 @@ pub fn HurtCylinder(comptime game_id: build_info.Game) type {
 
 pub fn HurtCylinders(comptime game_id: build_info.Game) type {
     return extern struct {
-        left_ankle: Element,
-        right_ankle: Element,
-        left_hand: Element,
-        right_hand: Element,
-        left_knee: Element,
-        right_knee: Element,
-        left_elbow: Element,
-        right_elbow: Element,
-        head: Element,
-        left_shoulder: Element,
-        right_shoulder: Element,
-        upper_torso: Element,
-        left_pelvis: Element,
-        right_pelvis: Element,
+        left_ankle: Element = .fromRaw(.{}),
+        right_ankle: Element = .fromRaw(.{}),
+        left_hand: Element = .fromRaw(.{}),
+        right_hand: Element = .fromRaw(.{}),
+        left_knee: Element = .fromRaw(.{}),
+        right_knee: Element = .fromRaw(.{}),
+        left_elbow: Element = .fromRaw(.{}),
+        right_elbow: Element = .fromRaw(.{}),
+        head: Element = .fromRaw(.{}),
+        left_shoulder: Element = .fromRaw(.{}),
+        right_shoulder: Element = .fromRaw(.{}),
+        upper_torso: Element = .fromRaw(.{}),
+        left_pelvis: Element = .fromRaw(.{}),
+        right_pelvis: Element = .fromRaw(.{}),
 
         const Self = @This();
         pub const Element = sdk.memory.ConvertedValue(
@@ -228,10 +237,10 @@ pub fn HurtCylinders(comptime game_id: build_info.Game) type {
 }
 
 pub const CollisionSphere = extern struct {
-    center: sdk.math.Vec3,
-    multiplier: f32,
-    radius: f32,
-    _padding: [3]f32,
+    center: sdk.math.Vec3 = .zero,
+    multiplier: f32 = 0,
+    radius: f32 = 0,
+    _padding: [3]f32 = [1]f32{0} ** 3,
 
     comptime {
         std.debug.assert(@sizeOf(@This()) == 32);
@@ -239,14 +248,14 @@ pub const CollisionSphere = extern struct {
 };
 
 pub const CollisionSpheres = extern struct {
-    neck: Element,
-    left_elbow: Element,
-    right_elbow: Element,
-    lower_torso: Element,
-    left_knee: Element,
-    right_knee: Element,
-    left_ankle: Element,
-    right_ankle: Element,
+    neck: Element = .fromRaw(.{}),
+    left_elbow: Element = .fromRaw(.{}),
+    right_elbow: Element = .fromRaw(.{}),
+    lower_torso: Element = .fromRaw(.{}),
+    left_knee: Element = .fromRaw(.{}),
+    right_knee: Element = .fromRaw(.{}),
+    left_ankle: Element = .fromRaw(.{}),
+    right_ankle: Element = .fromRaw(.{}),
 
     const Self = @This();
     pub const Element = sdk.memory.ConvertedValue(
@@ -270,185 +279,234 @@ pub const CollisionSpheres = extern struct {
 pub fn Health(comptime game_id: build_info.Game) type {
     return switch (game_id) {
         .t7 => extern struct {
-            value: u32,
-            encryption_key: u64,
+            value: u32 = 0,
+            encryption_key: u64 = 0,
         },
         .t8 => [16]u64,
     };
 }
 
 pub fn Player(comptime game_id: build_info.Game) type {
+    const Bool = sdk.memory.Boolean(.{});
+    const Bool2 = sdk.memory.Boolean(.{ .true_value = 2 });
+    const AnimationPointer = sdk.memory.Pointer(Animation(game_id));
+    const Transform = sdk.memory.ConvertedValue(
+        sdk.math.Mat4,
+        sdk.math.Mat4,
+        game.matrixToUnrealSpace,
+        game.matrixFromUnrealSpace,
+    );
+    const FloorZ = sdk.memory.ConvertedValue(
+        f32,
+        f32,
+        game.scaleToUnrealSpace,
+        game.scaleFromUnrealSpace,
+    );
+    const Rotation = sdk.memory.ConvertedValue(
+        u16,
+        f32,
+        game.u16ToRadians,
+        game.u16FromRadians,
+    );
+    const HeatGauge = sdk.memory.ConvertedValue(
+        u32,
+        f32,
+        game.decryptHeatGauge,
+        game.encryptHeatGauge,
+    );
+    const T7Health = sdk.memory.ConvertedValue(
+        Health(.t7),
+        Health(.t7),
+        game.decryptT7Health,
+        game.encryptT7Health,
+    );
+    const T8Health = sdk.memory.ConvertedValue(
+        Health(.t8),
+        ?i32,
+        game.decryptT8Health,
+        null,
+    );
+    @setEvalBranchQuota(40000);
     return switch (game_id) {
-        .t7 => struct {
-            is_picked_by_main_player: sdk.memory.Boolean(.{}),
-            character_id: u32,
-            transform_matrix: sdk.memory.ConvertedValue(
-                sdk.math.Mat4,
-                sdk.math.Mat4,
-                game.matrixToUnrealSpace,
-                game.matrixFromUnrealSpace,
-            ),
-            floor_z: sdk.memory.ConvertedValue(
-                f32,
-                f32,
-                game.scaleToUnrealSpace,
-                game.scaleFromUnrealSpace,
-            ),
-            rotation: sdk.memory.ConvertedValue(
-                u16,
-                f32,
-                game.u16ToRadians,
-                game.u16FromRadians,
-            ),
-            animation_frame: u32,
-            animation_pointer: u64,
-            airborne_start: u32,
-            airborne_end: u32,
-            state_flags: StateFlags,
-            attack_damage: i32,
-            attack_type: AttackType,
-            animation_id: u32,
-            can_move: sdk.memory.Boolean(.{}),
-            animation_total_frames: u32,
-            hit_outcome: HitOutcome,
-            simple_state: SimpleState,
-            power_crushing: sdk.memory.Boolean(.{}),
-            frames_since_round_start: u32,
-            in_rage: sdk.memory.Boolean(.{}),
-            phase_flags: PhaseFlags,
-            input_side: PlayerSide,
-            input: Input(.t7),
-            hit_lines: HitLines(.t7),
-            hurt_cylinders: HurtCylinders(.t7),
-            collision_spheres: CollisionSpheres,
-            health: sdk.memory.ConvertedValue(
-                Health(.t7),
-                Health(.t7),
-                game.decryptT7Health,
-                game.encryptT7Health,
-            ),
-        },
-        .t8 => struct {
-            is_picked_by_main_player: sdk.memory.Boolean(.{}),
-            character_id: u32,
-            transform_matrix: sdk.memory.ConvertedValue(
-                sdk.math.Mat4,
-                sdk.math.Mat4,
-                game.matrixToUnrealSpace,
-                game.matrixFromUnrealSpace,
-            ),
-            floor_z: sdk.memory.ConvertedValue(
-                f32,
-                f32,
-                game.scaleToUnrealSpace,
-                game.scaleFromUnrealSpace,
-            ),
-            rotation: sdk.memory.ConvertedValue(
-                u16,
-                f32,
-                game.u16ToRadians,
-                game.u16FromRadians,
-            ),
-            animation_frame: u32,
-            animation_pointer: u64,
-            airborne_start: u32,
-            airborne_end: u32,
-            state_flags: StateFlags,
-            attack_damage: i32,
-            attack_type: AttackType,
-            animation_id: u32,
-            can_move: sdk.memory.Boolean(.{}),
-            animation_total_frames: u32,
-            hit_outcome: HitOutcome,
-            simple_state: SimpleState,
-            is_a_parry_move: sdk.memory.Boolean(.{ .true_value = 2 }),
-            power_crushing: sdk.memory.Boolean(.{}),
-            in_rage: sdk.memory.Boolean(.{}),
-            used_rage: sdk.memory.Boolean(.{}),
-            frames_since_round_start: u32,
-            phase_flags: PhaseFlags,
-            heat_gauge: sdk.memory.ConvertedValue(
-                u32,
-                f32,
-                game.decryptHeatGauge,
-                game.encryptHeatGauge,
-            ),
-            used_heat: sdk.memory.Boolean(.{}),
-            in_heat: sdk.memory.Boolean(.{}),
-            input_side: PlayerSide,
-            input: Input(.t8),
-            hit_lines: HitLines(.t8),
-            hurt_cylinders: HurtCylinders(.t8),
-            collision_spheres: CollisionSpheres,
-            health: sdk.memory.ConvertedValue(
-                Health(.t8),
-                ?i32,
-                game.decryptT8Health,
-                null,
-            ),
-        },
+        .t7 => sdk.memory.StructWithOffsets(null, &.{
+            .{ .offset = 0x0009, .name = "is_picked_by_main_player", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x00D8, .name = "character_id", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x0130, .name = "transform_matrix", .type = Transform, .default_value_ptr = &Transform.fromRaw(.identity) },
+            .{ .offset = 0x01B0, .name = "floor_z", .type = FloorZ, .default_value_ptr = &FloorZ.fromRaw(0) },
+            .{ .offset = 0x01BE, .name = "rotation", .type = Rotation, .default_value_ptr = &Rotation.fromRaw(0) },
+            .{ .offset = 0x01D4, .name = "animation_frame", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x0218, .name = "animation", .type = AnimationPointer, .default_value_ptr = &AnimationPointer.fromPointer(null) },
+            .{ .offset = 0x0264, .name = "state_flags", .type = StateFlags, .default_value_ptr = &StateFlags{} },
+            .{ .offset = 0x0324, .name = "attack_damage", .type = i32, .default_value_ptr = &@as(i32, 0) },
+            .{ .offset = 0x0328, .name = "attack_type", .type = AttackType, .default_value_ptr = &AttackType.not_attack },
+            .{ .offset = 0x0350, .name = "animation_id", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x0390, .name = "can_move", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x039C, .name = "animation_total_frames", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x03D8, .name = "hit_outcome", .type = HitOutcome, .default_value_ptr = &HitOutcome.none },
+            .{ .offset = 0x0428, .name = "simple_state", .type = SimpleState, .default_value_ptr = &SimpleState.standing },
+            .{ .offset = 0x06C0, .name = "power_crushing", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x095C, .name = "frames_since_round_start", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x0C00, .name = "in_rage", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x0C40, .name = "phase_flags", .type = PhaseFlags, .default_value_ptr = &PhaseFlags{} },
+            .{ .offset = 0x0DE4, .name = "input_side", .type = PlayerSide, .default_value_ptr = &PlayerSide.left },
+            .{ .offset = 0x0E0C, .name = "input", .type = Input(.t7), .default_value_ptr = &Input(.t7){} },
+            .{ .offset = 0x0E50, .name = "hit_lines", .type = HitLines(.t7), .default_value_ptr = &getDefaultHitLines(.t7) },
+            .{ .offset = 0x0F10, .name = "hurt_cylinders", .type = HurtCylinders(.t7), .default_value_ptr = &HurtCylinders(.t7){} },
+            .{ .offset = 0x10D0, .name = "collision_spheres", .type = CollisionSpheres, .default_value_ptr = &CollisionSpheres{} },
+            .{ .offset = 0x14E8, .name = "health", .type = T7Health, .default_value_ptr = &T7Health.fromRaw(.{}) },
+        }),
+        .t8 => sdk.memory.StructWithOffsets(null, &.{
+            .{ .offset = 0x0009, .name = "is_picked_by_main_player", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x0168, .name = "character_id", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x0200, .name = "transform_matrix", .type = Transform, .default_value_ptr = &Transform.fromRaw(.identity) },
+            .{ .offset = 0x0354, .name = "floor_z", .type = FloorZ, .default_value_ptr = &FloorZ.fromRaw(0) },
+            .{ .offset = 0x0376, .name = "rotation", .type = Rotation, .default_value_ptr = &Rotation.fromRaw(0) },
+            .{ .offset = 0x0390, .name = "animation_frame", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x03D8, .name = "animation", .type = AnimationPointer, .default_value_ptr = &AnimationPointer.fromPointer(null) },
+            .{ .offset = 0x0434, .name = "state_flags", .type = StateFlags, .default_value_ptr = &StateFlags{} },
+            .{ .offset = 0x0504, .name = "attack_damage", .type = i32, .default_value_ptr = &@as(i32, 0) },
+            .{ .offset = 0x0510, .name = "attack_type", .type = AttackType, .default_value_ptr = &AttackType.not_attack },
+            .{ .offset = 0x0548, .name = "animation_id", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x05C8, .name = "can_move", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x05D4, .name = "animation_total_frames", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x0610, .name = "hit_outcome", .type = HitOutcome, .default_value_ptr = &HitOutcome.none },
+            .{ .offset = 0x0660, .name = "simple_state", .type = SimpleState, .default_value_ptr = &SimpleState.standing },
+            .{ .offset = 0x0A2C, .name = "is_a_parry_move", .type = Bool2, .default_value_ptr = &Bool2.false },
+            .{ .offset = 0x0BEC, .name = "power_crushing", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x0F51, .name = "in_rage", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x0F88, .name = "used_rage", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x1590, .name = "frames_since_round_start", .type = u32, .default_value_ptr = &@as(u32, 0) },
+            .{ .offset = 0x1BC4, .name = "phase_flags", .type = PhaseFlags, .default_value_ptr = &PhaseFlags{} },
+            .{ .offset = 0x2440, .name = "heat_gauge", .type = HeatGauge, .default_value_ptr = &HeatGauge.fromRaw(0) },
+            .{ .offset = 0x2450, .name = "used_heat", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x2471, .name = "in_heat", .type = Bool, .default_value_ptr = &Bool.false },
+            .{ .offset = 0x27BC, .name = "input_side", .type = PlayerSide, .default_value_ptr = &PlayerSide.left },
+            .{ .offset = 0x27E4, .name = "input", .type = Input(.t8), .default_value_ptr = &Input(.t8){} },
+            .{ .offset = 0x2850, .name = "hit_lines", .type = HitLines(.t8), .default_value_ptr = &getDefaultHitLines(.t8) },
+            .{ .offset = 0x2C50, .name = "hurt_cylinders", .type = HurtCylinders(.t8), .default_value_ptr = &HurtCylinders(.t8){} },
+            .{ .offset = 0x3090, .name = "collision_spheres", .type = CollisionSpheres, .default_value_ptr = &CollisionSpheres{} },
+            .{ .offset = 0x3810, .name = "health", .type = T8Health, .default_value_ptr = &T8Health.fromRaw([1]u64{0} ** 16) },
+        }),
     };
 }
 
+pub fn Animation(comptime game_id: build_info.Game) type {
+    const offsets = switch (game_id) {
+        .t7 => .{
+            .airborne_start = 0x6C,
+            .airborne_end = 0x70,
+        },
+        .t8 => .{
+            .airborne_start = 0x124,
+            .airborne_end = 0x128,
+        },
+    };
+    return sdk.memory.StructWithOffsets(null, &.{
+        .{ .name = "airborne_start", .offset = offsets.airborne_start, .type = u32, .default_value_ptr = &@as(u32, 0) },
+        .{ .name = "airborne_end", .offset = offsets.airborne_end, .type = u32, .default_value_ptr = &@as(u32, 0) },
+    });
+}
+
+// UE: APlayerCameraManager
 pub fn CameraManager(comptime game_id: build_info.Game) type {
     const Float = switch (game_id) {
         .t7 => f32,
         .t8 => f64,
     };
-    return struct {
-        position: sdk.memory.ConvertedValue(
-            sdk.math.Vector(3, Float),
-            sdk.math.Vec3,
-            game.convertEachVectorElement(3, game.floatCast(Float, f32)),
-            game.convertEachVectorElement(3, game.floatCast(f32, Float)),
-        ),
-        rotation: sdk.memory.ConvertedValue(
-            sdk.math.Vector(3, Float),
-            sdk.math.Vec3,
-            game.convertEachVectorElement(3, game.composeConversions(.{
-                game.degreesToRadians(Float),
-                game.floatCast(Float, f32),
-            })),
-            game.convertEachVectorElement(3, game.composeConversions(.{
-                game.floatCast(f32, Float),
-                game.radiansToDegrees(Float),
-            })),
-        ),
+    const Vec = sdk.memory.ConvertedValue(
+        sdk.math.Vector(3, Float),
+        sdk.math.Vec3,
+        game.convertEachVectorElement(3, game.floatCast(Float, f32)),
+        game.convertEachVectorElement(3, game.floatCast(f32, Float)),
+    );
+    const Rot = sdk.memory.ConvertedValue(
+        sdk.math.Vector(3, Float),
+        sdk.math.Vec3,
+        game.convertEachVectorElement(3, game.composeConversions(.{
+            game.degreesToRadians(Float),
+            game.floatCast(Float, f32),
+        })),
+        game.convertEachVectorElement(3, game.composeConversions(.{
+            game.floatCast(f32, Float),
+            game.radiansToDegrees(Float),
+        })),
+    );
+    const offsets = switch (game_id) {
+        .t7 => .{
+            .position = 0x3F8,
+            .rotation = 0x404,
+        },
+        .t8 => .{
+            .position = 0x22D0,
+            .rotation = 0x22E8,
+        },
     };
+    return sdk.memory.StructWithOffsets(null, &.{
+        .{ .name = "position", .offset = offsets.position, .type = Vec, .default_value_ptr = &Vec.fromRaw(.zero) },
+        .{ .name = "rotation", .offset = offsets.rotation, .type = Rot, .default_value_ptr = &Rot.fromRaw(.zero) },
+    });
 }
 
-pub fn Wall(comptime game_id: build_info.Game) type {
+// UE: USceneComponent
+pub fn SceneComponent(comptime game_id: build_info.Game) type {
     const Float = switch (game_id) {
         .t7 => f32,
         .t8 => f64,
     };
-    return struct {
-        relative_position: sdk.memory.ConvertedValue(
-            sdk.math.Vector(3, Float),
-            sdk.math.Vec3,
-            game.convertEachVectorElement(3, game.floatCast(Float, f32)),
-            game.convertEachVectorElement(3, game.floatCast(f32, Float)),
-        ),
-        relative_rotation: sdk.memory.ConvertedValue(
-            sdk.math.Vector(3, Float),
-            sdk.math.Vec3,
-            game.convertEachVectorElement(3, game.composeConversions(.{
-                game.degreesToRadians(Float),
-                game.floatCast(Float, f32),
-            })),
-            game.convertEachVectorElement(3, game.composeConversions(.{
-                game.floatCast(f32, Float),
-                game.radiansToDegrees(Float),
-            })),
-        ),
-        relative_scale: sdk.memory.ConvertedValue(
-            sdk.math.Vector(3, Float),
-            sdk.math.Vec3,
-            game.convertEachVectorElement(3, game.floatCast(Float, f32)),
-            game.convertEachVectorElement(3, game.floatCast(f32, Float)),
-        ),
-        floor_number: u32,
+    const Vec = sdk.memory.ConvertedValue(
+        sdk.math.Vector(3, Float),
+        sdk.math.Vec3,
+        game.convertEachVectorElement(3, game.floatCast(Float, f32)),
+        game.convertEachVectorElement(3, game.floatCast(f32, Float)),
+    );
+    const Rot = sdk.memory.ConvertedValue(
+        sdk.math.Vector(3, Float),
+        sdk.math.Vec3,
+        game.convertEachVectorElement(3, game.composeConversions(.{
+            game.degreesToRadians(Float),
+            game.floatCast(Float, f32),
+        })),
+        game.convertEachVectorElement(3, game.composeConversions(.{
+            game.floatCast(f32, Float),
+            game.radiansToDegrees(Float),
+        })),
+    );
+    const offsets = switch (game_id) {
+        .t7 => .{
+            .relative_position = 0x180,
+            .relative_rotation = 0x18C,
+            .relative_scale = 0x1C0,
+        },
+        .t8 => .{
+            .relative_position = 0x128,
+            .relative_rotation = 0x140,
+            .relative_scale = 0x158,
+        },
     };
+    return sdk.memory.StructWithOffsets(null, &.{
+        .{ .name = "relative_position", .offset = offsets.relative_position, .type = Vec, .default_value_ptr = &Vec.fromRaw(.zero) },
+        .{ .name = "relative_rotation", .offset = offsets.relative_rotation, .type = Rot, .default_value_ptr = &Rot.fromRaw(.zero) },
+        .{ .name = "relative_scale", .offset = offsets.relative_scale, .type = Vec, .default_value_ptr = &Vec.fromRaw(.zero) },
+    });
+}
+
+// T7: TekkenWallActor, T8: PolarisStageWallActor
+pub fn Wall(comptime game_id: build_info.Game) type {
+    const RootComponent = sdk.memory.Pointer(SceneComponent(game_id));
+    const offsets = switch (game_id) {
+        .t7 => .{
+            .root_component = 0x160,
+            .floor_number = 0x390,
+        },
+        .t8 => .{
+            .root_component = 0x1A0,
+            .floor_number = 0x2B8,
+        },
+    };
+    return sdk.memory.StructWithOffsets(null, &.{
+        .{ .name = "root_component", .offset = offsets.root_component, .type = RootComponent, .default_value_ptr = &RootComponent.fromPointer(null) },
+        .{ .name = "floor_number", .offset = offsets.floor_number, .type = u32, .default_value_ptr = &@as(u32, 0) },
+    });
 }
 
 // UE: TArray
