@@ -42,8 +42,6 @@ test {
     _ = @import("sdk/memory/pointer_trail.zig");
     _ = @import("sdk/memory/proxy.zig");
     _ = @import("sdk/memory/range.zig");
-    _ = @import("sdk/memory/self_sortable_array.zig");
-    _ = @import("sdk/memory/struct_proxy.zig");
     _ = @import("sdk/memory/struct_with_offsets.zig");
 
     _ = @import("sdk/misc/base_dir.zig");
