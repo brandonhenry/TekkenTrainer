@@ -6,7 +6,7 @@ pub const PointerTrail = struct {
     len: usize,
 
     const Self = @This();
-    const max_len = 4;
+    const max_len = 8;
 
     pub fn fromArray(array: anytype) Self {
         if (@typeInfo(@TypeOf(array)) != .array) {
@@ -30,12 +30,12 @@ pub const PointerTrail = struct {
         return self.buffer[0..self.len];
     }
 
-    pub fn resolve(self: *const Self, base_address: usize) ?usize {
+    pub fn resolve(self: *const Self) ?usize {
         const offsets = self.getOffsets();
         if (offsets.len == 0) {
             return null;
         }
-        var current_address = base_address;
+        var current_address: usize = 0;
         for (offsets, 0..) |optional_offset, i| {
             const offset = optional_offset orelse return null;
             const result = @addWithOverflow(current_address, offset);
@@ -76,14 +76,14 @@ test "resolve should return the memory address that the pointer trail resolves t
     const str_address_address_address = @intFromPtr(&str_address_address);
 
     const trail = PointerTrail.fromArray;
-    try testing.expectEqual(0, trail(.{0}).resolve(0));
-    try testing.expectEqual(std.math.maxInt(usize), trail(.{std.math.maxInt(usize)}).resolve(0));
-    try testing.expectEqual(field_1_address, trail(.{str_address + field_1_offset}).resolve(0));
-    try testing.expectEqual(field_2_address, trail(.{field_2_offset}).resolve(str_address));
-    try testing.expectEqual(field_1_address, trail(.{ str_address_address, field_1_offset }).resolve(0));
-    try testing.expectEqual(field_2_address, trail(.{ 0, field_2_offset }).resolve(str_address_address));
-    try testing.expectEqual(field_1_address, trail(.{ str_address_address_address, 0, field_1_offset }).resolve(0));
-    try testing.expectEqual(field_2_address, trail(.{ 0, 0, field_2_offset }).resolve(str_address_address_address));
+    try testing.expectEqual(0, trail(.{0}).resolve());
+    try testing.expectEqual(std.math.maxInt(usize), trail(.{std.math.maxInt(usize)}).resolve());
+    try testing.expectEqual(field_1_address, trail(.{str_address + field_1_offset}).resolve());
+    try testing.expectEqual(field_2_address, trail(.{str_address + field_2_offset}).resolve());
+    try testing.expectEqual(field_1_address, trail(.{ str_address_address, field_1_offset }).resolve());
+    try testing.expectEqual(field_2_address, trail(.{ str_address_address, field_2_offset }).resolve());
+    try testing.expectEqual(field_1_address, trail(.{ str_address_address_address, 0, field_1_offset }).resolve());
+    try testing.expectEqual(field_2_address, trail(.{ str_address_address_address, 0, field_2_offset }).resolve());
 }
 
 test "resolve should return null when the pointer trail is incomplete or not resolvable" {
@@ -96,15 +96,11 @@ test "resolve should return null when the pointer trail is incomplete or not res
     const str_address_address = @intFromPtr(&str_address);
 
     const trail = PointerTrail.fromArray;
-    try testing.expectEqual(null, trail(.{}).resolve(0));
-    try testing.expectEqual(null, trail(.{ 0, field_2_offset }).resolve(0));
-    try testing.expectEqual(null, trail(.{ str_address_address, std.math.maxInt(usize) }).resolve(0));
-    try testing.expectEqual(null, trail(.{ 0, std.math.maxInt(usize) }).resolve(str_address_address));
-    try testing.expectEqual(null, trail(.{null}).resolve(0));
-    try testing.expectEqual(null, trail(.{ str_address_address, null }).resolve(0));
-    try testing.expectEqual(null, trail(.{ 0, null }).resolve(str_address_address));
-    try testing.expectEqual(null, trail(.{ str_address_address, field_1_offset, null }).resolve(0));
-    try testing.expectEqual(null, trail(.{ 0, field_1_offset, null }).resolve(str_address_address));
-    try testing.expectEqual(null, trail(.{ str_address_address, null, field_1_offset }).resolve(0));
-    try testing.expectEqual(null, trail(.{ 0, null, field_1_offset }).resolve(str_address_address));
+    try testing.expectEqual(null, trail(.{}).resolve());
+    try testing.expectEqual(null, trail(.{ 0, field_2_offset }).resolve());
+    try testing.expectEqual(null, trail(.{ str_address_address, std.math.maxInt(usize) }).resolve());
+    try testing.expectEqual(null, trail(.{null}).resolve());
+    try testing.expectEqual(null, trail(.{ str_address_address, null }).resolve());
+    try testing.expectEqual(null, trail(.{ str_address_address, field_1_offset, null }).resolve());
+    try testing.expectEqual(null, trail(.{ str_address_address, null, field_1_offset }).resolve());
 }

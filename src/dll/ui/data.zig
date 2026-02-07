@@ -28,7 +28,9 @@ fn drawAny(ctx: *const Context, pointer: anytype) void {
         );
     }
     const Type = @typeInfo(@TypeOf(pointer)).pointer.child;
-    if (hasTag(Type, sdk.memory.converted_value_tag)) {
+    if (Type == sdk.memory.PointerTrail) {
+        drawPointerTrail(ctx, pointer);
+    } else if (hasTag(Type, sdk.memory.converted_value_tag)) {
         drawConvertedValue(ctx, pointer);
     } else if (hasTag(Type, sdk.memory.pointer_tag)) {
         drawCustomPointer(ctx, pointer);
@@ -404,7 +406,7 @@ fn drawPointer(ctx: *const Context, pointer: anytype) void {
 
 // Rendering of custom types.
 
-fn drawPointerTrail(ctx: *const Context, pointer: *const sdk.memory.PointerTrail, base_address: ?usize) void {
+fn drawPointerTrail(ctx: *const Context, pointer: *const sdk.memory.PointerTrail) void {
     const node_open = beginNode(ctx.label);
     defer if (node_open) endNode();
     useDefaultMenu(ctx);
@@ -421,8 +423,7 @@ fn drawPointerTrail(ctx: *const Context, pointer: *const sdk.memory.PointerTrail
     };
     drawAny(&offsets_ctx, offsets_pointer);
 
-    const resolved = if (base_address) |b| pointer.resolve(b) else null;
-    const resolved_pointer = &resolved;
+    const resolved_pointer = &pointer.resolve();
     const resolved_ctx = Context{
         .label = "resolved",
         .type_name = @typeName(@TypeOf(resolved_pointer.*)),
@@ -518,7 +519,7 @@ fn drawProxy(ctx: *const Context, pointer: anytype) void {
         .bit_size = @bitSizeOf(@TypeOf(trail_pointer.*)),
         .parent = ctx,
     };
-    drawPointerTrail(&trail_ctx, trail_pointer, 0);
+    drawAny(&trail_ctx, trail_pointer);
 
     const value_pointer = maybe_value_pointer orelse {
         drawTreeText("value", "not readable");
@@ -1589,6 +1590,81 @@ test "should draw slice correctly" {
 }
 
 // Custom types tests.
+
+test "should draw pointer trail correctly" {
+    const Test = struct {
+        var trail: sdk.memory.PointerTrail = .fromArray(.{});
+
+        fn guiFunction(_: sdk.ui.TestContext) !void {
+            _ = imgui.igBegin("Window", null, 0);
+            defer imgui.igEnd();
+            drawData("test", &trail);
+        }
+
+        fn testFunction(ctx: sdk.ui.TestContext) !void {
+            const address = @intFromPtr(&trail);
+            const size = @sizeOf(@TypeOf(trail));
+
+            trail = .fromArray(.{123});
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: test");
+            try ctx.expectItemExists("path: test");
+            try ctx.expectItemExists("type: " ++ @typeName(@TypeOf(trail)));
+            try ctx.expectItemExistsFmt("address: {} (0x{X})", .{ address, address });
+            try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ size, size });
+            ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
+
+            ctx.setRef("Window");
+            ctx.itemClick("test", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/offsets");
+            try ctx.expectItemExists("test/resolved: 123 (0x7B)");
+            ctx.itemClick("test/offsets", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: offsets");
+            try ctx.expectItemExists("path: test.offsets");
+            try ctx.expectItemExists("type: []const ?usize");
+            try ctx.expectItemExists("address");
+            try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ @sizeOf([]const ?usize), @sizeOf([]const ?usize) });
+            ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
+
+            ctx.setRef("Window");
+            ctx.itemClick("test/resolved", imgui.ImGuiMouseButton_Right, imgui.ImGuiTestOpFlags_NoCheckHoveredId);
+
+            ctx.setRef("//$FOCUSED");
+            try ctx.expectItemExists("label: resolved");
+            try ctx.expectItemExists("path: test.resolved");
+            try ctx.expectItemExists("type: ?usize");
+            try ctx.expectItemExists("address");
+            try ctx.expectItemExistsFmt("size: {} (0x{X}) bytes", .{ @sizeOf(?usize), @sizeOf(?usize) });
+            try ctx.expectItemExists("value: 123 (0x7B)");
+            ctx.mouseClickOnVoid(imgui.ImGuiMouseButton_Left, null);
+
+            ctx.setRef("Window");
+            ctx.itemClick("test/offsets", imgui.ImGuiMouseButton_Left, 0);
+            try ctx.expectItemExists("test/offsets/address");
+            try ctx.expectItemExists("test/offsets/len: 1 (0x1)");
+            try ctx.expectItemExists("test/offsets/0: 123 (0x7B)");
+
+            trail = .fromArray(.{ 123, null });
+            ctx.yield(1);
+
+            ctx.setRef("Window");
+            try ctx.expectItemExists("test/offsets/len: 1 (0x1)");
+            try ctx.expectItemExists("test/offsets/0: 123 (0x7B)");
+            try ctx.expectItemExists("test/offsets/1: null");
+            try ctx.expectItemExists("test/resolved: null");
+        }
+    };
+    const context = try sdk.ui.getTestingContext();
+    try context.runTest(.{}, Test.guiFunction, Test.testFunction);
+}
 
 test "should draw converted value correctly" {
     const Test = struct {
