@@ -25,3 +25,9 @@ pub const Cylinder = struct {
     radius: f32,
     half_height: f32,
 };
+
+pub const Rectangle = struct {
+    center: math.Vec2,
+    half_size: math.Vec2,
+    rotation: f32,
+};

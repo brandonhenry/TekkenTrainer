@@ -38,3 +38,4 @@ pub const LatestVersion = @import("version_info.zig").LatestVersion;
 pub const drawVersionInfo = @import("version_info.zig").drawVersionInfo;
 pub const ViewDirection = @import("view.zig").ViewDirection;
 pub const View = @import("view.zig").View;
+pub const drawWalls = @import("walls.zig").drawWalls;

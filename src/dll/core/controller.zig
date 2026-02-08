@@ -83,6 +83,7 @@ pub const Controller = struct {
             ?model.Rage,
             sdk.math.Vec3,
             model.HitLine,
+            model.Walls, // TODO Temporary added while exploring possibilities. Double check before release.
         },
     };
 

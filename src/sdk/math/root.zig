@@ -19,3 +19,4 @@ pub const LineSegment3 = @import("shapes.zig").LineSegment3;
 pub const Circle = @import("shapes.zig").Circle;
 pub const Sphere = @import("shapes.zig").Sphere;
 pub const Cylinder = @import("shapes.zig").Cylinder;
+pub const Rectangle = @import("shapes.zig").Rectangle;

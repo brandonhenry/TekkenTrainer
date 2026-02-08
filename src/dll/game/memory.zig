@@ -33,7 +33,7 @@ pub fn Memory(comptime game_id: build_info.Game) type {
         };
 
         const pattern_cache_file_name = "pattern_cache_" ++ @tagName(game_id) ++ ".json";
-        const max_walls = 136;
+        pub const max_walls = 256;
 
         pub fn init(allocator: std.mem.Allocator, base_dir: ?*const sdk.misc.BaseDir) Self {
             var cache = initPatternCache(allocator, base_dir, pattern_cache_file_name) catch |err| block: {

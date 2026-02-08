@@ -494,18 +494,24 @@ pub fn SceneComponent(comptime game_id: build_info.Game) type {
 
 // T7: TekkenWallActor, T8: PolarisStageWallActor
 pub fn Wall(comptime game_id: build_info.Game) type {
+    const CollisionEnabled = sdk.memory.Bitfield(u8, &.{
+        .{ .name = "value", .backing_value = 1 },
+    });
     const RootComponent = sdk.memory.Pointer(SceneComponent(game_id));
     const offsets = switch (game_id) {
         .t7 => .{
+            .collision_enabled = 0x7E,
             .root_component = 0x160,
             .floor_number = 0x390,
         },
         .t8 => .{
+            .collision_enabled = 0x5D,
             .root_component = 0x1A0,
             .floor_number = 0x2B8,
         },
     };
     return sdk.memory.StructWithOffsets(null, &.{
+        .{ .name = "collision_enabled", .offset = offsets.collision_enabled, .type = CollisionEnabled, .default_value_ptr = &CollisionEnabled{} },
         .{ .name = "root_component", .offset = offsets.root_component, .type = RootComponent, .default_value_ptr = &RootComponent.fromPointer(null) },
         .{ .name = "floor_number", .offset = offsets.floor_number, .type = u32, .default_value_ptr = &@as(u32, 0) },
     });

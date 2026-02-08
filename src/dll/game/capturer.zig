@@ -26,20 +26,27 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
         pub fn captureFrame(self: *Self, game_memory: *const game.Memory(game_id)) model.Frame {
             const player_1 = game_memory.player_1.toConstPointer();
             const player_2 = game_memory.player_2.toConstPointer();
-            const camera_manager = game_memory.camera_manager.toConstPointer();
+            const frames_from_round_start = captureFramesSinceRoundStart(player_1, player_2);
+            const floor_number = captureFloorNumber(player_1, player_2);
             const main_player_id = captureMainPlayerId(player_1, player_2);
             const left_player_id = captureLeftPlayerId(player_1, player_2, main_player_id);
+            const floor_z = captureFloorZ(player_1, player_2);
+            const players = [2]model.Player{
+                capturePlayer(&self.player_1_state, player_1),
+                capturePlayer(&self.player_2_state, player_2),
+            };
+            const camera_manager = game_memory.camera_manager.toConstPointer();
+            const camera = captureCamera(camera_manager);
+            const walls = captureWalls(&game_memory.walls, floor_number);
             return .{
-                .frames_since_round_start = captureFramesSinceRoundStart(player_1, player_2),
-                .floor_number = captureFloorNumber(player_1, player_2),
-                .floor_z = captureFloorZ(player_1, player_2),
-                .players = .{
-                    capturePlayer(&self.player_1_state, player_1),
-                    capturePlayer(&self.player_2_state, player_2),
-                },
-                .camera = captureCamera(camera_manager),
-                .left_player_id = left_player_id,
+                .frames_since_round_start = frames_from_round_start,
+                .floor_number = floor_number,
+                .floor_z = floor_z,
+                .players = players,
+                .camera = camera,
                 .main_player_id = main_player_id,
+                .left_player_id = left_player_id,
+                .walls = walls,
             };
         }
 
@@ -458,6 +465,35 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 result.buffer[result.len] = .{ .line = line_1 };
                 result.buffer[result.len + 1] = .{ .line = line_2 };
                 result.len += 2;
+            }
+            return result;
+        }
+
+        fn captureWalls(
+            wall_pointers: []const sdk.memory.Pointer(game.Wall(game_id)),
+            floor_number_maybe: ?u32,
+        ) model.Walls {
+            const floor_number = floor_number_maybe orelse return .{};
+            const wall_mesh_half_size = switch (game_id) {
+                .t7 => 128,
+                .t8 => 50,
+            };
+            var result: model.Walls = .{};
+            for (wall_pointers) |wall_pointer| {
+                if (result.len >= result.buffer.len) {
+                    break;
+                }
+                const wall = wall_pointer.toConstPointer() orelse continue;
+                if (!wall.collision_enabled.value or wall.floor_number != floor_number) {
+                    continue;
+                }
+                const root = wall.root_component.toConstPointer() orelse continue;
+                result.buffer[result.len] = .{
+                    .center = root.relative_position.convert().swizzle("xy"),
+                    .half_size = root.relative_scale.convert().swizzle("xy").scale(wall_mesh_half_size),
+                    .rotation = root.relative_rotation.convert().y(),
+                };
+                result.len += 1;
             }
             return result;
         }

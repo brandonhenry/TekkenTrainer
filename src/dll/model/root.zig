@@ -45,3 +45,5 @@ pub const MiscSettings = @import("settings.zig").MiscSettings;
 pub const SkeletonPointId = @import("skeleton.zig").SkeletonPointId;
 pub const SkeletonPoint = @import("skeleton.zig").SkeletonPoint;
 pub const Skeleton = @import("skeleton.zig").Skeleton;
+pub const Wall = @import("walls.zig").Wall;
+pub const Walls = @import("walls.zig").Walls;
