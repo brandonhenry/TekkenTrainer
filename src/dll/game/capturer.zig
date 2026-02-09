@@ -27,7 +27,6 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             const player_1 = game_memory.player_1.toConstPointer();
             const player_2 = game_memory.player_2.toConstPointer();
             const frames_from_round_start = captureFramesSinceRoundStart(player_1, player_2);
-            const floor_number = captureFloorNumber(player_1, player_2);
             const main_player_id = captureMainPlayerId(player_1, player_2);
             const left_player_id = captureLeftPlayerId(player_1, player_2, main_player_id);
             const floor_z = captureFloorZ(player_1, player_2);
@@ -37,10 +36,9 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             };
             const camera_manager = game_memory.camera_manager.toConstPointer();
             const camera = captureCamera(camera_manager);
-            const walls = captureWalls(&game_memory.walls, floor_number);
+            const walls = captureWalls(&game_memory.walls, player_1, player_2);
             return .{
                 .frames_since_round_start = frames_from_round_start,
-                .floor_number = floor_number,
                 .floor_z = floor_z,
                 .players = players,
                 .camera = camera,
@@ -58,16 +56,6 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 return player.frames_since_round_start;
             }
             return null;
-        }
-
-        fn captureFloorNumber(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?u32 {
-            if (player_1) |p1| {
-                return p1.floor_number;
-            } else if (player_2) |p2| {
-                return p2.floor_number;
-            } else {
-                return null;
-            }
         }
 
         fn captureFloorZ(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?f32 {
@@ -469,11 +457,31 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
             return result;
         }
 
-        fn captureWalls(
-            wall_pointers: []const sdk.memory.Pointer(game.Wall(game_id)),
-            floor_number_maybe: ?u32,
-        ) model.Walls {
-            const floor_number = floor_number_maybe orelse return .{};
+        fn captureFloorNumber(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?u32 {
+            if (player_1) |p1| {
+                return p1.floor_number;
+            } else if (player_2) |p2| {
+                return p2.floor_number;
+            } else {
+                return null;
+            }
+        }
+
+        fn captureStageSetNumber(player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) ?u32 {
+            if (game_id != .t8) {
+                return null;
+            } else if (player_1) |p1| {
+                return p1.stage_set_number;
+            } else if (player_2) |p2| {
+                return p2.stage_set_number;
+            } else {
+                return null;
+            }
+        }
+
+        fn captureWalls(wall_pointers: []const sdk.memory.Pointer(game.Wall(game_id)), player_1: ?*const GamePlayer, player_2: ?*const GamePlayer) model.Walls {
+            const floor_number = captureFloorNumber(player_1, player_2) orelse return .{};
+            const set_number = captureStageSetNumber(player_1, player_2);
             const wall_mesh_half_size = switch (game_id) {
                 .t7 => 128,
                 .t8 => 50,
@@ -485,6 +493,9 @@ pub fn Capturer(comptime game_id: build_info.Game) type {
                 }
                 const wall = wall_pointer.toConstPointer() orelse continue;
                 if (!wall.collision_enabled.value or wall.floor_number != floor_number) {
+                    continue;
+                }
+                if (game_id == .t8 and wall.set_number != set_number) {
                     continue;
                 }
                 const root = wall.root_component.toConstPointer() orelse continue;
@@ -565,39 +576,6 @@ test "should capture floor Z correctly" {
             .player_1 = null,
             .player_2 = null,
         })).floor_z,
-    );
-}
-
-test "should capture floor number correctly" {
-    const gm = game.Memory(.t8).testingInit;
-    var capturer = Capturer(.t8){};
-    try testing.expectEqual(
-        123,
-        capturer.captureFrame(&gm(.{
-            .player_1 = &.{ .floor_number = 123 },
-            .player_2 = &.{ .floor_number = 123 },
-        })).floor_number,
-    );
-    try testing.expectEqual(
-        123,
-        capturer.captureFrame(&gm(.{
-            .player_1 = &.{ .floor_number = 123 },
-            .player_2 = null,
-        })).floor_number,
-    );
-    try testing.expectEqual(
-        123,
-        capturer.captureFrame(&gm(.{
-            .player_1 = null,
-            .player_2 = &.{ .floor_number = 123 },
-        })).floor_number,
-    );
-    try testing.expectEqual(
-        null,
-        capturer.captureFrame(&gm(.{
-            .player_1 = null,
-            .player_2 = null,
-        })).floor_number,
     );
 }
 

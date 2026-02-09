@@ -368,6 +368,7 @@ pub fn Player(comptime game_id: build_info.Game) type {
             field(0x2440, "heat_gauge", HeatGauge, &.fromRaw(0)),
             field(0x2450, "used_heat", Bool, &.false),
             field(0x2471, "in_heat", Bool, &.false),
+            field(0x24B8, "stage_set_number", u32, &0),
             field(0x27BC, "input_side", PlayerSide, &.left),
             field(0x27E4, "input", Input(.t8), &.{}),
             field(0x2850, "hit_lines", HitLines(.t8), &getDefaultHitLines(.t8)),
@@ -478,9 +479,10 @@ pub fn Wall(comptime game_id: build_info.Game) type {
             field(0x160, "root_component", RootComponent, &.fromPointer(null)), // UE: RootComponent
             field(0x390, "floor_number", u32, &0), // T7: FloorNo
         }),
-        .t8 => sdk.memory.StructWithOffsets(null, &.{
+        .t8 => sdk.memory.StructWithOffsets(0x3A9, &.{
             field(0x05D, "collision_enabled", CollisionEnabled, &.{}),
             field(0x1A0, "root_component", RootComponent, &.fromPointer(null)), // UE: RootComponent
+            field(0x2B0, "state", u8, &0), // T8: State
             field(0x2B4, "set_number", u32, &0), // T8: SetNo
             field(0x2B8, "floor_number", u32, &0), // T8: FloorNo
         }),
