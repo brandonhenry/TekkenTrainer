@@ -29,7 +29,7 @@ fn isMemoryAccessibleAndInOneOfModes(
     if (size_in_bytes == 0) {
         return true;
     }
-    if (!isMemoryRangeValid(address, size_in_bytes)) {
+    if (address == 0 or !isMemoryRangeValid(address, size_in_bytes)) {
         return false;
     }
     var current_address = address;
