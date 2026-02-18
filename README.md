@@ -5,6 +5,7 @@ The application only works with the PC version of both games.
 
 ## Features
 
+- View Frame Advantage Numbers While Fighting
 - View situations from front, top and side.
 - Record situations from practice mode, live games and replays.
 - Examine the recorded situations frame by frame.
