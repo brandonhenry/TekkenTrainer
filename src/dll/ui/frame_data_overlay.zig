@@ -24,15 +24,14 @@ pub const FrameDataOverlay = struct {
     ) void {
         if (!settings.enabled) return;
 
-        const player_1 = frame.getPlayerById(.player_1);
-        const player_2 = frame.getPlayerById(.player_2);
+        // Always render only the active player's frame advantage to avoid duplicate
+        // numbers stacked in world overlay mode.
+        const main_player_id = frame.main_player_id;
+        const main_player = frame.getPlayerById(main_player_id);
+        const opponent_id: model.PlayerId = if (main_player_id == .player_1) .player_2 else .player_1;
+        const opponent_player = frame.getPlayerById(opponent_id);
 
-        self.drawPlayerFrameAdvantage(0, player_1, player_2, matrix, draw_list);
-        // In camera view windows, only show P1 frame advantage.
-        // Screen overlay mode still shows both players.
-        if (draw_list != null) {
-            self.drawPlayerFrameAdvantage(1, player_2, player_1, matrix, draw_list);
-        }
+        self.drawPlayerFrameAdvantage(0, main_player, opponent_player, matrix, draw_list);
     }
 
     fn drawPlayerFrameAdvantage(
