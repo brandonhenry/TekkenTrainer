@@ -1,0 +1,10 @@
+install
++- install irony_t8 failure
+error: unable to update file from '.zig-cache\o\e5b4e896b95e3a027c194fd594cdebde\irony_t8.dll' to 'E:\Users\Edward\Documents\GitHub\TekkenTrainer\zig-out\bin\irony_t8.dll': AccessDenied
+
+Build Summary: 17/19 steps succeeded; 1 failed
+install transitive failure
++- install irony_t8 failure
+
+error: the following build command failed with exit code 1:
+.zig-cache\o\f2f634eaf36d96b75cefb3102877af0b\build.exe C:\Users\Edward\scoop\apps\zig\0.15.2\zig.exe C:\Users\Edward\scoop\apps\zig\0.15.2\lib E:\Users\Edward\Documents\GitHub\TekkenTrainer .zig-cache C:\Users\Edward\AppData\Local\zig --seed 0x15f1e12d -Zc3d32e9e42aeb50e
