@@ -2,6 +2,7 @@
   "name": "tekken-trainer",
   "version": "1.0.0",
   "scripts": {
+    "build": "zig build",
     "start": "zig-out\\bin\\irony_injector.exe",
     "launch-t8": "start steam://rungameid/1778820",
     "inject": "npm run start"
