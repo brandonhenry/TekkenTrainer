@@ -784,17 +784,15 @@ fn drawComboSuggestionSettings(value: *model.ComboSuggestionSettings, default: *
     
     // Character selection
     imgui.igPushID_Str("Character Selection");
-    drawDefaultButton(value, default); // This resets the whole struct, which is fine
+    drawDefaultButton(&value.character_index, &default.character_index);
     imgui.igPopID();
     imgui.igSameLine(0, -1);
     
-    var buf: [32]u8 = [_]u8{0} ** 32;
-    const current_name = value.getCharacterName();
-    @memcpy(buf[0..current_name.len], current_name);
+    const items = [_][*:0]const u8{
+        "Alisa", "Anna", "Armor King", "Asuka", "Azucena", "Baek", "Bob", "Bryan", "Claudio", "Devil Jin", "Dragunov", "Eddy", "Feng", "Ganryu", "Geese", "Heihachi", "Hwoarang", "Jack-7", "Jack-8", "Jin", "Josie", "Julia", "Jun", "Katarina", "Kazumi", "Kazuya", "King", "Kuma", "Kunimitsu", "Lars", "Law", "Lee", "Lei", "Leo", "Leroy", "Lidia", "Lili", "Lucky Chloe", "Marduk", "Master Raven", "Miguel", "Nina", "Noctis", "Panda", "Paul", "Raven", "Reina", "Shaheen", "Steve", "Victor", "Xiaoyu", "Yoshimitsu", "Zafina"
+    };
     
-    if (imgui.igInputText("Character Name", &buf, buf.len, 0, null, null)) {
-        value.setCharacterName(std.mem.sliceTo(&buf, 0));
-    }
+    _ = imgui.igCombo_Str_arr("Character", &value.character_index, &items, @intCast(items.len), -1);
 }
 
 fn drawBool(label: [:0]const u8, value: *bool, default: *const bool) void {

@@ -337,16 +337,15 @@ pub const FrameDataOverlaySettings = struct {
 
 pub const ComboSuggestionSettings = struct {
     enabled: bool = false,
-    character_name: [32]u8 = [_]u8{0} ** 32, // Fixed size for simplicity in serialization if needed, but JSON handles strings
+    character_index: i32 = 0,
     
-    pub fn setCharacterName(self: *ComboSuggestionSettings, name: []const u8) void {
-        @memset(&self.character_name, 0);
-        const len = @min(name.len, self.character_name.len);
-        @memcpy(self.character_name[0..len], name[0..len]);
-    }
+    pub const characters = [_][]const u8{
+        "alisa", "anna", "armor-king", "asuka", "azucena", "baek", "bob", "bryan", "claudio", "devil-jin", "dragunov", "eddy", "feng", "ganryu", "geese", "heihachi", "hwoarang", "jack-7", "jack-8", "jin", "josie", "julia", "jun", "katarina", "kazumi", "kazuya", "king", "kuma", "kunimitsu", "lars", "law", "lee", "lei", "leo", "leroy", "lidia", "lili", "lucky-chloe", "marduk", "master-raven", "miguel", "nina", "noctis", "panda", "paul", "raven", "reina", "shaheen", "steve", "victor", "xiaoyu", "yoshimitsu", "zafina"
+    };
 
     pub fn getCharacterName(self: *const ComboSuggestionSettings) []const u8 {
-        return std.mem.sliceTo(&self.character_name, 0);
+        const index = if (self.character_index < 0) 0 else if (self.character_index >= characters.len) 0 else @as(usize, @intCast(self.character_index));
+        return characters[index];
     }
 };
 

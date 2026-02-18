@@ -136,9 +136,13 @@ pub const ComboMatcher = struct {
             }
             
             if (match_count > 0 and match_count < moves.items.len) {
-                // Return the combo Value so HUD can draw the remaining moves
                 return combo_val;
             }
+        }
+        
+        // If no match found, or history empty, suggest the first combo for the character
+        if (combo_list.items.len > 0) {
+            return combo_list.items[0];
         }
         
         return null;

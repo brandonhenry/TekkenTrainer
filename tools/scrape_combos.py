@@ -93,7 +93,7 @@ def scrape_combos(character):
         print(f"  Page {page} done. Found {len(combo_items)} combos.")
         page += 1
         time.sleep(0.5) # Be nice
-        if page > 5: # Limit for now to avoid massive downloads during dev
+        if page > 10: # Increased for more data
             break
             
     return combos
@@ -124,13 +124,14 @@ def main():
     characters = get_characters()
     all_data = {}
     
-    # For dev, just do a few characters
-    for char in characters[:3]: 
+    # Scrape all characters
+    for char in characters: 
         combos = scrape_combos(char)
         all_data[char['name']] = combos
         
-    with open(os.path.join(OUTPUT_DIR, "combos.json"), "w") as f:
-        json.dump(all_data, f, indent=4)
+        # Save incrementally
+        with open(os.path.join(OUTPUT_DIR, "combos.json"), "w") as f:
+            json.dump(all_data, f, indent=4)
         
     print(f"Done! Data saved to {OUTPUT_DIR}/combos.json")
 
