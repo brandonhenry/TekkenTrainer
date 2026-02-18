@@ -12,6 +12,13 @@ pub const ComboSuggestionHud = struct {
         tex_data: [*c]imgui.ImTextureData,
         tex_ref: imgui.ImTextureRef,
     };
+
+    const FadeToken = struct {
+        text: [32]u8 = [_]u8{0} ** 32,
+        len: usize = 0,
+        started_at: f64 = 0,
+        duration: f64 = 0.22,
+    };
     
     // Instance of matcher to track history
     matcher: ?logic.ComboMatcher = null,
@@ -19,6 +26,11 @@ pub const ComboSuggestionHud = struct {
     texture_cache: std.StringHashMapUnmanaged(TextureEntry) = .empty,
     missing_texture_cache: std.StringHashMapUnmanaged(void) = .empty,
     raw_inputs_dir: ?[]u8 = null,
+    locked_combo_id: ?[]u8 = null,
+    locked_progress: usize = 0,
+    mismatch_since: ?f64 = null,
+    last_history_revision: u64 = 0,
+    fade_token: ?FadeToken = null,
 
     pub fn init(self: *Self, allocator: std.mem.Allocator) void {
         self.allocator = allocator;
@@ -46,6 +58,10 @@ pub const ComboSuggestionHud = struct {
                 allocator.free(path);
                 self.raw_inputs_dir = null;
             }
+            if (self.locked_combo_id) |combo_id| {
+                allocator.free(combo_id);
+                self.locked_combo_id = null;
+            }
         }
     }
 
@@ -66,6 +82,8 @@ pub const ComboSuggestionHud = struct {
         }
         
         matcher.update(frame, settings);
+        const current_time = imgui.igGetTime();
+        self.updateSuggestionLock(matcher, current_time);
 
         const viewport = imgui.igGetMainViewport();
         const display_size = viewport.*.WorkSize;
@@ -98,15 +116,13 @@ pub const ComboSuggestionHud = struct {
             
             imgui.igSeparator();
             
-            // Section 2: Suggestions (horizontal)
-            if (matcher.getBestMatch()) |combo_val| {
-                const moves_val = combo_val.object.get("moves").?;
+            // Section 2: Suggestions (horizontal), supports lock + progress trimming.
+            if (self.getDisplaySuggestion(matcher)) |display| {
+                const moves_val = display.combo.object.get("moves").?;
                 const moves = moves_val.array;
-                
-                self.drawJsonMoveRow("Suggest", moves.items, 1.0, base_dir);
-                
-                // Show damage/hits
-                if (combo_val.object.get("damage")) |dmg| {
+                self.drawJsonMoveRow("Suggest", moves.items, display.start_index, 1.0, base_dir, current_time);
+
+                if (display.combo.object.get("damage")) |dmg| {
                     drawTextSliceColored(.{ .x = 1, .y = 0.5, .z = 0.5, .w = 1 }, dmg.string);
                 }
             } else {
@@ -126,13 +142,17 @@ pub const ComboSuggestionHud = struct {
             return;
         }
         
-        for (moves, 0..) |move, i| {
-            if (i > 0) {
+        var i: usize = moves.len;
+        var display_index: usize = 0;
+        while (i > 0) {
+            i -= 1;
+            if (display_index > 0) {
                 imgui.igSameLine(0, 5);
                 drawTextSliceColored(.{ .x = 0.7, .y = 0.7, .z = 0.7, .w = 1.0 }, ">");
                 imgui.igSameLine(0, 5);
             }
-            
+
+            const move = moves[i];
             const color = if (move.type == .img) 
                 imgui.ImVec4{ .x = 1.0, .y = 0.8, .z = 0.2, .w = 1.0 } 
             else 
@@ -145,18 +165,34 @@ pub const ComboSuggestionHud = struct {
             } else {
                 drawTextSliceColored(color, move.name);
             }
-            if (i + 1 < moves.len) imgui.igSameLine(0, 0);
+            display_index += 1;
+            if (display_index < moves.len) imgui.igSameLine(0, 0);
         }
     }
 
-    fn drawJsonMoveRow(self: *Self, label: []const u8, moves: []const std.json.Value, alpha: f32, base_dir: *const sdk.misc.BaseDir) void {
+    fn drawJsonMoveRow(
+        self: *Self,
+        label: []const u8,
+        moves: []const std.json.Value,
+        start_index: usize,
+        alpha: f32,
+        base_dir: *const sdk.misc.BaseDir,
+        current_time: f64,
+    ) void {
         imgui.igPushStyleVar_Float(imgui.ImGuiStyleVar_Alpha, alpha);
         defer imgui.igPopStyleVar(1);
 
         drawTextSlice(label);
         imgui.igSameLine(260, -1);
-        
-        for (moves, 0..) |move_val, i| {
+
+        if (start_index >= moves.len) {
+            drawTextSliceColored(.{ .x = 0.6, .y = 0.9, .z = 0.6, .w = 1.0 }, "(combo complete)");
+            return;
+        }
+
+        self.drawFadeTokenOverlayIfAny(current_time);
+
+        for (moves[start_index..], 0..) |move_val, i| {
             if (i > 0) {
                 imgui.igSameLine(0, 5);
                 drawTextSliceColored(.{ .x = 0.7, .y = 0.7, .z = 0.7, .w = 1.0 }, ">");
@@ -183,7 +219,151 @@ pub const ComboSuggestionHud = struct {
             } else {
                 drawTextSliceColored(color, name);
             }
-            if (i + 1 < moves.len) imgui.igSameLine(0, 0);
+            if (i + 1 < (moves.len - start_index)) imgui.igSameLine(0, 0);
+        }
+    }
+
+    fn updateSuggestionLock(self: *Self, matcher: *logic.ComboMatcher, current_time: f64) void {
+        const diff = matcher.history_revision - self.last_history_revision;
+        if (diff > 0) {
+            const history = matcher.history.items;
+            const new_count = @min(@as(usize, @intCast(diff)), history.len);
+            const start = history.len - new_count;
+            for (history[start..]) |move| {
+                self.processNewHistoryMove(matcher, move, current_time);
+            }
+            self.last_history_revision = matcher.history_revision;
+        }
+
+        if (self.mismatch_since) |since| {
+            if (current_time - since >= 0.5) {
+                self.clearLock();
+            }
+        }
+
+        if (self.locked_combo_id == null) {
+            if (matcher.getBestMatchWithCount()) |match| {
+                if (match.combo.object.get("id")) |id_val| {
+                    const moves_len = match.combo.object.get("moves").?.array.items.len;
+                    if (match.matched_count < moves_len) {
+                        self.setLock(id_val.string, match.matched_count);
+                    }
+                }
+            }
+        }
+    }
+
+    fn processNewHistoryMove(self: *Self, matcher: *logic.ComboMatcher, move: logic.ComboMatcher.Move, current_time: f64) void {
+        const combo_id = self.locked_combo_id orelse return;
+        const combo = matcher.getComboById(combo_id) orelse {
+            self.clearLock();
+            return;
+        };
+
+        const moves = combo.object.get("moves").?.array.items;
+        if (self.locked_progress >= moves.len) {
+            self.clearLock();
+            return;
+        }
+
+        const expected = moves[self.locked_progress];
+        const expected_name = expected.object.get("name").?.string;
+
+        if (matcher.moveMatchesComboMove(move, expected_name)) {
+            self.captureFadeToken(expected, current_time);
+            self.locked_progress += 1;
+            self.mismatch_since = null;
+            if (self.locked_progress >= moves.len) {
+                self.clearLock();
+            }
+            return;
+        }
+
+        if (self.mismatch_since == null) {
+            self.mismatch_since = current_time;
+        }
+    }
+
+    fn setLock(self: *Self, combo_id: []const u8, progress: usize) void {
+        const allocator = self.allocator orelse return;
+        if (self.locked_combo_id) |existing| {
+            if (std.mem.eql(u8, existing, combo_id)) {
+                self.locked_progress = progress;
+                self.mismatch_since = null;
+                return;
+            }
+            allocator.free(existing);
+            self.locked_combo_id = null;
+        }
+        self.locked_combo_id = allocator.dupe(u8, combo_id) catch null;
+        self.locked_progress = progress;
+        self.mismatch_since = null;
+    }
+
+    fn clearLock(self: *Self) void {
+        const allocator = self.allocator orelse return;
+        if (self.locked_combo_id) |combo_id| {
+            allocator.free(combo_id);
+            self.locked_combo_id = null;
+        }
+        self.locked_progress = 0;
+        self.mismatch_since = null;
+    }
+
+    const DisplaySuggestion = struct {
+        combo: std.json.Value,
+        start_index: usize,
+    };
+
+    fn getDisplaySuggestion(self: *Self, matcher: *logic.ComboMatcher) ?DisplaySuggestion {
+        if (self.locked_combo_id) |combo_id| {
+            if (matcher.getComboById(combo_id)) |combo| {
+                const moves_len = combo.object.get("moves").?.array.items.len;
+                if (self.locked_progress < moves_len) {
+                    return .{ .combo = combo, .start_index = self.locked_progress };
+                }
+            }
+        }
+
+        if (matcher.getBestMatchWithCount()) |match| {
+            return .{ .combo = match.combo, .start_index = match.matched_count };
+        }
+        return null;
+    }
+
+    fn captureFadeToken(self: *Self, move_val: std.json.Value, current_time: f64) void {
+        var token = FadeToken{ .started_at = current_time };
+        const move_type = move_val.object.get("type").?.string;
+        const text = if (std.mem.eql(u8, move_type, "img"))
+            tokenFromImageName(move_val.object.get("img").?.string)
+        else
+            move_val.object.get("name").?.string;
+
+        token.len = @min(text.len, token.text.len);
+        @memcpy(token.text[0..token.len], text[0..token.len]);
+        self.fade_token = token;
+    }
+
+    fn drawFadeTokenOverlayIfAny(self: *Self, current_time: f64) void {
+        if (self.fade_token) |fade| {
+            const elapsed = current_time - fade.started_at;
+            if (elapsed >= fade.duration) {
+                self.fade_token = null;
+                return;
+            }
+            const alpha = @as(f32, @floatCast(1.0 - (elapsed / fade.duration)));
+            const text = fade.text[0..fade.len];
+            var z_buffer: [64]u8 = undefined;
+            if (text.len >= z_buffer.len) return;
+            @memcpy(z_buffer[0..text.len], text);
+            z_buffer[text.len] = 0;
+            const z_text = z_buffer[0..text.len :0];
+
+            const draw_list = imgui.igGetWindowDrawList();
+            var text_pos: imgui.ImVec2 = undefined;
+            imgui.igGetCursorScreenPos(&text_pos);
+            const ghost_color = imgui.igGetColorU32_Vec4(.{ .x = 1, .y = 1, .z = 1, .w = alpha * 0.9 });
+            imgui.ImDrawList_AddText_Vec2(draw_list, text_pos, ghost_color, z_text, null);
         }
     }
 

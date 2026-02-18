@@ -38,8 +38,8 @@ If you want to build the project yourself:
 
 ## 🧡 Support the Project
 Enjoying the tool? Help keep it running:
-*   [One-Time Donation](https://donate.stripe.com/5kQ8wI2qi1zbdWkgUPao800)
-*   [Support on Stripe](https://donate.stripe.com/fZu4gsd4W0v77xWeMHao801)
+*   [One-Time Donation](https://ko-fi.com/thebrandonhenry)
+*   [Support on Ko-fi](https://ko-fi.com/thebrandonhenry)
 
 ---
 *Note: This is "Source-Available" software. Read the [LICENSE](./LICENSE.md) for details.*

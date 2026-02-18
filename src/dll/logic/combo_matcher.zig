@@ -7,6 +7,7 @@ pub const ComboMatcher = struct {
     
     allocator: std.mem.Allocator,
     history: std.ArrayListUnmanaged(Move),
+    history_revision: u64 = 0,
     last_input: model.Input = .{},
     combo_data: ?ComboDataRaw = null,
     current_character: [32]u8 = [_]u8{0} ** 32,
@@ -20,6 +21,11 @@ pub const ComboMatcher = struct {
 
     pub const ComboDataRaw = struct {
         value: std.json.Parsed(std.json.Value),
+    };
+
+    pub const MatchResult = struct {
+        combo: std.json.Value,
+        matched_count: usize,
     };
 
     pub fn init(allocator: std.mem.Allocator) Self {
@@ -116,6 +122,7 @@ pub const ComboMatcher = struct {
             if (self.history.items.len > 20) {
                 _ = self.history.orderedRemove(0);
             }
+            self.history_revision += 1;
         }
     }
 
@@ -155,6 +162,20 @@ pub const ComboMatcher = struct {
     }
 
     pub fn getBestMatch(self: *Self) ?std.json.Value {
+        if (self.getBestMatchWithCount()) |result| {
+            return result.combo;
+        }
+
+        const data = self.combo_data orelse return null;
+        const char_name = std.mem.sliceTo(&self.current_character, 0);
+        if (char_name.len == 0) return null;
+        const char_combos = data.value.value.object.get(char_name) orelse return null;
+        const combo_list = char_combos.array;
+        if (combo_list.items.len > 0) return combo_list.items[0];
+        return null;
+    }
+
+    pub fn getBestMatchWithCount(self: *Self) ?MatchResult {
         const data = self.combo_data orelse return null;
         const char_name = std.mem.sliceTo(&self.current_character, 0);
         if (char_name.len == 0) return null;
@@ -164,34 +185,52 @@ pub const ComboMatcher = struct {
 
         if (self.history.items.len == 0) return null;
 
+        var best: ?MatchResult = null;
         for (combo_list.items) |combo_val| {
             const moves_val = combo_val.object.get("moves") orelse continue;
             const moves = moves_val.array;
-            
-            var match_count: usize = 0;
-            for (self.history.items) |hist_move| {
-                if (match_count >= moves.items.len) break;
-                
-                const combo_move_name = moves.items[match_count].object.get("name").?.string;
-                if (std.mem.eql(u8, hist_move.name, combo_move_name) or 
-                    self.nameMatches(hist_move.name, combo_move_name)) {
-                    match_count += 1;
-                } else {
-                    match_count = 0;
+
+            const match_count = self.getMatchCountForMoves(moves.items);
+            if (match_count > 0 and match_count < moves.items.len) {
+                if (best == null or match_count > best.?.matched_count) {
+                    best = .{ .combo = combo_val, .matched_count = match_count };
                 }
             }
-            
-            if (match_count > 0 and match_count < moves.items.len) {
-                return combo_val;
+        }
+
+        return best;
+    }
+
+    pub fn getComboById(self: *Self, combo_id: []const u8) ?std.json.Value {
+        const data = self.combo_data orelse return null;
+        const char_name = std.mem.sliceTo(&self.current_character, 0);
+        if (char_name.len == 0) return null;
+
+        const char_combos = data.value.value.object.get(char_name) orelse return null;
+        const combo_list = char_combos.array;
+        for (combo_list.items) |combo_val| {
+            const id_val = combo_val.object.get("id") orelse continue;
+            if (std.mem.eql(u8, id_val.string, combo_id)) return combo_val;
+        }
+        return null;
+    }
+
+    pub fn moveMatchesComboMove(self: *Self, history_move: Move, combo_move_name: []const u8) bool {
+        return std.mem.eql(u8, history_move.name, combo_move_name) or self.nameMatches(history_move.name, combo_move_name);
+    }
+
+    fn getMatchCountForMoves(self: *Self, moves: []const std.json.Value) usize {
+        var match_count: usize = 0;
+        for (self.history.items) |hist_move| {
+            if (match_count >= moves.len) break;
+            const combo_move_name = moves[match_count].object.get("name").?.string;
+            if (self.moveMatchesComboMove(hist_move, combo_move_name)) {
+                match_count += 1;
+            } else {
+                match_count = 0;
             }
         }
-        
-        // If no match found, or history empty, suggest the first combo for the character
-        if (combo_list.items.len > 0) {
-            return combo_list.items[0];
-        }
-        
-        return null;
+        return match_count;
     }
     
     fn nameMatches(self: *Self, hist_name: []const u8, combo_name: []const u8) bool {
