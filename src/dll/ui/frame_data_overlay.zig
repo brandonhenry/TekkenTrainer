@@ -88,18 +88,13 @@ pub const FrameDataOverlay = struct {
         var screen_pos: sdk.math.Vec3 = undefined;
         if (draw_list != null) {
             // SCREEN OVERLAY: Float UP in screen space (pixels)
-            // Delay floating for 0.5s
-            const float_delay = 0.5;
             const float_speed = 120.0; // pixels per second
-            const active_float_time = @max(0.0, time_elapsed - float_delay);
-            const vertical_offset = @as(f32, @floatCast(active_float_time)) * float_speed;
+            const vertical_offset = @as(f32, @floatCast(time_elapsed)) * float_speed;
             screen_pos = history.spawn_position.subtract(sdk.math.Vec3.fromArray(.{ 0, vertical_offset, 0 }));
         } else {
             // INTERNAL WINDOW: Float UP in world space (cm)
-            const float_delay = 0.5;
             const float_speed = 60.0; // cm per second
-            const active_float_time = @max(0.0, time_elapsed - float_delay);
-            const vertical_offset = @as(f32, @floatCast(active_float_time)) * float_speed;
+            const vertical_offset = @as(f32, @floatCast(time_elapsed)) * float_speed;
             const world_pos = history.spawn_position.add(sdk.math.Vec3.fromArray(.{ 0, 0, vertical_offset }));
             screen_pos = world_pos.pointTransform(matrix);
         }

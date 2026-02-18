@@ -331,6 +331,7 @@ pub const DetailsSettings = struct {
 pub const FrameDataOverlaySettings = struct {
     enabled: bool = true,
     screen_overlay_enabled: bool = false,
+    live_frame_data_hud_enabled: bool = false,
 };
 
 pub const MiscSettings = struct {

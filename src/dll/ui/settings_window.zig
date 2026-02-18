@@ -768,6 +768,7 @@ fn drawDetailsSettings(value: *model.DetailsSettings, default: *const model.Deta
 fn drawFrameDataOverlaySettings(value: *model.FrameDataOverlaySettings, default: *const model.FrameDataOverlaySettings) void {
     drawBool("Enabled", &value.enabled, &default.enabled);
     drawBool("Screen Overlay (Follow Character)", &value.screen_overlay_enabled, &default.screen_overlay_enabled);
+    drawBool("Live Frame Data HUD (Bottom Left)", &value.live_frame_data_hud_enabled, &default.live_frame_data_hud_enabled);
 }
 
 fn drawBool(label: [:0]const u8, value: *bool, default: *const bool) void {

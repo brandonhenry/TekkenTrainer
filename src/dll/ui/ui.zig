@@ -93,6 +93,7 @@ pub const Ui = struct {
         self.main_window.handleKeybinds(controller);
         if (controller.getCurrentFrame()) |frame| {
             ui.drawScreenOverlay(&self.screen_frame_data_overlay, settings, frame);
+            ui.drawLiveFrameDataHud(&settings.frame_data_overlay, frame);
         }
 
         if (!self.is_open) {

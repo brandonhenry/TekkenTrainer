@@ -12,6 +12,7 @@ pub const FileMenu = @import("file_menu.zig").FileMenu;
 pub const drawFloor = @import("floor.zig").drawFloor;
 pub const drawForwardDirections = @import("forward_directions.zig").drawForwardDirections;
 pub const FrameDataOverlay = @import("frame_data_overlay.zig").FrameDataOverlay;
+pub const drawLiveFrameDataHud = @import("live_frame_data_hud.zig").drawLiveFrameDataHud;
 pub const FrameWindow = @import("frame_window.zig").FrameWindow;
 pub const GameMemoryWindow = @import("game_memory_window.zig").GameMemoryWindow;
 pub const HitLines = @import("hit_lines.zig").HitLines;
