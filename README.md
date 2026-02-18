@@ -1,4 +1,6 @@
-# Irony (Tekken Trainer) 🥊
+![Tekken Trainer Hero](art/hero.png)
+
+# Tekken Trainer (Diagnostic Tool) 🥊
 
 A powerful diagnostic tool for **Tekken 8** and **Tekken 7**. See hitboxes, frame data, and move properties in real-time to master your gameplay.
 
