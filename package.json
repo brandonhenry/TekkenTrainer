@@ -5,6 +5,13 @@
     "build": "zig build",
     "start": "zig-out\\bin\\tekkentrainer.exe",
     "launch-t8": "start steam://rungameid/1778820",
-    "inject": "npm run start"
+    "inject": "npm run start",
+    "rasterize-inputs": "node tools/rasterize_inputs.mjs",
+    "sync-landing-assets": "node tools/sync_landing_assets.mjs",
+    "sync-landing-characters": "node tools/sync_landing_characters.mjs",
+    "prepare-landing-assets": "npm run rasterize-inputs && npm run sync-landing-assets && npm run sync-landing-characters"
+  },
+  "dependencies": {
+    "sharp": "^0.34.4"
   }
 }

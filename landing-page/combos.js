@@ -22,8 +22,11 @@ const state = {
     search: "",
     filter: "all"
 };
+const ICON_PNG_BASE = "./assets/inputs_png";
+const ICON_SVG_BASE = "./assets/inputs_svg";
+const CHARACTER_IMG_BASE = "./assets/characters";
 
-const characterListEl = document.getElementById("character-list");
+const characterStripEl = document.getElementById("character-strip");
 const comboGridEl = document.getElementById("combo-grid");
 const emptyStateEl = document.getElementById("empty-state");
 const selectedNameEl = document.getElementById("selected-name");
@@ -78,6 +81,53 @@ function parseTextSteps(text) {
     return parts.length ? parts : [String(text || "Unknown route").trim()];
 }
 
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function isImageMove(move) {
+    return move && move.type === "img" && typeof move.img === "string" && move.img.endsWith(".svg");
+}
+
+function toRouteMoves(route, steps) {
+    if (Array.isArray(route?.moves) && route.moves.length > 0) {
+        return route.moves.map(move => ({
+            type: move?.type === "img" ? "img" : "text",
+            name: String(move?.name || "Unknown"),
+            img: typeof move?.img === "string" ? move.img : null
+        }));
+    }
+
+    return steps.map(step => ({
+        type: "text",
+        name: String(step || "Unknown"),
+        img: null
+    }));
+}
+
+function starterFromRoute(routeMoves, steps) {
+    if (routeMoves.length > 0) {
+        return routeMoves[0].name || "Unknown starter";
+    }
+    return steps[0] || "Unknown starter";
+}
+
+function iconPathsFromMove(move) {
+    if (!isImageMove(move)) {
+        return null;
+    }
+    const stem = move.img.slice(0, -4);
+    return {
+        png: `${ICON_PNG_BASE}/${stem}.png`,
+        svg: `${ICON_SVG_BASE}/${move.img}`
+    };
+}
+
 function buildComboTitle(comboType, index) {
     const label = comboType === "heat" ? "Heat Route" : comboType === "wall" ? "Wall Carry" : "BnB Route";
     return `${label} ${index + 1}`;
@@ -95,17 +145,19 @@ function transformAssetData(rawData) {
         const mappedCombos = routes.map((route, index) => {
             const comboType = inferType(route.text, route.moves || []);
             const steps = parseTextSteps(route.text);
+            const routeMoves = toRouteMoves(route, steps);
             const hitCount = getNumber(route.hits);
             const damage = getNumber(route.damage);
 
             return {
                 title: buildComboTitle(comboType, index),
                 type: comboType,
-                starter: steps[0] || "Unknown starter",
+                starter: starterFromRoute(routeMoves, steps),
                 damage,
                 carry: inferCarryFromHits(hitCount),
                 notes: route.hits || "Practical route",
-                steps
+                steps,
+                routeMoves
             };
         });
 
@@ -142,21 +194,21 @@ function initialsFromName(name) {
     return words.slice(0, 2).map(word => word[0]).join("").toUpperCase();
 }
 
-function buildCharacterList() {
+function buildCharacterStrip() {
     const entries = Object.entries(comboData);
-    characterListEl.innerHTML = entries.map(([id, character]) => `
+    characterStripEl.innerHTML = entries.map(([id, character]) => `
         <button
-            class="character-item ${id === state.characterId ? "is-active" : ""}"
+            class="charbox ${id === state.characterId ? "is-active" : ""}"
             role="tab"
             aria-selected="${id === state.characterId}"
             data-character-id="${id}">
-            <span class="avatar">${initialsFromName(character.name)}</span>
-            <span class="character-meta">
-                <strong>${character.name}</strong>
-                <span>${character.style}</span>
-            </span>
+            <img class="charbox-image" src="${escapeHtml(CHARACTER_IMG_BASE)}/${escapeHtml(id)}.jpg" alt="${escapeHtml(character.name)}">
+            <span class="charbox-overlay"></span>
+            <span class="charbox-name">${escapeHtml(character.name)}</span>
+            <span class="charbox-initials">${escapeHtml(initialsFromName(character.name))}</span>
         </button>
     `).join("");
+    wireCharacterImageFallbacks(characterStripEl);
 }
 
 function comboMatchesFilter(combo) {
@@ -172,31 +224,88 @@ function comboMatchesFilter(combo) {
         combo.starter,
         combo.notes,
         combo.type,
-        ...combo.steps
+        ...combo.steps,
+        ...(combo.routeMoves || []).map(move => move.name)
     ].join(" ").toLowerCase();
 
     return tagMatch && searchable.includes(searchNeedle);
 }
 
+function createRouteMarkup(routeMoves) {
+    if (!Array.isArray(routeMoves) || routeMoves.length === 0) {
+        return `<span class="move-token is-text">No route data</span>`;
+    }
+
+    return routeMoves.map((move, index) => {
+        const icon = iconPathsFromMove(move);
+        const token = icon
+            ? `<span class="move-token is-img" title="${escapeHtml(move.name)}">
+                    <img class="move-icon" src="${escapeHtml(icon.png)}" data-fallback-src="${escapeHtml(icon.svg)}" alt="${escapeHtml(move.name)}">
+               </span>`
+            : `<span class="move-token is-text">${escapeHtml(move.name)}</span>`;
+
+        if (index === 0) {
+            return token;
+        }
+        return `<span class="route-separator">►</span>${token}`;
+    }).join("");
+}
+
 function createComboCard(combo) {
-    const steps = combo.steps.map(step => `<li>${step}</li>`).join("");
+    const routeMarkup = createRouteMarkup(combo.routeMoves || []);
+    const notation = (combo.steps || []).map(step => escapeHtml(step)).join(" ► ");
     return `
         <article class="combo-card">
             <div class="combo-title-row">
-                <h3>${combo.title}</h3>
-                <span class="badge" data-type="${combo.type}">${combo.type}</span>
+                <h3>${escapeHtml(combo.title)}</h3>
+                <span class="badge" data-type="${escapeHtml(combo.type)}">${escapeHtml(combo.type)}</span>
             </div>
-            <p class="combo-starter">Starter: <strong>${combo.starter}</strong></p>
-            <ol class="combo-steps">${steps}</ol>
+            <p class="combo-starter">Starter: <strong>${escapeHtml(combo.starter)}</strong></p>
+            <div class="combo-route">${routeMarkup}</div>
+            <p class="combo-notation">${notation}</p>
             <div class="combo-footer">
                 <div class="combo-stats">
-                    <span>Damage<strong>${combo.damage}</strong></span>
-                    <span>Carry<strong>${combo.carry}</strong></span>
+                    <span>Damage<strong>${escapeHtml(combo.damage)}</strong></span>
+                    <span>Carry<strong>${escapeHtml(combo.carry)}</strong></span>
                 </div>
-                <p class="combo-note">${combo.notes}</p>
+                <p class="combo-note">${escapeHtml(combo.notes)}</p>
             </div>
         </article>
     `;
+}
+
+function wireImageFallbacks(root) {
+    root.querySelectorAll("img.move-icon[data-fallback-src]").forEach(image => {
+        image.addEventListener("error", () => {
+            const fallbackSrc = image.getAttribute("data-fallback-src");
+            if (!fallbackSrc || image.dataset.failedFallback === "1") {
+                const token = image.closest(".move-token");
+                if (token) {
+                    token.classList.remove("is-img");
+                    token.classList.add("is-text");
+                    token.textContent = image.alt || "input";
+                }
+                return;
+            }
+
+            if (image.src.endsWith(fallbackSrc)) {
+                image.dataset.failedFallback = "1";
+                image.dispatchEvent(new Event("error"));
+                return;
+            }
+            image.src = fallbackSrc;
+        });
+    });
+}
+
+function wireCharacterImageFallbacks(root) {
+    root.querySelectorAll("img.charbox-image").forEach(image => {
+        image.addEventListener("error", () => {
+            const box = image.closest(".charbox");
+            if (!box) return;
+            box.classList.add("is-missing-image");
+        });
+    });
 }
 
 function renderCombos() {
@@ -215,18 +324,19 @@ function renderCombos() {
     selectedDifficultyEl.textContent = activeCharacter.difficulty;
 
     comboGridEl.innerHTML = combos.map(createComboCard).join("");
+    wireImageFallbacks(comboGridEl);
     emptyStateEl.hidden = combos.length !== 0;
 }
 
 function attachEvents() {
-    characterListEl.addEventListener("click", event => {
+    characterStripEl.addEventListener("click", event => {
         const button = event.target.closest("[data-character-id]");
         if (!button) {
             return;
         }
 
         state.characterId = button.dataset.characterId;
-        buildCharacterList();
+        buildCharacterStrip();
         renderCombos();
     });
 
@@ -256,7 +366,7 @@ function init() {
         console.warn("Using fallback combo data.", error);
     }
 
-    buildCharacterList();
+    buildCharacterStrip();
     renderCombos();
     attachEvents();
 }

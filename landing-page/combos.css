@@ -195,9 +195,7 @@ h1 {
 }
 
 .combo-layout {
-    display: grid;
-    grid-template-columns: 315px minmax(0, 1fr);
-    gap: 1.25rem;
+    display: block;
 }
 
 .character-panel,
@@ -206,6 +204,112 @@ h1 {
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 1.2rem;
+}
+
+.character-strip-wrap {
+    margin-bottom: 1.25rem;
+}
+
+.character-strip {
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding: 0.25rem 0.1rem 0.4rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(157, 0, 255, 0.45) rgba(255, 255, 255, 0.08);
+}
+
+.charbox {
+    width: 86px;
+    height: 86px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(140deg, rgba(25, 25, 33, 0.95), rgba(15, 15, 21, 0.92));
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+}
+
+.charbox:hover {
+    transform: translateY(-3px) scale(1.03);
+    border-color: rgba(0, 242, 255, 0.68);
+    box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.15), 0 10px 18px rgba(0, 0, 0, 0.35);
+}
+
+.charbox.is-active {
+    border-color: rgba(157, 0, 255, 0.95);
+    box-shadow: 0 0 0 2px rgba(157, 0, 255, 0.42), 0 12px 22px rgba(0, 0, 0, 0.45);
+    animation: char-pick 280ms ease;
+}
+
+.charbox-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.charbox-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.18) 45%, rgba(0, 0, 0, 0.1));
+    opacity: 0.25;
+    transition: opacity 0.18s ease;
+}
+
+.charbox:hover .charbox-overlay,
+.charbox.is-active .charbox-overlay {
+    opacity: 0.88;
+}
+
+.charbox-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 6px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.01em;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+    padding: 0 4px;
+}
+
+.charbox:hover .charbox-name,
+.charbox.is-active .charbox-name {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.charbox-initials {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-shadow: 0 3px 10px rgba(0, 0, 0, 0.8);
+}
+
+.charbox.is-missing-image .charbox-image {
+    display: none;
+}
+
+.charbox.is-missing-image .charbox-initials {
+    display: flex;
+}
+
+.charbox.is-missing-image .charbox-overlay {
+    opacity: 1;
 }
 
 .panel-heading h2 {
@@ -353,21 +457,52 @@ h1 {
     margin-bottom: 0.6rem;
 }
 
-.combo-steps {
-    list-style: none;
+.combo-route {
     display: flex;
-    flex-direction: column;
-    gap: 0.32rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.38rem;
     margin-bottom: 0.7rem;
+    min-height: 34px;
 }
 
-.combo-steps li {
-    background: rgba(255, 255, 255, 0.03);
+.move-token {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.move-token.is-img {
+    width: 28px;
+    height: 28px;
+}
+
+.move-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+}
+
+.move-token.is-text {
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 8px;
-    padding: 0.32rem 0.45rem;
+    padding: 0.24rem 0.42rem;
     font-family: "Consolas", "Courier New", monospace;
     font-size: 0.78rem;
+}
+
+.route-separator {
+    color: #9da1bb;
+    font-size: 0.72rem;
+}
+
+.combo-notation {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.35;
+    margin-bottom: 0.7rem;
 }
 
 .combo-footer {
@@ -436,6 +571,21 @@ footer {
 
     100% {
         opacity: 0.3;
+    }
+}
+
+@keyframes char-pick {
+    0% {
+        transform: scale(0.96);
+        filter: brightness(0.95);
+    }
+    60% {
+        transform: scale(1.04);
+        filter: brightness(1.08);
+    }
+    100% {
+        transform: scale(1);
+        filter: brightness(1);
     }
 }
 
