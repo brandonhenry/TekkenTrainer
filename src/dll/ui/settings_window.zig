@@ -169,6 +169,14 @@ pub const SettingsWindow = struct {
                 }.call,
             },
             .{
+                .name = "Frame Data Overlay",
+                .content = struct {
+                    fn call(c: *const Context) void {
+                        drawFrameDataOverlaySettings(&c.settings.frame_data_overlay, &default_settings.frame_data_overlay);
+                    }
+                }.call,
+            },
+            .{
                 .name = "Miscellaneous",
                 .content = struct {
                     fn call(c: *const Context) void {
@@ -755,6 +763,11 @@ fn drawDetailsSettings(value: *model.DetailsSettings, default: *const model.Deta
     drawFloat("Fade Out Duration", &value.fade_out_duration, &default.fade_out_duration, 0.01, 0, 10, "%.2f s", 0);
     drawFloat("Fade Out Alpha", &value.fade_out_alpha, &default.fade_out_alpha, 0.01, 0, 1, "%.2f", 0);
     drawRowsEnabled("Enabled Rows", &value.rows_enabled, &default.rows_enabled);
+}
+
+fn drawFrameDataOverlaySettings(value: *model.FrameDataOverlaySettings, default: *const model.FrameDataOverlaySettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    drawBool("Screen Overlay (Follow Character)", &value.screen_overlay_enabled, &default.screen_overlay_enabled);
 }
 
 fn drawBool(label: [:0]const u8, value: *bool, default: *const bool) void {

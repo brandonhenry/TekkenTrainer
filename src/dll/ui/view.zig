@@ -53,7 +53,7 @@ pub const View = struct {
         ui.drawForwardDirections(&settings.forward_directions, frame, direction, matrix);
         ui.drawSkeletons(&settings.skeletons, frame, matrix);
         self.hit_lines.draw(&settings.hit_lines, frame, matrix);
-        self.frame_data_overlay.draw(&settings.frame_data_overlay, frame, matrix);
+        self.frame_data_overlay.draw(&settings.frame_data_overlay, frame, matrix, null);
         self.measure_tool.draw(&settings.measure_tool, matrix);
         self.control_hints.draw(direction);
     }

@@ -39,6 +39,7 @@ pub const FloorSettings = @import("settings.zig").FloorSettings;
 pub const IngameCameraSettings = @import("settings.zig").IngameCameraSettings;
 pub const MeasureToolSettings = @import("settings.zig").MeasureToolSettings;
 pub const DetailsSettings = @import("settings.zig").DetailsSettings;
+pub const FrameDataOverlaySettings = @import("settings.zig").FrameDataOverlaySettings;
 pub const PlayerSettingsMode = @import("settings.zig").PlayerSettingsMode;
 pub const PlayerSettings = @import("settings.zig").PlayerSettings;
 pub const MiscSettings = @import("settings.zig").MiscSettings;

@@ -31,6 +31,7 @@ pub const drawSphere = @import("shapes.zig").drawSphere;
 pub const drawCylinder = @import("shapes.zig").drawCylinder;
 pub const TestingShapes = @import("shapes.zig").TestingShapes;
 pub const testing_shapes = @import("shapes.zig").testing_shapes;
+pub const drawScreenOverlay = @import("screen_overlay.zig").drawScreenOverlay;
 pub const drawSkeletons = @import("skeletons.zig").drawSkeletons;
 pub const SettingsWindow = @import("settings_window.zig").SettingsWindow;
 pub const Ui = @import("ui.zig").Ui;

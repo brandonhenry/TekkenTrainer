@@ -330,6 +330,7 @@ pub const DetailsSettings = struct {
 
 pub const FrameDataOverlaySettings = struct {
     enabled: bool = true,
+    screen_overlay_enabled: bool = false,
 };
 
 pub const MiscSettings = struct {

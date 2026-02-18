@@ -17,6 +17,7 @@ pub const Ui = struct {
     game_memory_window: ui.GameMemoryWindow,
     frame_window: ui.FrameWindow,
     about_window: ui.AboutWindow(.{}),
+    screen_frame_data_overlay: ui.FrameDataOverlay,
 
     const Self = @This();
 
@@ -30,6 +31,7 @@ pub const Ui = struct {
             .game_memory_window = .{},
             .frame_window = .{},
             .about_window = .{},
+            .screen_frame_data_overlay = .{},
         };
     }
 
@@ -89,6 +91,9 @@ pub const Ui = struct {
         self.handleFirstDraw();
         self.handleOpenKey();
         self.main_window.handleKeybinds(controller);
+        if (controller.getCurrentFrame()) |frame| {
+            ui.drawScreenOverlay(&self.screen_frame_data_overlay, settings, frame);
+        }
 
         if (!self.is_open) {
             return;
