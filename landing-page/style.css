@@ -539,6 +539,10 @@ footer {
 
 /* --- Responsive --- */
 @media (max-width: 900px) {
+    .nav-links .mobile-hide {
+        display: none;
+    }
+
     .container {
         padding: 0 1.5rem;
     }

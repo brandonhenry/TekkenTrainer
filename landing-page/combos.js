@@ -1,7 +1,7 @@
 const fallbackData = {
     jin: {
         name: "Jin",
-        style: "Tekken 8 Moveset",
+        style: "TEKKEN 8 Moveset",
         difficulty: "Execution: Variable",
         combos: [
             {
@@ -163,7 +163,7 @@ function transformAssetData(rawData) {
 
         transformed[characterId] = {
             name: formatCharacterName(characterId),
-            style: "Tekken 8 Moveset",
+            style: "TEKKEN 8 Moveset",
             difficulty: `Execution: Variable (${mappedCombos.length} combos)`,
             combos: mappedCombos
         };
