@@ -12,6 +12,7 @@ pub const FrameDataOverlay = struct {
     pub const PlayerHistory = struct {
         last_advantage: ?i32 = null,
         last_timestamp: f64 = -100.0,
+        spawn_position: sdk.math.Vec3 = .zero,
     };
 
     pub fn draw(
@@ -27,7 +28,9 @@ pub const FrameDataOverlay = struct {
         const player_2 = frame.getPlayerById(.player_2);
 
         self.drawPlayerFrameAdvantage(0, player_1, player_2, matrix, draw_list);
-        self.drawPlayerFrameAdvantage(1, player_2, player_1, matrix, draw_list);
+        if (draw_list == null) {
+            self.drawPlayerFrameAdvantage(1, player_2, player_1, matrix, draw_list);
+        }
     }
 
     fn drawPlayerFrameAdvantage(
@@ -44,58 +47,71 @@ pub const FrameDataOverlay = struct {
         var history = &self.history[player_index];
 
         if (frame_advantage) |adv| {
-            // New advantage found
+            // New advantage found or value changed
             if (history.last_advantage == null or history.last_advantage.? != adv) {
                 history.last_advantage = adv;
                 history.last_timestamp = current_time;
+                
+                if (draw_list != null) {
+                    // SCREEN OVERLAY: Fixed screen position (Slightly left of center)
+                    const display_size = imgui.igGetIO_Nil().*.DisplaySize;
+                    history.spawn_position = sdk.math.Vec3.fromArray(.{ 
+                        display_size.x * 0.45, 
+                        display_size.y * 0.5, 
+                        0.5 
+                    });
+                } else {
+                    // INTERNAL WINDOW: Character relative (Z-up in world)
+                    history.spawn_position = if (player.getSkeleton()) |skeleton|
+                        skeleton.get(.head)
+                    else if (player.getHurtCylindersHeight(0).max) |height|
+                        (if (player.getPosition()) |pos|
+                            pos.swizzle("xy").extend(height)
+                        else
+                            sdk.math.Vec3.zero)
+                    else
+                        sdk.math.Vec3.zero;
+                    
+                    history.spawn_position = history.spawn_position.add(sdk.math.Vec3.fromArray(.{ 0, 0, 30 }));
+                }
             } else {
-                // Same advantage, but it's still being "active" in the current frame.
-                // Resetting timer to keep it alive while it's active.
                 history.last_timestamp = current_time;
             }
         }
 
-        // Determine if we should draw
-        const display_advantage = if (frame_advantage) |adv| 
-            adv 
-        else if (history.last_advantage) |adv| 
-            if (current_time - history.last_timestamp < 1.5) adv else return
+        const time_elapsed = current_time - history.last_timestamp;
+        const display_advantage = if (history.last_advantage) |adv| 
+            if (time_elapsed < 1.5) adv else return
         else 
             return;
 
-        // Determine position (above head)
-        var position = if (player.getSkeleton()) |skeleton|
-            skeleton.get(.head)
-        else if (player.getHurtCylindersHeight(0).max) |height|
-            (if (player.getPosition()) |pos|
-                pos.swizzle("xy").extend(height)
-            else
-                return)
-        else
-            return;
+        var screen_pos: sdk.math.Vec3 = undefined;
+        if (draw_list != null) {
+            // SCREEN OVERLAY: Float UP in screen space (pixels)
+            // Delay floating for 0.5s
+            const float_delay = 0.5;
+            const float_speed = 120.0; // pixels per second
+            const active_float_time = @max(0.0, time_elapsed - float_delay);
+            const vertical_offset = @as(f32, @floatCast(active_float_time)) * float_speed;
+            screen_pos = history.spawn_position.subtract(sdk.math.Vec3.fromArray(.{ 0, vertical_offset, 0 }));
+        } else {
+            // INTERNAL WINDOW: Float UP in world space (cm)
+            const float_delay = 0.5;
+            const float_speed = 60.0; // cm per second
+            const active_float_time = @max(0.0, time_elapsed - float_delay);
+            const vertical_offset = @as(f32, @floatCast(active_float_time)) * float_speed;
+            const world_pos = history.spawn_position.add(sdk.math.Vec3.fromArray(.{ 0, 0, vertical_offset }));
+            screen_pos = world_pos.pointTransform(matrix);
+        }
 
-        // Offset above head
-        position = position.add(sdk.math.Vec3.fromArray(.{ 0, 0, 30 })); // 30cm above head
-
-        // Project to screen
-        const screen_pos = position.pointTransform(matrix);
-        // Check if behind camera
         if (screen_pos.z() < 0 or screen_pos.z() > 1) return;
 
-        // Format text
         var buffer: [32]u8 = undefined;
-        // const sign = if (frame_advantage > 0) "+" else "";
-        // const text = std.fmt.bufPrintZ(&buffer, "{s}{d}", .{ sign, frame_advantage }) catch return;
-        // User requested just the number for negative, but big green + for plus? 
-        // "green in big letter with black outline if plus. red in big letter with black outline in minus"
-        // I will assume standard signed integer formatting: +5, -5, 0.
-        
         const text = if (display_advantage > 0)
              std.fmt.bufPrintZ(&buffer, "+{d}", .{display_advantage}) catch return
         else 
              std.fmt.bufPrintZ(&buffer, "{d}", .{display_advantage}) catch return;
 
-        // Select color
         const color = if (display_advantage > 0)
             sdk.math.Vec4.fromArray(.{ 0.0, 1.0, 0.0, 1.0 }) // Green
         else if (display_advantage < 0)
@@ -109,7 +125,7 @@ pub const FrameDataOverlay = struct {
     fn drawOutlinedText(text: [:0]const u8, position: sdk.math.Vec3, color: sdk.math.Vec4, draw_list: ?*imgui.ImDrawList) void {
         const final_draw_list = draw_list orelse imgui.igGetWindowDrawList();
         
-        const font_size = 150.0;
+        const font_size = 120.0;
         imgui.igPushFont(null, font_size);
         defer imgui.igPopFont();
 
@@ -123,12 +139,17 @@ pub const FrameDataOverlay = struct {
         const black = imgui.igGetColorU32_Vec4(.{ .x = 0, .y = 0, .z = 0, .w = 1 });
         const text_color = imgui.igGetColorU32_Vec4(color.toImVec());
 
-        // Draw outline (4 offsets)
-        const outline_width = 3.0;
-        imgui.ImDrawList_AddText_Vec2(final_draw_list, .{ .x = text_pos.x - outline_width, .y = text_pos.y }, black, text, null);
-        imgui.ImDrawList_AddText_Vec2(final_draw_list, .{ .x = text_pos.x + outline_width, .y = text_pos.y }, black, text, null);
-        imgui.ImDrawList_AddText_Vec2(final_draw_list, .{ .x = text_pos.x, .y = text_pos.y - outline_width }, black, text, null);
-        imgui.ImDrawList_AddText_Vec2(final_draw_list, .{ .x = text_pos.x, .y = text_pos.y + outline_width }, black, text, null);
+        // Draw ultra-thick 8-way outline
+        const thickness = 5.0;
+        const offsets = [_][2]f32{
+            .{ -thickness, -thickness }, .{ 0, -thickness }, .{ thickness, -thickness },
+            .{ -thickness, 0 },                             .{ thickness, 0 },
+            .{ -thickness, thickness },  .{ 0, thickness },  .{ thickness, thickness },
+        };
+
+        for (offsets) |off| {
+            imgui.ImDrawList_AddText_Vec2(final_draw_list, .{ .x = text_pos.x + off[0], .y = text_pos.y + off[1] }, black, text, null);
+        }
 
         // Draw main text
         imgui.ImDrawList_AddText_Vec2(final_draw_list, text_pos, text_color, text, null);

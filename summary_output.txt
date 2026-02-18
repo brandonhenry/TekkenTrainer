@@ -1,0 +1,38 @@
+
+Build Summary: 19/19 steps succeeded
+install cached
++- install irony_t7 cached
+|  +- compile lib irony_t7 Debug x86_64-windows-gnu cached 125ms MaxRSS:19M
+|     +- WriteFile cached
+|     +- compile lib imgui Debug x86_64-windows-gnu cached 101ms MaxRSS:18M
+|     |  +- WriteFile . cached
+|     |  |  +- run exe imgui_file_dialog_patcher cached
+|     |  |     +- compile exe imgui_file_dialog_patcher Debug native cached 99ms MaxRSS:18M
+|     |  +- WriteFile . (+1 more reused dependencies)
+|     |  +- WriteFile . (+1 more reused dependencies)
+|     +- WriteFile cached
+|     +- compile lib xz Debug x86_64-windows-gnu cached 99ms MaxRSS:18M
+|     +- compile lib imgui Debug x86_64-windows-gnu (+3 more reused dependencies)
+|     +- compile lib xz Debug x86_64-windows-gnu (reused)
+|     +- translate-c cached 99ms MaxRSS:18M
+|     |  +- WriteFile time.h cached
+|     +- translate-c cached 99ms MaxRSS:18M
+|     +- translate-c cached 37ms MaxRSS:18M
+|     |  +- WriteFile . (+1 more reused dependencies)
+|     +- translate-c cached 99ms MaxRSS:18M
++- install irony_t8 cached
+|  +- compile lib irony_t8 Debug x86_64-windows-gnu cached 125ms MaxRSS:19M
+|     +- WriteFile (reused)
+|     +- compile lib imgui Debug x86_64-windows-gnu (+3 more reused dependencies)
+|     +- WriteFile (reused)
+|     +- compile lib xz Debug x86_64-windows-gnu (reused)
+|     +- compile lib imgui Debug x86_64-windows-gnu (+3 more reused dependencies)
+|     +- compile lib xz Debug x86_64-windows-gnu (reused)
+|     +- translate-c (+1 more reused dependencies)
+|     +- translate-c (reused)
+|     +- translate-c (+1 more reused dependencies)
+|     +- translate-c (reused)
++- install irony_injector cached
+   +- compile exe irony_injector Debug x86_64-windows-gnu cached 151ms MaxRSS:18M
+      +- translate-c (+1 more reused dependencies)
+
