@@ -16,6 +16,7 @@ pub const View = struct {
     hit_lines: ui.HitLines = .{},
     measure_tool: ui.MeasureTool = .{},
     control_hints: ui.ControlHints = .{},
+    frame_data_overlay: ui.FrameDataOverlay = .{},
 
     const Self = @This();
 
@@ -52,6 +53,7 @@ pub const View = struct {
         ui.drawForwardDirections(&settings.forward_directions, frame, direction, matrix);
         ui.drawSkeletons(&settings.skeletons, frame, matrix);
         self.hit_lines.draw(&settings.hit_lines, frame, matrix);
+        self.frame_data_overlay.draw(&settings.frame_data_overlay, frame, matrix);
         self.measure_tool.draw(&settings.measure_tool, matrix);
         self.control_hints.draw(direction);
     }

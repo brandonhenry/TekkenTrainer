@@ -13,6 +13,7 @@ pub const Settings = struct {
     ingame_camera: IngameCameraSettings = .{},
     measure_tool: MeasureToolSettings = .{},
     details: DetailsSettings = .{},
+    frame_data_overlay: FrameDataOverlaySettings = .{},
     misc: MiscSettings = .{},
 
     const Self = @This();
@@ -325,6 +326,10 @@ pub const DetailsSettings = struct {
         secondary_player,
     };
     pub const RowsEnabled = sdk.misc.FieldMap(ui.Details, bool, &true);
+};
+
+pub const FrameDataOverlaySettings = struct {
+    enabled: bool = true,
 };
 
 pub const MiscSettings = struct {
