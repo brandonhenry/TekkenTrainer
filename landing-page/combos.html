@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tekken Trainer | Combo Library</title>
+    <meta name="description"
+        content="Interactive Tekken combo library with live character swapping, routes, and practical tips for real match situations.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="combos.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+</head>
+
+<body>
+    <header>
+        <nav class="container">
+            <a href="./index.html" class="logo-link" aria-label="Back to Tekken Trainer home page">
+                <div class="logo">TEKKEN<span>TRAINER</span></div>
+            </a>
+            <div class="nav-meta">
+                <span class="live-indicator"></span>
+                <span>Combo Lab Live</span>
+            </div>
+            <a href="./index.html" class="btn btn-outline">Back to Home</a>
+        </nav>
+    </header>
+
+    <main class="combo-lab">
+        <section class="hero-panel container">
+            <div>
+                <p class="eyebrow">Tekken 8 Combo Lab</p>
+                <h1>Practice Like You Are In Match.</h1>
+                <p class="hero-copy">Select a character to load practical routes, optimized wall carry, and heat-ready
+                    conversions. This panel updates instantly so it feels like an in-game move list.</p>
+            </div>
+            <div class="quick-filters">
+                <label for="combo-search">Find route</label>
+                <input id="combo-search" type="text" placeholder="Search by starter, notes, or notation...">
+                <div class="tag-row">
+                    <button class="tag-btn is-active" data-filter="all">All</button>
+                    <button class="tag-btn" data-filter="bnb">BnB</button>
+                    <button class="tag-btn" data-filter="wall">Wall Carry</button>
+                    <button class="tag-btn" data-filter="heat">Heat</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="combo-layout container">
+            <aside class="character-panel">
+                <div class="panel-heading">
+                    <h2>Character Select</h2>
+                    <p>Click a fighter to swap combo data.</p>
+                </div>
+                <div id="character-list" class="character-list" role="tablist" aria-label="Character list"></div>
+            </aside>
+
+            <section class="moveset-panel">
+                <div class="moveset-header">
+                    <div>
+                        <p class="eyebrow">Loaded Fighter</p>
+                        <h2 id="selected-name">Character Name</h2>
+                    </div>
+                    <div class="fighter-meta">
+                        <p id="selected-style">Style</p>
+                        <p id="selected-difficulty">Difficulty</p>
+                    </div>
+                </div>
+
+                <div id="combo-grid" class="combo-grid" aria-live="polite"></div>
+                <p id="empty-state" class="empty-state" hidden>No combos match your current filter. Try "All" or clear
+                    the search.</p>
+            </section>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-row">
+            <p>Data shown for practice and route planning. Not affiliated with Bandai Namco.</p>
+            <a href="./index.html">Return to main site</a>
+        </div>
+    </footer>
+
+    <script src="combos-data.js"></script>
+    <script src="combos.js"></script>
+</body>
+
+</html>
