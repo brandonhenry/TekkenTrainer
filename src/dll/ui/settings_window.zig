@@ -184,6 +184,14 @@ pub const SettingsWindow = struct {
                     }
                 }.call,
             },
+            .{
+                .name = "Combo Suggestions",
+                .content = struct {
+                    fn call(c: *const Context) void {
+                        drawComboSuggestionSettings(&c.settings.combo_suggestion, &default_settings.combo_suggestion);
+                    }
+                }.call,
+            },
         });
     }
 };
@@ -769,6 +777,24 @@ fn drawFrameDataOverlaySettings(value: *model.FrameDataOverlaySettings, default:
     drawBool("Enabled", &value.enabled, &default.enabled);
     drawBool("Screen Overlay (Follow Character)", &value.screen_overlay_enabled, &default.screen_overlay_enabled);
     drawBool("Live Frame Data HUD (Bottom Left)", &value.live_frame_data_hud_enabled, &default.live_frame_data_hud_enabled);
+}
+
+fn drawComboSuggestionSettings(value: *model.ComboSuggestionSettings, default: *const model.ComboSuggestionSettings) void {
+    drawBool("Enabled", &value.enabled, &default.enabled);
+    
+    // Character selection
+    imgui.igPushID_Str("Character Selection");
+    drawDefaultButton(value, default); // This resets the whole struct, which is fine
+    imgui.igPopID();
+    imgui.igSameLine(0, -1);
+    
+    var buf: [32]u8 = [_]u8{0} ** 32;
+    const current_name = value.getCharacterName();
+    @memcpy(buf[0..current_name.len], current_name);
+    
+    if (imgui.igInputText("Character Name", &buf, buf.len, 0, null, null)) {
+        value.setCharacterName(std.mem.sliceTo(&buf, 0));
+    }
 }
 
 fn drawBool(label: [:0]const u8, value: *bool, default: *const bool) void {

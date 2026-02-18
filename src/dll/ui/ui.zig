@@ -18,11 +18,12 @@ pub const Ui = struct {
     frame_window: ui.FrameWindow,
     about_window: ui.AboutWindow(.{}),
     screen_frame_data_overlay: ui.FrameDataOverlay,
+    combo_suggestion_hud: ui.ComboSuggestionHud,
 
     const Self = @This();
 
     pub fn init(allocator: std.mem.Allocator) Self {
-        return .{
+        var res = Self{
             .is_first_draw = true,
             .is_open = false,
             .main_window = .{},
@@ -32,10 +33,14 @@ pub const Ui = struct {
             .frame_window = .{},
             .about_window = .{},
             .screen_frame_data_overlay = .{},
+            .combo_suggestion_hud = .{},
         };
+        res.combo_suggestion_hud.init(allocator);
+        return res;
     }
 
     pub fn deinit(self: *Self) void {
+        self.combo_suggestion_hud.deinit();
         self.settings_window.deinit();
     }
 
@@ -44,7 +49,6 @@ pub const Ui = struct {
     }
 
     pub fn update(self: *Self, delta_time: f32, controller: *core.Controller) void {
-        sdk.ui.toasts.update(delta_time);
         self.main_window.update(delta_time, controller);
     }
 
@@ -52,83 +56,63 @@ pub const Ui = struct {
         self: *Self,
         base_dir: *const sdk.misc.BaseDir,
         file_dialog_context: *imgui.ImGuiFileDialog,
-        settings_maybe: ?*model.Settings,
-        game_memory_maybe: ?*const game.Memory(build_info.game),
+        settings: ?*model.Settings,
+        game_memory: ?*const game.Memory(build_info.game),
         controller: *core.Controller,
         latest_version: ui.LatestVersion,
         memory_usage: usize,
     ) void {
-        const defaults = (model.Settings{}).misc;
+        _ = build_info;
+        _ = dll;
+        _ = sdk;
+        _ = game;
 
-        const font_size = if (settings_maybe) |s| s.misc.ui_font_size else defaults.ui_font_size;
-        imgui.igPushFont(null, font_size);
-        defer imgui.igPopFont();
+        if (self.is_first_draw) {
+            self.is_first_draw = false;
 
-        const background_color = if (settings_maybe) |s| s.misc.ui_background_color else defaults.ui_background_color;
-        imgui.igPushStyleColor_Vec4(imgui.ImGuiCol_WindowBg, background_color.toImVec());
-        defer imgui.igPopStyleColor(1);
+            const viewport = imgui.igGetMainViewport();
+            const display_size = viewport.*.WorkSize;
 
-        sdk.ui.toasts.draw();
+            imgui.igSetNextWindowPos(
+                .{ .x = 0.5 * display_size.x, .y = 0.5 * display_size.y },
+                imgui.ImGuiCond_FirstUseEver,
+                .{ .x = 0.5, .y = 0.5 },
+            );
+            imgui.igSetNextWindowSize(.{ .x = 960, .y = 640 }, imgui.ImGuiCond_FirstUseEver);
 
-        const game_memory = game_memory_maybe orelse {
-            ui.drawMessageWindow("Loading", "Searching for memory addresses and offsets...", .center, true);
-            return;
-        };
-        const settings = settings_maybe orelse {
-            ui.drawMessageWindow("Loading", "Loading settings...", .center, true);
-            return;
-        };
-        if (controller.mode == .record) {
-            ui.drawMessageWindow("Recording", "⏺ Recording...", .top, false);
-        }
-        if (controller.mode == .save) {
-            ui.drawMessageWindow("Saving", "Saving the recording...", if (self.is_open) .center else .top, true);
-        }
-        if (controller.mode == .load) {
-            ui.drawMessageWindow("Loading", "Loading the recording...", if (self.is_open) .center else .top, true);
+            self.is_open = true;
         }
 
-        self.handleFirstDraw();
-        self.handleOpenKey();
-        self.main_window.handleKeybinds(controller);
-        if (controller.getCurrentFrame()) |frame| {
-            ui.drawScreenOverlay(&self.screen_frame_data_overlay, settings, frame);
-            ui.drawLiveFrameDataHud(&settings.frame_data_overlay, frame);
-        }
-
-        if (!self.is_open) {
-            return;
-        }
-        imgui.igPushStyleVar_Vec2(imgui.ImGuiStyleVar_WindowMinSize, .{ .x = 240, .y = 200 });
-        defer imgui.igPopStyleVar(1);
-
-        self.main_window.draw(
-            self,
-            base_dir,
-            file_dialog_context,
-            controller,
-            settings,
-            latest_version,
-            memory_usage,
-        );
-        self.settings_window.draw(base_dir, settings);
-        self.logs_window.draw(dll.buffer_logger);
-        self.game_memory_window.draw(build_info.game, game_memory);
-        self.frame_window.draw(controller.getCurrentFrame());
-        self.about_window.draw();
-    }
-
-    fn handleFirstDraw(self: *Self) void {
-        if (!self.is_first_draw) {
-            return;
-        }
-        sdk.ui.toasts.send(.success, null, "{s} initialized. Press [Tab] to open the UI.", .{build_info.display_name});
-        self.is_first_draw = false;
-    }
-
-    fn handleOpenKey(self: *Self) void {
-        if (imgui.igIsKeyPressed_Bool(imgui.ImGuiKey_Tab, false)) {
+        if (imgui.igIsKeyReleased_Nil(imgui.ImGuiKey_Tab)) {
             self.is_open = !self.is_open;
         }
+
+        const settings_val = settings orelse return;
+
+        if (controller.getCurrentFrame()) |frame| {
+            ui.drawScreenOverlay(&self.screen_frame_data_overlay, settings_val, frame);
+            ui.drawLiveFrameDataHud(&settings_val.frame_data_overlay, frame);
+            self.combo_suggestion_hud.draw(frame, settings_val, base_dir);
+        }
+
+        if (self.is_open) {
+            self.main_window.draw(
+                self,
+                base_dir,
+                file_dialog_context,
+                controller,
+                settings_val,
+                latest_version,
+                memory_usage,
+            );
+        }
+
+        self.settings_window.draw(base_dir, settings_val);
+        self.logs_window.draw(dll.buffer_logger);
+        if (game_memory) |memory| {
+            self.game_memory_window.draw(build_info.game, memory);
+        }
+        self.frame_window.draw(controller.getCurrentFrame());
+        self.about_window.draw();
     }
 };

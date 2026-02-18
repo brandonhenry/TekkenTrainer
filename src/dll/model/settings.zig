@@ -14,6 +14,7 @@ pub const Settings = struct {
     measure_tool: MeasureToolSettings = .{},
     details: DetailsSettings = .{},
     frame_data_overlay: FrameDataOverlaySettings = .{},
+    combo_suggestion: ComboSuggestionSettings = .{},
     misc: MiscSettings = .{},
 
     const Self = @This();
@@ -332,6 +333,21 @@ pub const FrameDataOverlaySettings = struct {
     enabled: bool = true,
     screen_overlay_enabled: bool = false,
     live_frame_data_hud_enabled: bool = false,
+};
+
+pub const ComboSuggestionSettings = struct {
+    enabled: bool = false,
+    character_name: [32]u8 = [_]u8{0} ** 32, // Fixed size for simplicity in serialization if needed, but JSON handles strings
+    
+    pub fn setCharacterName(self: *ComboSuggestionSettings, name: []const u8) void {
+        @memset(&self.character_name, 0);
+        const len = @min(name.len, self.character_name.len);
+        @memcpy(self.character_name[0..len], name[0..len]);
+    }
+
+    pub fn getCharacterName(self: *const ComboSuggestionSettings) []const u8 {
+        return std.mem.sliceTo(&self.character_name, 0);
+    }
 };
 
 pub const MiscSettings = struct {
