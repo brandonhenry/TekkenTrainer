@@ -3,7 +3,7 @@ const build_info = @import("build_info");
 const sdk = @import("sdk/root.zig");
 const injector = @import("injector/root.zig");
 
-const log_file_name = @tagName(build_info.name) ++ "_injector.log";
+const log_file_name = "tekkentrainer.log";
 const console_logger = sdk.log.ConsoleLogger(.{});
 const file_logger = sdk.log.FileLogger(.{});
 const composite_logger = sdk.log.CompositeLogger(&.{ console_logger.logFn, file_logger.logFn });
@@ -28,11 +28,11 @@ const Target = struct {
 const targets = [_]Target{
     .{
         .process_name = "Polaris-Win64-Shipping.exe",
-        .module_name = @tagName(build_info.name) ++ "_t8.dll",
+        .module_name = "tekkentrainer_t8.dll",
     },
     .{
         .process_name = "TekkenGame-Win64-Shipping.exe",
-        .module_name = @tagName(build_info.name) ++ "_t7.dll",
+        .module_name = "tekkentrainer_t7.dll",
     },
 };
 const interval_ns = 1 * std.time.ns_per_s;

@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
 
     const build_info_t7 = b.createModule(.{ .root_source_file = b.path("build_info_t7.zig") });
     const dll_t7 = b.addLibrary(.{
-        .name = "irony_t7",
+        .name = "tekkentrainer_t7",
         .linkage = .dynamic,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/dll.zig"),
@@ -61,7 +61,7 @@ pub fn build(b: *std.Build) void {
 
     const build_info_t8 = b.createModule(.{ .root_source_file = b.path("build_info_t8.zig") });
     const dll_t8 = b.addLibrary(.{
-        .name = "irony_t8",
+        .name = "tekkentrainer_t8",
         .linkage = .dynamic,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/dll.zig"),
@@ -83,7 +83,7 @@ pub fn build(b: *std.Build) void {
     }
 
     const injector = b.addExecutable(.{
-        .name = "irony_injector",
+        .name = "tekkentrainer",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/injector.zig"),
             .target = target,
@@ -120,7 +120,7 @@ pub fn build(b: *std.Build) void {
     // This creates a build step. It will be visible in the `zig build --help` menu, and can be selected like this:
     // `zig build run`
     // This will evaluate the `run` step rather than the default, which is "install".
-    const run_step = b.step("run", "Run the injector");
+    const run_step = b.step("run", "Run the Tekken Trainer");
     run_step.dependOn(&run_command.step);
 
     // Creates a step for testing. This only builds the test executable but does not run it.

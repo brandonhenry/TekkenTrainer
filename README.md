@@ -14,16 +14,16 @@ A powerful diagnostic tool for **Tekken 8** and **Tekken 7**. See hitboxes, fram
 ---
 
 ## 🚀 Quick Start (Windows)
-1.  **Download**: Get the latest version from [Releases](https://github.com/tomislav-ivankovic/Irony/releases/latest).
+1.  **Download**: Get the latest version from [Releases](https://github.com/brandonhenry/TekkenTrainer/releases/latest).
 2.  **Extract**: Unzip the folder anywhere on your PC.
-3.  **Run**: Open `irony_injector.exe`.
+3.  **Run**: Open `tekkentrainer.exe`.
 4.  **Play**: Launch Tekken. Press **`Tab`** in-game to open the menu.
 
 ---
 
 ## 🐧 Linux (Steam Deck / Proton)
 1.  Launch the game via Steam.
-2.  Run `irony_injector.exe` using the same Proton prefix as the game.
+2.  Run `tekkentrainer.exe` using the same Proton prefix as the game.
 3.  (Optional) Use [Steam Tinker Launch](https://github.com/sonic2kk/steamtinkerlaunch) to automate this.
 
 ---

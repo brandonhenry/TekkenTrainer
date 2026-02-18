@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "zig build",
-    "start": "zig-out\\bin\\irony_injector.exe",
+    "start": "zig-out\\bin\\tekkentrainer.exe",
     "launch-t8": "start steam://rungameid/1778820",
     "inject": "npm run start"
   }
