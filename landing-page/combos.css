@@ -212,6 +212,7 @@ h1 {
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 1.2rem;
+    min-height: 560px;
 }
 
 .character-strip-wrap {
@@ -491,7 +492,7 @@ h1 {
 .combo-grid.is-deck {
     position: relative;
     display: block;
-    min-height: 360px;
+    min-height: 520px;
     touch-action: pan-y;
     --drag-x: 0px;
     background: #000000;
