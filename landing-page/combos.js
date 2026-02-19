@@ -481,29 +481,27 @@ function renderMoveTable(combos) {
     });
 
     const singleRows = [];
-    if (activeMoveTier === "single") {
-        const seen = new Set();
-        comboRows.forEach(row => {
-            row.moves.forEach(segment => {
-                const routeMoves = routeMovesFromSegment(segment, row.routeMoves);
-                const key = `segment:${segment.toLowerCase().trim()}`;
-                if (seen.has(key)) return;
-                seen.add(key);
-                singleRows.push({
-                    tier: "single",
-                    tierLabel: "Single",
-                    moves: [segment],
-                    routeMoves,
-                    type: "single",
-                    notes: "Combo segment"
-                });
+    const seen = new Set();
+    comboRows.forEach(row => {
+        row.moves.forEach(segment => {
+            const routeMoves = routeMovesFromSegment(segment, row.routeMoves);
+            const key = `segment:${segment.toLowerCase().trim()}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            singleRows.push({
+                tier: "single",
+                tierLabel: "Single",
+                moves: [segment],
+                routeMoves,
+                type: "single",
+                notes: "Combo segment"
             });
         });
-    }
+    });
 
     const rows = activeMoveTier === "single" ? singleRows : comboRows;
     const filtered = activeMoveTier === "all"
-        ? rows
+        ? [...singleRows, ...comboRows]
         : rows.filter(row => row.tier === activeMoveTier);
 
     if (!filtered.length) {
