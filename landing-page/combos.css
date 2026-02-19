@@ -491,6 +491,9 @@ h1 {
     min-height: 360px;
     touch-action: pan-y;
     --drag-x: 0px;
+    background: #000000;
+    border-radius: 16px;
+    padding: 0.25rem 0;
 }
 
 .combo-grid.is-deck.is-dragging .combo-card {
@@ -507,8 +510,9 @@ h1 {
     min-height: 460px;
     transform-origin: center;
     transition: transform 280ms ease, opacity 280ms ease, box-shadow 280ms ease;
-    opacity: 0;
+    opacity: 1;
     pointer-events: none;
+    z-index: 1;
 }
 
 .combo-grid.is-deck .combo-card.is-active {
@@ -518,13 +522,15 @@ h1 {
     box-shadow: 0 22px 42px rgba(0, 0, 0, 0.45);
     border-color: rgba(255, 255, 255, 0.18);
     background: #14141d;
+    z-index: 3;
 }
 
 .combo-grid.is-deck .combo-card.is-prev,
 .combo-grid.is-deck .combo-card.is-next {
-    opacity: 0.25;
+    opacity: 1;
     transform: translateX(calc(var(--deck-offset) * 1px + var(--drag-x) * 0.15)) scale(0.96);
     box-shadow: 0 12px 26px rgba(0, 0, 0, 0.25);
+    z-index: 2;
 }
 
 .combo-grid.is-deck .combo-card.is-prev {
