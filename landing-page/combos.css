@@ -102,6 +102,11 @@ nav {
     transition: 0.25s ease;
 }
 
+.btn-compact {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.82rem;
+}
+
 .btn:hover {
     border-color: var(--primary);
     transform: translateY(-1px);

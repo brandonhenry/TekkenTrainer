@@ -27,6 +27,8 @@ const state = {
 const ICON_PNG_BASE = "./assets/inputs_png";
 const ICON_SVG_BASE = "./assets/inputs_svg";
 const CHARACTER_IMG_BASE = "./assets/characters";
+const STORAGE_KEY = "tekkentrainer:lastCharacter";
+const VIEW_STORAGE_KEY = "tekkentrainer:combosView";
 
 const characterStripEl = document.getElementById("character-strip");
 const comboGridEl = document.getElementById("combo-grid");
@@ -40,12 +42,14 @@ const viewButtons = document.querySelectorAll(".view-btn");
 const deckPrevBtn = document.getElementById("deck-prev");
 const deckNextBtn = document.getElementById("deck-next");
 const deckCounterEl = document.getElementById("deck-counter");
+const shareBtn = document.getElementById("share-combo");
 let comboData = fallbackData;
 let lastRenderedCombos = [];
 let isDragging = false;
 let dragStartX = 0;
 let dragDeltaX = 0;
 let activePointerId = null;
+let pendingComboIndex = null;
 
 function formatCharacterName(rawName) {
     return rawName
@@ -197,7 +201,10 @@ function loadCombosFromAsset() {
     }
 
     comboData = transformed;
-    state.characterId = keys[0];
+    const storedCharacter = localStorage.getItem(STORAGE_KEY);
+    const storedView = localStorage.getItem(VIEW_STORAGE_KEY);
+    state.characterId = storedCharacter && transformed[storedCharacter] ? storedCharacter : keys[0];
+    state.view = storedView === "deck" || storedView === "grid" ? storedView : state.view;
 }
 
 function initialsFromName(name) {
@@ -342,6 +349,10 @@ function renderCombos() {
     comboGridEl.innerHTML = combos.map(createComboCard).join("");
     wireImageFallbacks(comboGridEl);
     emptyStateEl.hidden = combos.length !== 0;
+    if (typeof pendingComboIndex === "number") {
+        state.activeComboIndex = Math.max(0, Math.min(combos.length - 1, pendingComboIndex));
+        pendingComboIndex = null;
+    }
     applyDeckState();
     updateDeckUI();
 }
@@ -381,6 +392,9 @@ function updateDeckUI() {
     deckPrevBtn.disabled = !isDeck || state.activeComboIndex <= 0;
     deckNextBtn.disabled = !isDeck || state.activeComboIndex >= total - 1;
     deckPrevBtn.closest(".deck-controls")?.classList.toggle("is-hidden", !isDeck);
+    if (shareBtn) {
+        shareBtn.disabled = total === 0;
+    }
 }
 
 function setView(view) {
@@ -388,6 +402,7 @@ function setView(view) {
         return;
     }
     state.view = view;
+    localStorage.setItem(VIEW_STORAGE_KEY, view);
     viewButtons.forEach(button => {
         const isActive = button.dataset.view === view;
         button.classList.toggle("is-active", isActive);
@@ -469,6 +484,7 @@ function attachEvents() {
 
         state.characterId = button.dataset.characterId;
         state.activeComboIndex = 0;
+        localStorage.setItem(STORAGE_KEY, state.characterId);
         buildCharacterStrip();
         renderCombos();
     });
@@ -511,6 +527,43 @@ function attachEvents() {
         }
     });
 
+    shareBtn?.addEventListener("click", async () => {
+        const total = lastRenderedCombos.length;
+        if (!total) {
+            return;
+        }
+        const comboIndex = Math.max(0, Math.min(total - 1, state.activeComboIndex));
+        const params = new URLSearchParams();
+        params.set("character", state.characterId);
+        params.set("combo", String(comboIndex + 1));
+        params.set("view", "deck");
+        const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+        const shareData = {
+            title: "TEKKEN Trainer Combo",
+            text: `Check out this combo for ${selectedNameEl.textContent}`,
+            url: shareUrl
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+                return;
+            } catch (error) {
+                console.warn("Share cancelled or failed.", error);
+            }
+        }
+
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            shareBtn.textContent = "Link copied";
+            setTimeout(() => {
+                shareBtn.textContent = "Share combo";
+            }, 1400);
+        } else {
+            window.prompt("Copy this link:", shareUrl);
+        }
+    });
+
     comboGridEl.addEventListener("pointerdown", handlePointerDown);
     comboGridEl.addEventListener("pointermove", handlePointerMove);
     comboGridEl.addEventListener("pointerup", endDrag);
@@ -534,6 +587,21 @@ function init() {
         loadCombosFromAsset();
     } catch (error) {
         console.warn("Using fallback combo data.", error);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedCharacter = urlParams.get("character");
+    const sharedCombo = Number(urlParams.get("combo"));
+    const sharedView = urlParams.get("view");
+
+    if (sharedCharacter && comboData[sharedCharacter]) {
+        state.characterId = sharedCharacter;
+    }
+    if (sharedView === "deck") {
+        state.view = "deck";
+    }
+    if (Number.isFinite(sharedCombo) && sharedCombo > 0) {
+        pendingComboIndex = sharedCombo - 1;
     }
 
     buildCharacterStrip();
