@@ -43,6 +43,8 @@ const deckPrevBtn = document.getElementById("deck-prev");
 const deckNextBtn = document.getElementById("deck-next");
 const deckCounterEl = document.getElementById("deck-counter");
 const shareBtn = document.getElementById("share-combo");
+const tierButtons = document.querySelectorAll(".tier-btn");
+const moveTableBody = document.getElementById("move-table-body");
 let comboData = fallbackData;
 let lastRenderedCombos = [];
 let isDragging = false;
@@ -50,6 +52,7 @@ let dragStartX = 0;
 let dragDeltaX = 0;
 let activePointerId = null;
 let pendingComboIndex = null;
+let activeMoveTier = "all";
 
 function formatCharacterName(rawName) {
     return rawName
@@ -347,6 +350,9 @@ function renderCombos() {
         comboGridEl.innerHTML = "";
         emptyStateEl.hidden = false;
         emptyStateEl.textContent = "Unable to load combo data.";
+        if (moveTableBody) {
+            moveTableBody.innerHTML = "";
+        }
         return;
     }
 
@@ -370,6 +376,73 @@ function renderCombos() {
     }
     applyDeckState();
     updateDeckUI();
+    renderMoveTable(activeCharacter.combos);
+}
+
+function tierFromLength(length) {
+    if (length <= 3) return "simple";
+    if (length <= 5) return "medium-simple";
+    if (length <= 7) return "medium";
+    if (length <= 9) return "advanced";
+    return "expert";
+}
+
+function labelForTier(tier) {
+    switch (tier) {
+        case "simple":
+            return "Simple";
+        case "medium-simple":
+            return "Med-Simple";
+        case "medium":
+            return "Medium";
+        case "advanced":
+            return "Advanced";
+        case "expert":
+            return "Expert";
+        default:
+            return "All";
+    }
+}
+
+function renderMoveTable(combos) {
+    if (!moveTableBody) return;
+    const rows = (combos || []).map(combo => {
+        const steps = combo.steps || [];
+        const tier = tierFromLength(steps.length);
+        return {
+            tier,
+            tierLabel: labelForTier(tier),
+            moves: steps,
+            type: combo.type || "bnb",
+            notes: combo.notes || ""
+        };
+    });
+
+    const filtered = activeMoveTier === "all"
+        ? rows
+        : rows.filter(row => row.tier === activeMoveTier);
+
+    if (!filtered.length) {
+        moveTableBody.innerHTML = `
+            <tr class="move-row">
+                <td class="move-note" colspan="4">No move strings match this tier.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    moveTableBody.innerHTML = filtered.map(row => `
+        <tr class="move-row">
+            <td class="move-tier">${escapeHtml(row.tierLabel)}</td>
+            <td>
+                <div class="move-string">
+                    ${row.moves.map(move => `<span>${escapeHtml(move)}</span>`).join("")}
+                </div>
+            </td>
+            <td><span class="badge" data-type="${escapeHtml(row.type)}">${escapeHtml(row.type)}</span></td>
+            <td class="move-note">${escapeHtml(row.notes)}</td>
+        </tr>
+    `).join("");
 }
 
 function applyDeckState() {
@@ -522,6 +595,21 @@ function attachEvents() {
             });
 
             renderCombos();
+        });
+    });
+
+    tierButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            const { tier } = button.dataset;
+            activeMoveTier = tier || "all";
+            tierButtons.forEach(item => {
+                item.classList.toggle("is-active", item.dataset.tier === activeMoveTier);
+                item.setAttribute("aria-selected", String(item.dataset.tier === activeMoveTier));
+            });
+            const activeCharacter = comboData[state.characterId];
+            if (activeCharacter) {
+                renderMoveTable(activeCharacter.combos);
+            }
         });
     });
 
