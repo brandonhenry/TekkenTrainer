@@ -416,6 +416,28 @@ function normalizeToken(value) {
     return String(value || "").toLowerCase().replace(/\s+/g, "");
 }
 
+function tokenToIconKey(token) {
+    if (!token) return null;
+    const normalized = token.replace(/\+/g, "").replace(/\//g, "");
+    const iconTokens = new Set([
+        "n", "u", "d", "f", "b", "uf", "ub", "df", "db", "ff", "bb",
+        "1", "2", "3", "4", "12", "13", "14", "23", "24", "34", "1234"
+    ]);
+    if (iconTokens.has(normalized)) {
+        return normalized;
+    }
+    return null;
+}
+
+function tokenToMove(part) {
+    const normalized = normalizeToken(part);
+    const iconKey = tokenToIconKey(normalized);
+    if (iconKey) {
+        return { type: "img", name: part, img: `${iconKey}.svg` };
+    }
+    return { type: "text", name: part, img: null };
+}
+
 function routeMovesFromSegment(segment, fullRouteMoves) {
     const parts = String(segment || "")
         .split(",")
@@ -440,7 +462,7 @@ function routeMovesFromSegment(segment, fullRouteMoves) {
         }
     }
 
-    return parts.map(part => ({ type: "text", name: part, img: null }));
+    return parts.map(part => tokenToMove(part));
 }
 
 function renderMoveTable(combos) {
