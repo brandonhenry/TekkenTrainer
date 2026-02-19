@@ -412,7 +412,11 @@ function labelForTier(tier) {
     }
 }
 
-function routeMovesFromSegment(segment) {
+function normalizeToken(value) {
+    return String(value || "").toLowerCase().replace(/\s+/g, "");
+}
+
+function routeMovesFromSegment(segment, fullRouteMoves) {
     const parts = String(segment || "")
         .split(",")
         .map(part => part.trim())
@@ -420,6 +424,22 @@ function routeMovesFromSegment(segment) {
     if (!parts.length) {
         return [{ type: "text", name: String(segment || "").trim() || "Unknown", img: null }];
     }
+
+    if (Array.isArray(fullRouteMoves) && fullRouteMoves.length) {
+        const target = parts.map(normalizeToken);
+        for (let start = 0; start <= fullRouteMoves.length - target.length; start += 1) {
+            const slice = fullRouteMoves.slice(start, start + target.length);
+            const matches = slice.every((move, index) => normalizeToken(move?.name) === target[index]);
+            if (matches) {
+                return slice.map(move => ({
+                    type: move?.type === "img" ? "img" : "text",
+                    name: String(move?.name || "Unknown"),
+                    img: typeof move?.img === "string" ? move.img : null
+                }));
+            }
+        }
+    }
+
     return parts.map(part => ({ type: "text", name: part, img: null }));
 }
 
@@ -443,7 +463,7 @@ function renderMoveTable(combos) {
         const seen = new Set();
         comboRows.forEach(row => {
             row.moves.forEach(segment => {
-                const routeMoves = routeMovesFromSegment(segment);
+                const routeMoves = routeMovesFromSegment(segment, row.routeMoves);
                 const key = `segment:${segment.toLowerCase().trim()}`;
                 if (seen.has(key)) return;
                 seen.add(key);
