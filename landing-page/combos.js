@@ -229,6 +229,21 @@ function buildCharacterStrip() {
     wireCharacterImageFallbacks(characterStripEl);
 }
 
+function scrollToActiveCharacter() {
+    const activeButton = characterStripEl.querySelector(".charbox.is-active");
+    if (activeButton) {
+        activeButton.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+}
+
+function syncViewButtons() {
+    viewButtons.forEach(button => {
+        const isActive = button.dataset.view === state.view;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", String(isActive));
+    });
+}
+
 function comboMatchesFilter(combo) {
     const tagMatch = state.filter === "all" ? true : combo.type === state.filter;
     const searchNeedle = state.search.trim().toLowerCase();
@@ -486,6 +501,7 @@ function attachEvents() {
         state.activeComboIndex = 0;
         localStorage.setItem(STORAGE_KEY, state.characterId);
         buildCharacterStrip();
+        scrollToActiveCharacter();
         renderCombos();
     });
 
@@ -605,6 +621,8 @@ function init() {
     }
 
     buildCharacterStrip();
+    syncViewButtons();
+    scrollToActiveCharacter();
     renderCombos();
     attachEvents();
 }
