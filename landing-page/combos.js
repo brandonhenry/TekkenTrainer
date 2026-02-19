@@ -29,6 +29,7 @@ const ICON_SVG_BASE = "./assets/inputs_svg";
 const CHARACTER_IMG_BASE = "./assets/characters";
 const STORAGE_KEY = "tekkentrainer:lastCharacter";
 const VIEW_STORAGE_KEY = "tekkentrainer:combosView";
+const FAVORITES_STORAGE_KEY = "tekkentrainer:comboFavorites";
 
 const characterStripEl = document.getElementById("character-strip");
 const comboGridEl = document.getElementById("combo-grid");
@@ -58,6 +59,7 @@ let pendingComboIndex = null;
 let activeMoveTier = "all";
 let moveListView = "buttons";
 let isMoveTableFullscreen = false;
+let favoritesMap = {};
 
 function formatCharacterName(rawName) {
     return rawName
@@ -395,6 +397,8 @@ function tierFromLength(length) {
 
 function labelForTier(tier) {
     switch (tier) {
+        case "favorites":
+            return "Favorites";
         case "single":
             return "Single";
         case "simple":
@@ -470,13 +474,15 @@ function renderMoveTable(combos) {
     const comboRows = (combos || []).map(combo => {
         const steps = combo.steps || [];
         const tier = tierFromLength(steps.length);
+        const segmentKey = `combo:${combo.title}:${steps.join(" ► ")}`;
         return {
             tier,
             tierLabel: labelForTier(tier),
             moves: steps,
             routeMoves: combo.routeMoves || [],
             type: combo.type || "bnb",
-            notes: combo.notes || ""
+            notes: combo.notes || "",
+            favoriteKey: segmentKey
         };
     });
 
@@ -494,15 +500,24 @@ function renderMoveTable(combos) {
                 moves: [segment],
                 routeMoves,
                 type: "single",
-                notes: "Combo segment"
+                notes: "Combo segment",
+                favoriteKey: `single:${segment.toLowerCase().trim()}`
             });
         });
     });
 
     const rows = activeMoveTier === "single" ? singleRows : comboRows;
-    const filtered = activeMoveTier === "all"
+    let filtered = activeMoveTier === "all"
         ? [...singleRows, ...comboRows]
         : rows.filter(row => row.tier === activeMoveTier);
+
+    if (activeMoveTier === "favorites") {
+        filtered = [...singleRows, ...comboRows].filter(row => isFavorite(row.favoriteKey));
+    }
+
+    if (activeMoveTier === "all") {
+        filtered.sort((a, b) => Number(isFavorite(b.favoriteKey)) - Number(isFavorite(a.favoriteKey)));
+    }
 
     if (!filtered.length) {
         moveTableBody.innerHTML = `
@@ -515,6 +530,11 @@ function renderMoveTable(combos) {
 
     moveTableBody.innerHTML = filtered.map(row => `
         <tr class="move-row">
+            <td class="favorite-cell">
+                <button class="favorite-btn ${isFavorite(row.favoriteKey) ? "is-active" : ""}" data-favorite-key="${escapeHtml(row.favoriteKey)}" aria-label="Toggle favorite">
+                    <span aria-hidden="true">★</span>
+                </button>
+            </td>
             <td class="move-tier">${escapeHtml(row.tierLabel)}</td>
             <td>
                 ${moveListView === "text"
@@ -537,6 +557,41 @@ function setMoveTableFullscreen(nextState) {
         moveFullscreenBtn.setAttribute("aria-label", isMoveTableFullscreen ? "Exit full screen move strings" : "Full screen move strings");
         moveFullscreenBtn.innerHTML = isMoveTableFullscreen ? "<span aria-hidden=\"true\">✕</span>" : "<span aria-hidden=\"true\">⛶</span>";
     }
+}
+
+function loadFavorites() {
+    try {
+        favoritesMap = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || "{}");
+    } catch (error) {
+        favoritesMap = {};
+    }
+}
+
+function saveFavorites() {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoritesMap));
+}
+
+function getCharacterFavorites() {
+    const entry = favoritesMap[state.characterId];
+    if (!entry || !Array.isArray(entry)) {
+        favoritesMap[state.characterId] = [];
+    }
+    return favoritesMap[state.characterId];
+}
+
+function isFavorite(key) {
+    return getCharacterFavorites().includes(key);
+}
+
+function toggleFavorite(key) {
+    const favorites = getCharacterFavorites();
+    const index = favorites.indexOf(key);
+    if (index >= 0) {
+        favorites.splice(index, 1);
+    } else {
+        favorites.push(key);
+    }
+    saveFavorites();
 }
 
 function setMoveListView(nextView) {
@@ -670,6 +725,17 @@ function endDrag(event) {
 }
 
 function attachEvents() {
+    moveTableBody?.addEventListener("click", event => {
+        const button = event.target.closest(".favorite-btn");
+        if (!button) return;
+        const key = button.dataset.favoriteKey;
+        if (!key) return;
+        toggleFavorite(key);
+        const activeCharacter = comboData[state.characterId];
+        if (activeCharacter) {
+            renderMoveTable(activeCharacter.combos);
+        }
+    });
     characterStripEl.addEventListener("click", event => {
         const button = event.target.closest("[data-character-id]");
         if (!button) {
@@ -813,6 +879,7 @@ function init() {
         console.warn("Using fallback combo data.", error);
     }
 
+    loadFavorites();
     const urlParams = new URLSearchParams(window.location.search);
     const sharedCharacter = urlParams.get("character");
     const sharedCombo = Number(urlParams.get("combo"));

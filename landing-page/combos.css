@@ -500,6 +500,34 @@ h1 {
     transform: translateX(2px);
 }
 
+.favorite-cell {
+    width: 46px;
+}
+
+.favorite-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    color: #ffd24a;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.favorite-btn:hover {
+    border-color: rgba(255, 210, 74, 0.7);
+    transform: translateY(-1px);
+}
+
+.favorite-btn.is-active {
+    background: rgba(255, 210, 74, 0.18);
+    border-color: rgba(255, 210, 74, 0.75);
+    box-shadow: 0 0 0 1px rgba(255, 210, 74, 0.35) inset;
+}
+
 .move-tier {
     font-weight: 700;
     font-size: 0.78rem;
