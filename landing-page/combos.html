@@ -69,6 +69,21 @@
                         <p id="selected-style">Style</p>
                         <p id="selected-difficulty">Difficulty</p>
                     </div>
+                    <div class="combo-toolbar">
+                        <div class="view-toggle" role="tablist" aria-label="Combo view toggle">
+                            <button class="view-btn is-active" data-view="grid" role="tab" aria-selected="true">Grid</button>
+                            <button class="view-btn" data-view="deck" role="tab" aria-selected="false">Single</button>
+                        </div>
+                        <div class="deck-controls" aria-label="Deck navigation">
+                            <button class="icon-btn" id="deck-prev" type="button" aria-label="Previous combo">
+                                <span aria-hidden="true">←</span>
+                            </button>
+                            <span class="deck-counter" id="deck-counter">0 / 0</span>
+                            <button class="icon-btn" id="deck-next" type="button" aria-label="Next combo">
+                                <span aria-hidden="true">→</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="combo-grid" class="combo-grid" aria-live="polite"></div>

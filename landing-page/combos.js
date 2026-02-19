@@ -20,7 +20,9 @@ const fallbackData = {
 const state = {
     characterId: "jin",
     search: "",
-    filter: "all"
+    filter: "all",
+    view: "grid",
+    activeComboIndex: 0
 };
 const ICON_PNG_BASE = "./assets/inputs_png";
 const ICON_SVG_BASE = "./assets/inputs_svg";
@@ -34,7 +36,16 @@ const selectedStyleEl = document.getElementById("selected-style");
 const selectedDifficultyEl = document.getElementById("selected-difficulty");
 const searchInputEl = document.getElementById("combo-search");
 const filterButtons = document.querySelectorAll(".tag-btn");
+const viewButtons = document.querySelectorAll(".view-btn");
+const deckPrevBtn = document.getElementById("deck-prev");
+const deckNextBtn = document.getElementById("deck-next");
+const deckCounterEl = document.getElementById("deck-counter");
 let comboData = fallbackData;
+let lastRenderedCombos = [];
+let isDragging = false;
+let dragStartX = 0;
+let dragDeltaX = 0;
+let activePointerId = null;
 
 function formatCharacterName(rawName) {
     return rawName
@@ -318,14 +329,135 @@ function renderCombos() {
     }
 
     const combos = activeCharacter.combos.filter(comboMatchesFilter);
+    lastRenderedCombos = combos;
 
     selectedNameEl.textContent = activeCharacter.name;
     selectedStyleEl.textContent = activeCharacter.style;
     selectedDifficultyEl.textContent = activeCharacter.difficulty;
 
+    if (state.activeComboIndex >= combos.length) {
+        state.activeComboIndex = Math.max(0, combos.length - 1);
+    }
+
     comboGridEl.innerHTML = combos.map(createComboCard).join("");
     wireImageFallbacks(comboGridEl);
     emptyStateEl.hidden = combos.length !== 0;
+    applyDeckState();
+    updateDeckUI();
+}
+
+function applyDeckState() {
+    const cards = Array.from(comboGridEl.querySelectorAll(".combo-card"));
+    if (state.view !== "deck") {
+        comboGridEl.classList.remove("is-deck", "is-dragging");
+        comboGridEl.style.removeProperty("--drag-x");
+        cards.forEach(card => {
+            card.classList.remove("is-active", "is-prev", "is-next", "is-hidden");
+        });
+        return;
+    }
+
+    comboGridEl.classList.add("is-deck");
+    cards.forEach((card, index) => {
+        card.classList.remove("is-active", "is-prev", "is-next", "is-hidden");
+        if (index === state.activeComboIndex) {
+            card.classList.add("is-active");
+        } else if (index === state.activeComboIndex - 1) {
+            card.classList.add("is-prev");
+        } else if (index === state.activeComboIndex + 1) {
+            card.classList.add("is-next");
+        } else {
+            card.classList.add("is-hidden");
+        }
+    });
+}
+
+function updateDeckUI() {
+    const total = lastRenderedCombos.length;
+    const current = total ? state.activeComboIndex + 1 : 0;
+    deckCounterEl.textContent = `${current} / ${total}`;
+    const isDeck = state.view === "deck";
+
+    deckPrevBtn.disabled = !isDeck || state.activeComboIndex <= 0;
+    deckNextBtn.disabled = !isDeck || state.activeComboIndex >= total - 1;
+    deckPrevBtn.closest(".deck-controls")?.classList.toggle("is-hidden", !isDeck);
+}
+
+function setView(view) {
+    if (state.view === view) {
+        return;
+    }
+    state.view = view;
+    viewButtons.forEach(button => {
+        const isActive = button.dataset.view === view;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", String(isActive));
+    });
+    applyDeckState();
+    updateDeckUI();
+}
+
+function goToCombo(index) {
+    const total = lastRenderedCombos.length;
+    if (!total) {
+        return;
+    }
+    const clamped = Math.max(0, Math.min(total - 1, index));
+    state.activeComboIndex = clamped;
+    applyDeckState();
+    updateDeckUI();
+}
+
+function goToNextCombo() {
+    goToCombo(state.activeComboIndex + 1);
+}
+
+function goToPrevCombo() {
+    goToCombo(state.activeComboIndex - 1);
+}
+
+function handlePointerDown(event) {
+    if (state.view !== "deck" || isDragging || lastRenderedCombos.length <= 1) {
+        return;
+    }
+    if (event.pointerType === "mouse" && event.button !== 0) {
+        return;
+    }
+    isDragging = true;
+    activePointerId = event.pointerId;
+    dragStartX = event.clientX;
+    dragDeltaX = 0;
+    comboGridEl.classList.add("is-dragging");
+    comboGridEl.style.setProperty("--drag-x", "0px");
+    comboGridEl.setPointerCapture(event.pointerId);
+}
+
+function handlePointerMove(event) {
+    if (!isDragging || activePointerId !== event.pointerId) {
+        return;
+    }
+    dragDeltaX = event.clientX - dragStartX;
+    comboGridEl.style.setProperty("--drag-x", `${dragDeltaX}px`);
+}
+
+function endDrag(event) {
+    if (!isDragging || activePointerId !== event.pointerId) {
+        return;
+    }
+    comboGridEl.releasePointerCapture(event.pointerId);
+    comboGridEl.classList.remove("is-dragging");
+    const threshold = 80;
+    if (Math.abs(dragDeltaX) > threshold) {
+        if (dragDeltaX < 0) {
+            goToNextCombo();
+        } else {
+            goToPrevCombo();
+        }
+    }
+    comboGridEl.style.setProperty("--drag-x", "0px");
+    isDragging = false;
+    activePointerId = null;
+    dragDeltaX = 0;
 }
 
 function attachEvents() {
@@ -336,12 +468,14 @@ function attachEvents() {
         }
 
         state.characterId = button.dataset.characterId;
+        state.activeComboIndex = 0;
         buildCharacterStrip();
         renderCombos();
     });
 
     searchInputEl.addEventListener("input", event => {
         state.search = event.target.value;
+        state.activeComboIndex = 0;
         renderCombos();
     });
 
@@ -349,6 +483,7 @@ function attachEvents() {
         button.addEventListener("click", () => {
             const { filter } = button.dataset;
             state.filter = filter;
+            state.activeComboIndex = 0;
 
             filterButtons.forEach(item => {
                 item.classList.toggle("is-active", item.dataset.filter === filter);
@@ -356,6 +491,41 @@ function attachEvents() {
 
             renderCombos();
         });
+    });
+
+    viewButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            setView(button.dataset.view);
+        });
+    });
+
+    deckPrevBtn.addEventListener("click", () => {
+        if (state.view === "deck") {
+            goToPrevCombo();
+        }
+    });
+
+    deckNextBtn.addEventListener("click", () => {
+        if (state.view === "deck") {
+            goToNextCombo();
+        }
+    });
+
+    comboGridEl.addEventListener("pointerdown", handlePointerDown);
+    comboGridEl.addEventListener("pointermove", handlePointerMove);
+    comboGridEl.addEventListener("pointerup", endDrag);
+    comboGridEl.addEventListener("pointercancel", endDrag);
+
+    window.addEventListener("keydown", event => {
+        if (state.view !== "deck") {
+            return;
+        }
+        if (event.key === "ArrowRight") {
+            goToNextCombo();
+        }
+        if (event.key === "ArrowLeft") {
+            goToPrevCombo();
+        }
     });
 }
 

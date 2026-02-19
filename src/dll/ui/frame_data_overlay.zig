@@ -101,10 +101,8 @@ pub const FrameDataOverlay = struct {
         if (screen_pos.z() < 0 or screen_pos.z() > 1) return;
 
         var buffer: [32]u8 = undefined;
-        const text = if (display_advantage > 0)
-             std.fmt.bufPrintZ(&buffer, "+{d}", .{display_advantage}) catch return
-        else 
-             std.fmt.bufPrintZ(&buffer, "{d}", .{display_advantage}) catch return;
+        const magnitude = @abs(display_advantage);
+        const text = std.fmt.bufPrintZ(&buffer, "{d}", .{magnitude}) catch return;
 
         const color = if (display_advantage > 0)
             sdk.math.Vec4.fromArray(.{ 0.0, 1.0, 0.0, 1.0 }) // Green
@@ -119,7 +117,7 @@ pub const FrameDataOverlay = struct {
     fn drawOutlinedText(text: [:0]const u8, position: sdk.math.Vec3, color: sdk.math.Vec4, draw_list: ?*imgui.ImDrawList) void {
         const final_draw_list = draw_list orelse imgui.igGetWindowDrawList();
         
-        const font_size: f32 = if (draw_list != null) 120.0 else 44.0;
+        const font_size: f32 = if (draw_list != null) 90.0 else 44.0;
         imgui.igPushFont(null, font_size);
         defer imgui.igPopFont();
 
