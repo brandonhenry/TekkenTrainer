@@ -412,6 +412,43 @@ function labelForTier(tier) {
     }
 }
 
+function isMovementToken(token) {
+    if (!token) return false;
+    const normalized = token.toLowerCase().replace(/\s+/g, "");
+    if (normalized.includes(",")) {
+        return false;
+    }
+    return /^(f|ff|b|bb|u|d|df|db|uf|ub|d\/f|d\/b|u\/f|u\/b|qcf|qcb|hcf|hcb|wr|ws|ss|dash)$/.test(normalized);
+}
+
+function isAttackToken(token) {
+    if (!token) return false;
+    const normalized = token.toLowerCase().replace(/\s+/g, "");
+    return /[1-4]/.test(normalized) || normalized.includes("+");
+}
+
+function combineSingleMoves(moves) {
+    const combined = [];
+    for (let index = 0; index < moves.length; index += 1) {
+        const current = moves[index];
+        if (!current) continue;
+        const currentName = current.name || "";
+        if (currentName.includes(",")) {
+            combined.push({ type: "text", name: currentName, img: null });
+            continue;
+        }
+        const next = moves[index + 1];
+        const nextName = next?.name || "";
+        if (isMovementToken(currentName) && isAttackToken(nextName)) {
+            combined.push({ type: "text", name: `${currentName},${nextName}`, img: null });
+            index += 1;
+            continue;
+        }
+        combined.push({ type: "text", name: currentName, img: null });
+    }
+    return combined;
+}
+
 function renderMoveTable(combos) {
     if (!moveTableBody) return;
     const comboRows = (combos || []).map(combo => {
@@ -431,31 +468,19 @@ function renderMoveTable(combos) {
     if (activeMoveTier === "single") {
         const seen = new Set();
         comboRows.forEach(row => {
-            if (Array.isArray(row.routeMoves) && row.routeMoves.length) {
-                row.routeMoves.forEach(move => {
-                    const key = `${move.type}:${move.img || move.name}`;
-                    if (seen.has(key)) return;
-                    seen.add(key);
-                    singleRows.push({
-                        tier: "single",
-                        tierLabel: "Single",
-                        moves: [move.name],
-                        routeMoves: [move],
-                        type: "single",
-                        notes: "Individual input"
-                    });
-                });
-                return;
-            }
-            row.moves.forEach(move => {
-                const key = `text:${move}`;
+            const baseMoves = Array.isArray(row.routeMoves) && row.routeMoves.length
+                ? row.routeMoves
+                : row.moves.map(move => ({ type: "text", name: move, img: null }));
+            const combined = combineSingleMoves(baseMoves);
+            combined.forEach(move => {
+                const key = `text:${move.name}`;
                 if (seen.has(key)) return;
                 seen.add(key);
                 singleRows.push({
                     tier: "single",
                     tierLabel: "Single",
-                    moves: [move],
-                    routeMoves: [{ type: "text", name: move, img: null }],
+                    moves: [move.name],
+                    routeMoves: [move],
                     type: "single",
                     notes: "Individual input"
                 });
