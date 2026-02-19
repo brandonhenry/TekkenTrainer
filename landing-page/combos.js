@@ -499,6 +499,18 @@ function setMoveTableFullscreen(nextState) {
     }
 }
 
+function setMoveListView(nextView) {
+    moveListView = nextView === "text" ? "text" : "buttons";
+    if (moveTablePanel) {
+        moveTablePanel.classList.toggle("is-text-view", moveListView === "text");
+    }
+    moveViewButtons.forEach(item => {
+        const isActive = item.dataset.view === moveListView;
+        item.classList.toggle("is-active", isActive);
+        item.setAttribute("aria-selected", String(isActive));
+    });
+}
+
 function applyDeckState() {
     const cards = Array.from(comboGridEl.querySelectorAll(".combo-card"));
     if (state.view !== "deck") {
@@ -669,12 +681,7 @@ function attachEvents() {
 
     moveViewButtons.forEach(button => {
         button.addEventListener("click", () => {
-            moveListView = button.dataset.view === "text" ? "text" : "buttons";
-            moveViewButtons.forEach(item => {
-                const isActive = item.dataset.view === moveListView;
-                item.classList.toggle("is-active", isActive);
-                item.setAttribute("aria-selected", String(isActive));
-            });
+            setMoveListView(button.dataset.view);
             const activeCharacter = comboData[state.characterId];
             if (activeCharacter) {
                 renderMoveTable(activeCharacter.combos);
@@ -784,6 +791,7 @@ function init() {
     buildCharacterStrip();
     syncViewButtons();
     scrollToActiveCharacter();
+    setMoveListView(moveListView);
     renderCombos();
     attachEvents();
 }

@@ -515,7 +515,7 @@ h1 {
     font-size: 0.85rem;
 }
 
-.move-string span {
+.move-table-panel.is-text-view .move-string span {
     background: transparent;
     border: none;
     border-radius: 0;
