@@ -498,7 +498,8 @@ h1 {
     left: 0;
     right: 0;
     margin: 0 auto;
-    width: min(620px, 100%);
+    width: min(430px, 92%);
+    min-height: 460px;
     transform-origin: center;
     transition: transform 280ms ease, opacity 280ms ease, box-shadow 280ms ease;
     opacity: 0;
@@ -511,6 +512,7 @@ h1 {
     transform: translateX(var(--drag-x)) scale(1);
     box-shadow: 0 22px 42px rgba(0, 0, 0, 0.45);
     border-color: rgba(255, 255, 255, 0.18);
+    background: #14141d;
 }
 
 .combo-grid.is-deck .combo-card.is-prev,
