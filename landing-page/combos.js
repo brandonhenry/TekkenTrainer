@@ -385,6 +385,7 @@ function renderCombos() {
 }
 
 function tierFromLength(length) {
+    if (length <= 1) return "single";
     if (length <= 3) return "simple";
     if (length <= 5) return "medium-simple";
     if (length <= 7) return "medium";
@@ -394,6 +395,8 @@ function tierFromLength(length) {
 
 function labelForTier(tier) {
     switch (tier) {
+        case "single":
+            return "Single";
         case "simple":
             return "Simple";
         case "medium-simple":
@@ -411,7 +414,7 @@ function labelForTier(tier) {
 
 function renderMoveTable(combos) {
     if (!moveTableBody) return;
-    const rows = (combos || []).map(combo => {
+    const comboRows = (combos || []).map(combo => {
         const steps = combo.steps || [];
         const tier = tierFromLength(steps.length);
         return {
@@ -424,6 +427,43 @@ function renderMoveTable(combos) {
         };
     });
 
+    const singleRows = [];
+    if (activeMoveTier === "single") {
+        const seen = new Set();
+        comboRows.forEach(row => {
+            if (Array.isArray(row.routeMoves) && row.routeMoves.length) {
+                row.routeMoves.forEach(move => {
+                    const key = `${move.type}:${move.img || move.name}`;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    singleRows.push({
+                        tier: "single",
+                        tierLabel: "Single",
+                        moves: [move.name],
+                        routeMoves: [move],
+                        type: "single",
+                        notes: "Individual input"
+                    });
+                });
+                return;
+            }
+            row.moves.forEach(move => {
+                const key = `text:${move}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                singleRows.push({
+                    tier: "single",
+                    tierLabel: "Single",
+                    moves: [move],
+                    routeMoves: [{ type: "text", name: move, img: null }],
+                    type: "single",
+                    notes: "Individual input"
+                });
+            });
+        });
+    }
+
+    const rows = activeMoveTier === "single" ? singleRows : comboRows;
     const filtered = activeMoveTier === "all"
         ? rows
         : rows.filter(row => row.tier === activeMoveTier);
