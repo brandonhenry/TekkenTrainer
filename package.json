@@ -1,6 +1,6 @@
 {
   "name": "tekken-trainer",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "scripts": {
     "build": "zig build",
     "start": "zig-out\\bin\\tekkentrainer.exe",
