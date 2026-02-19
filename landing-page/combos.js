@@ -46,6 +46,8 @@ const shareBtn = document.getElementById("share-combo");
 const tierButtons = document.querySelectorAll(".tier-btn");
 const moveViewButtons = document.querySelectorAll(".move-view-btn");
 const moveTableBody = document.getElementById("move-table-body");
+const moveFullscreenBtn = document.getElementById("move-fullscreen");
+const moveTablePanel = document.querySelector(".move-table-panel");
 let comboData = fallbackData;
 let lastRenderedCombos = [];
 let isDragging = false;
@@ -55,6 +57,7 @@ let activePointerId = null;
 let pendingComboIndex = null;
 let activeMoveTier = "all";
 let moveListView = "buttons";
+let isMoveTableFullscreen = false;
 
 function formatCharacterName(rawName) {
     return rawName
@@ -449,6 +452,17 @@ function renderMoveTable(combos) {
     `).join("");
 }
 
+function setMoveTableFullscreen(nextState) {
+    if (!moveTablePanel) return;
+    isMoveTableFullscreen = nextState;
+    moveTablePanel.classList.toggle("is-fullscreen", isMoveTableFullscreen);
+    document.body.classList.toggle("move-table-fullscreen", isMoveTableFullscreen);
+    if (moveFullscreenBtn) {
+        moveFullscreenBtn.setAttribute("aria-label", isMoveTableFullscreen ? "Exit full screen move strings" : "Full screen move strings");
+        moveFullscreenBtn.innerHTML = isMoveTableFullscreen ? "<span aria-hidden=\"true\">✕</span>" : "<span aria-hidden=\"true\">⛶</span>";
+    }
+}
+
 function applyDeckState() {
     const cards = Array.from(comboGridEl.querySelectorAll(".combo-card"));
     if (state.view !== "deck") {
@@ -630,6 +644,10 @@ function attachEvents() {
                 renderMoveTable(activeCharacter.combos);
             }
         });
+    });
+
+    moveFullscreenBtn?.addEventListener("click", () => {
+        setMoveTableFullscreen(!isMoveTableFullscreen);
     });
 
     viewButtons.forEach(button => {
