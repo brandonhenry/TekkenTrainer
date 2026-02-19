@@ -26,6 +26,8 @@ body {
         var(--bg-color);
     color: var(--text-main);
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 h1,
@@ -114,6 +116,7 @@ nav {
 
 .combo-lab {
     padding: 3rem 0 4rem;
+    flex: 1 0 auto;
 }
 
 .hero-panel {
@@ -692,6 +695,7 @@ h1 {
 footer {
     border-top: 1px solid var(--border);
     padding: 1.35rem 0;
+    margin-top: auto;
 }
 
 .footer-row {
