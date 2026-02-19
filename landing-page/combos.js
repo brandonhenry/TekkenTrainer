@@ -44,6 +44,7 @@ const deckNextBtn = document.getElementById("deck-next");
 const deckCounterEl = document.getElementById("deck-counter");
 const shareBtn = document.getElementById("share-combo");
 const tierButtons = document.querySelectorAll(".tier-btn");
+const moveViewButtons = document.querySelectorAll(".move-view-btn");
 const moveTableBody = document.getElementById("move-table-body");
 let comboData = fallbackData;
 let lastRenderedCombos = [];
@@ -53,6 +54,7 @@ let dragDeltaX = 0;
 let activePointerId = null;
 let pendingComboIndex = null;
 let activeMoveTier = "all";
+let moveListView = "buttons";
 
 function formatCharacterName(rawName) {
     return rawName
@@ -413,6 +415,7 @@ function renderMoveTable(combos) {
             tier,
             tierLabel: labelForTier(tier),
             moves: steps,
+            routeMoves: combo.routeMoves || [],
             type: combo.type || "bnb",
             notes: combo.notes || ""
         };
@@ -435,9 +438,10 @@ function renderMoveTable(combos) {
         <tr class="move-row">
             <td class="move-tier">${escapeHtml(row.tierLabel)}</td>
             <td>
-                <div class="move-string">
-                    ${row.moves.map(move => `<span>${escapeHtml(move)}</span>`).join("")}
-                </div>
+                ${moveListView === "text"
+                    ? `<div class="move-string">${row.moves.map(move => `<span>${escapeHtml(move)}</span>`).join("")}</div>`
+                    : `<div class="combo-route move-string">${createRouteMarkup(row.routeMoves)}</div>`
+                }
             </td>
             <td><span class="badge" data-type="${escapeHtml(row.type)}">${escapeHtml(row.type)}</span></td>
             <td class="move-note">${escapeHtml(row.notes)}</td>
@@ -605,6 +609,21 @@ function attachEvents() {
             tierButtons.forEach(item => {
                 item.classList.toggle("is-active", item.dataset.tier === activeMoveTier);
                 item.setAttribute("aria-selected", String(item.dataset.tier === activeMoveTier));
+            });
+            const activeCharacter = comboData[state.characterId];
+            if (activeCharacter) {
+                renderMoveTable(activeCharacter.combos);
+            }
+        });
+    });
+
+    moveViewButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            moveListView = button.dataset.view === "text" ? "text" : "buttons";
+            moveViewButtons.forEach(item => {
+                const isActive = item.dataset.view === moveListView;
+                item.classList.toggle("is-active", isActive);
+                item.setAttribute("aria-selected", String(isActive));
             });
             const activeCharacter = comboData[state.characterId];
             if (activeCharacter) {
