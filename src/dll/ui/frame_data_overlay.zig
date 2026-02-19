@@ -80,21 +80,32 @@ pub const FrameDataOverlay = struct {
         }
 
         const time_elapsed = current_time - history.last_timestamp;
-        const display_advantage = if (history.last_advantage) |adv| 
-            if (time_elapsed < 1.5) adv else return
-        else 
+        const display_duration = 1.5;
+        const fade_in_duration = 0.15;
+        const fade_out_duration = 0.3;
+        const pre_float_time = 0.2;
+        const display_advantage = if (history.last_advantage) |adv|
+            if (time_elapsed < display_duration) adv else return
+        else
             return;
+
+        const alpha = if (time_elapsed <= fade_in_duration)
+            @min(1.0, @as(f32, @floatCast(time_elapsed / fade_in_duration)))
+        else if (time_elapsed >= display_duration - fade_out_duration)
+            @max(0.0, @as(f32, @floatCast((display_duration - time_elapsed) / fade_out_duration)))
+        else
+            1.0;
 
         var screen_pos: sdk.math.Vec3 = undefined;
         if (draw_list != null) {
             // SCREEN OVERLAY: Float UP in screen space (pixels)
             const float_speed = 120.0; // pixels per second
-            const vertical_offset = @as(f32, @floatCast(time_elapsed)) * float_speed;
+            const vertical_offset = @as(f32, @floatCast(time_elapsed + pre_float_time)) * float_speed;
             screen_pos = history.spawn_position.subtract(sdk.math.Vec3.fromArray(.{ 0, vertical_offset, 0 }));
         } else {
             // INTERNAL WINDOW: float in screen space, centered in each view.
             const float_speed = 70.0;
-            const vertical_offset = @as(f32, @floatCast(time_elapsed)) * float_speed;
+            const vertical_offset = @as(f32, @floatCast(time_elapsed + pre_float_time)) * float_speed;
             screen_pos = history.spawn_position.subtract(sdk.math.Vec3.fromArray(.{ 0, vertical_offset, 0 }));
         }
 
@@ -111,10 +122,10 @@ pub const FrameDataOverlay = struct {
         else
             sdk.math.Vec4.fromArray(.{ 1.0, 1.0, 1.0, 1.0 }); // White
 
-        drawOutlinedText(text, screen_pos, color, draw_list);
+        drawOutlinedText(text, screen_pos, color, alpha, draw_list);
     }
 
-    fn drawOutlinedText(text: [:0]const u8, position: sdk.math.Vec3, color: sdk.math.Vec4, draw_list: ?*imgui.ImDrawList) void {
+    fn drawOutlinedText(text: [:0]const u8, position: sdk.math.Vec3, color: sdk.math.Vec4, alpha: f32, draw_list: ?*imgui.ImDrawList) void {
         const final_draw_list = draw_list orelse imgui.igGetWindowDrawList();
         
         const font_size: f32 = if (draw_list != null) 90.0 else 44.0;
@@ -128,8 +139,13 @@ pub const FrameDataOverlay = struct {
         const screen_y = position.y() - (text_size.y * 0.5);
         const text_pos = imgui.ImVec2{ .x = screen_x, .y = screen_y };
         
-        const black = imgui.igGetColorU32_Vec4(.{ .x = 0, .y = 0, .z = 0, .w = 1 });
-        const text_color = imgui.igGetColorU32_Vec4(color.toImVec());
+        const black = imgui.igGetColorU32_Vec4(.{ .x = 0, .y = 0, .z = 0, .w = alpha });
+        const text_color = imgui.igGetColorU32_Vec4(.{
+            .x = color.x(),
+            .y = color.y(),
+            .z = color.z(),
+            .w = alpha,
+        });
 
         // Draw ultra-thick 8-way outline
         const thickness: f32 = if (draw_list != null) 5.0 else 2.0;
